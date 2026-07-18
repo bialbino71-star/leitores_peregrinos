@@ -1,43 +1,42 @@
 import streamlit as st
 import gspread
-import pandas as pd
-from datetime import datetime, timedelta
+import base64
 import json
 
-# --- CONFIGURAÇÃO E CONEXÃO ---
-# Carrega as credenciais do "Secrets" do Streamlit (explicarei abaixo)
+# Função atualizada para ler Base64 do Secrets
 def get_sheets():
-    creds_dict = st.secrets["gcp_service_account"]
-    creds = gspread.service_account_from_dict(creds_dict)
-    sheet = creds.open_by_key("SEU_ID_DA_PLANILHA").worksheet("Escala")
-    return sheet
+    # Pega o texto codificado que está no Secrets
+    encoded_json = st.secrets["gcp_service_account"]["base64_json"]
+    
+    # Decodifica de Base64 para JSON normal e carrega
+    decoded_json = json.loads(base64.b64decode(encoded_json).decode('utf-8'))
+    
+    # Conecta com a planilha
+    creds = gspread.service_account_from_dict(decoded_json)
+    
+    # Substitua o ID abaixo pelo ID da sua planilha (o código longo na URL)
+    return creds.open_by_key("1RnwgFBWytspiM5eh5i0pgW2HXNRrwLXU4dYGXviDHlU").worksheet("Escala")
 
+# --- Interface ---
 st.set_page_config(page_title="Leitores Peregrinos", layout="centered")
 st.title("Leitores Peregrinos")
 
-# --- LÓGICA DO SISTEMA ---
+# Conectando
 sheet = get_sheets()
 data = sheet.get_all_records()
 
+# Exibição
 for idx, row in enumerate(data):
-    # Exibição simples e clara
     with st.expander(f"{row['Data']} - {row['Horario']} ({row['Comentarista'] or 'Vago'})"):
-        # Regras de Negócio (ex: Cancelamento 36h)
         col1, col2 = st.columns(2)
         
         # Botão Servir
         if row['Comentarista'] == "":
             if col1.button("Servir", key=f"s_{idx}"):
-                sheet.update_cell(idx + 2, 5, "NOME_DO_USUARIO") # Altera coluna 5
+                sheet.update_cell(idx + 2, 5, "NOME_DO_USUARIO")
                 st.rerun()
-        
         # Botão Cancelar
         else:
-            if col2.button("X Cancelar", key=f"c_{idx}"):
-                # Lógica das 36h
-                data_evento = datetime.strptime(row['Data'], '%d/%m/%Y')
-                if (data_evento - datetime.now()) < timedelta(hours=36):
-                    st.error("Não permitido: requer 36h de antecedência.")
-                else:
-                    sheet.update_cell(idx + 2, 5, "")
-                    st.rerun()
+            if col2.button("X - Cancelar", key=f"c_{idx}"):
+                sheet.update_cell(idx + 2, 5, "")
+                st.rerun()
