@@ -24,6 +24,7 @@ st.title("Leitores Peregrinos")
 # Conectando
 sheet = get_sheets()
 data = sheet.get_all_records()
+st.write(data[0])
 
 # Exibição
 for idx, row in enumerate(data):
