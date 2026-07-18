@@ -24,20 +24,24 @@ st.title("Leitores Peregrinos")
 # Conectando
 sheet = get_sheets()
 data = sheet.get_all_records()
-st.write(data[0])
+
 
 # Exibição
 for idx, row in enumerate(data):
-    with st.expander(f"{row['Data']} - {row['Horario']} ({row['Comentarista'] or 'Vago'})"):
+    # O f-string fica muito mais limpo agora
+    display_text = f"{row['DIA']} - {row['HORARIO']} - {row['SOLENIDADE']} ({row['COMENTARISTA'] or 'Vago'})"
+    
+    with st.expander(display_text):
         col1, col2 = st.columns(2)
         
-        # Botão Servir
-        if row['Comentarista'] == "":
+        # Lógica de preenchimento
+        if row['COMENTARISTA'] == "":
             if col1.button("Servir", key=f"s_{idx}"):
-                sheet.update_cell(idx + 2, 5, "NOME_DO_USUARIO")
+                # IMPORTANTE: Troque o número 4 pelo número da coluna COMENTARISTA
+                sheet.update_cell(idx + 2, 4, "NOME_DO_USUARIO")
                 st.rerun()
-        # Botão Cancelar
         else:
             if col2.button("X - Cancelar", key=f"c_{idx}"):
-                sheet.update_cell(idx + 2, 5, "")
+                # O mesmo número aqui
+                sheet.update_cell(idx + 2, 4, "")
                 st.rerun()
