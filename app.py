@@ -8,7 +8,7 @@ from googleapiclient.discovery import build
 # Configuração da página
 st.set_page_config(page_title="Leitores Peregrinos", layout="wide")
 
-# Função de Conexão com o Google Sheets / Drive
+# Funções de Conexão Segura (Sheets e Drive)
 def get_credentials():
     encoded_json = st.secrets["gcp_service_account"]["base64_json"]
     decoded_json = json.loads(base64.b64decode(encoded_json).decode('utf-8'))
@@ -22,13 +22,15 @@ def get_credentials():
 
 def get_connection():
     creds = get_credentials()
-    return gspread.authorize(creds)
+    client = gspread.authorize(creds)
+    # Abre diretamente a planilha para evitar erros de atributo do Client
+    return client.open_by_key("1RnwgFBWytspiM5eh5i0pgW2HXNRrwLXU4dYGXviDHlU")
 
 def get_drive_service():
     creds = get_credentials()
     return build('drive', 'v3', credentials=creds)
 
-# Função auxiliar para verificar se o usuário já tem alguma função no mesmo dia
+# Função auxiliar para validar a regra de uma função por dia (Perfis 1 e 2)
 def usuario_ja_escalado_no_dia(escala, data_alvo, nome_usuario):
     for r in escala:
         if str(r.get('DIA', '')).strip() == str(data_alvo).strip():
@@ -48,7 +50,7 @@ if "logged_in" not in st.session_state:
 # --- CABEÇALHO VISUAL ---
 st.markdown("<h1 style='text-align: center;'>Leitores Peregrinos</h1>", unsafe_allow_html=True)
 
-# Logo e Imagem centralizados
+# Logo e Imagem centralizados conforme regras
 col_l, col_img, col_r = st.columns([1, 2, 1])
 with col_l:
     st.image("https://i.ibb.co/HLqFZgZK/logo-igreja.jpg", width=100)
@@ -71,6 +73,7 @@ if not st.session_state.logged_in:
                 ws_leitores = sh.worksheet("Nomes dos Leitores")
                 leitores_data = ws_leitores.get_all_values()
                 
+                # Validação: Nome na coluna 0, ID na coluna 1, Perfil na coluna 4[cite: 1]
                 usuario_encontrado = False
                 for idx, row in enumerate(leitores_data[1:], start=2):
                     if len(row) > 4 and row[0].strip().upper() == input_nome.strip().upper() and row[1].strip() == input_senha.strip():
@@ -98,7 +101,7 @@ with col_info:
         perfil_texto = "LEITOR & COMENTARISTA"
     elif st.session_state.user_profile == "3":
         perfil_texto = "ADM"
-    st.markdown(f"**Logado:** {st.session_state.user_name} ({perfil_texto})")
+    st.markdown(f"**Logado:** {st.session_state.user_name} ({perfil_texto})[cite: 1]")
 
 with col_logout:
     if st.button("Sair"):
@@ -125,7 +128,7 @@ with menu_col2:
 
 st.markdown("---")
 
-# Carregar dados da Escala
+# Carrega os dados da aba Escala
 sh = get_connection()
 try:
     ws_escala = sh.worksheet("Escala")
@@ -156,7 +159,7 @@ if btn_escala_geral or not (btn_minha_escala or btn_coletar or btn_exibir_escala
             if not comentarista:
                 if c1.button("Servir Comentarista", key=f"srv_com_{idx}"):
                     if st.session_state.user_profile == "1" and not is_adm:
-                        st.error("Você não possui o perfil “Comentarista”")
+                        st.error("Você não possui o perfil “Comentarista”")[cite: 1]
                     elif not is_adm and usuario_ja_escalado_no_dia(escala_data, dia, st.session_state.user_name):
                         st.error("Você já possui uma função agendada neste dia.")
                     else:
@@ -174,7 +177,6 @@ if btn_escala_geral or not (btn_minha_escala or btn_coletar or btn_exibir_escala
             if not leitura1:
                 if c2.button("Servir 1ª Leitura", key=f"srv_l1_{idx}"):
                     if not is_adm and usuario_ja_escalado_no_dia(escala_data, dia, st.session_state.user_name):
-                        st.error("You already have an appointment scheduled on this day.") # translated or user context
                         st.error("Você já possui uma função agendada neste dia.")
                     else:
                         ws_escala.update_cell(idx + 2, 5, st.session_state.user_name)
@@ -223,7 +225,7 @@ elif btn_minha_escala:
 # 3. COLETAR INTENÇÕES
 elif btn_coletar:
     st.subheader("Coleta de Intenções")
-    st.markdown("Clique no link abaixo para abrir o formulário oficial de coleta de intenções da missa:")
+    st.markdown("Clique no link abaixo para abrir o formulário oficial de coleta de intenções da missa[cite: 1]:")
     st.markdown("[Abrir Formulário de Intenções no Google Forms](https://docs.google.com/forms/d/e/1FAIpQLScgX8RkpDYhb-rMwb8_ZR6dJhp-tKUyowmRGrSK-tbsXveqCw/viewform?usp=sharing&ouid=103182596084814948709)", unsafe_allow_html=True)
 
 # 4. EXIBIR ESCALA
@@ -245,10 +247,10 @@ elif btn_aguardando:
     if not encontrou_vaga:
         st.success("Parabéns! Não há vagas pendentes no momento.")
 
-# 6. VER INTENÇÕES (Com busca integrada no Google Drive conforme regra do AutoCrat)
+# 6. VER INTENÇÕES (Busca e mesclagem dos relatórios gerados pelo AutoCrat)[cite: 1]
 elif btn_ver_intencoes:
     st.subheader("Relatório de Intenções Coletadas")
-    st.markdown("Selecione a data e o horário da missa para buscar, mesclar e exibir os relatórios do AutoCrat:")
+    st.markdown("Selecione a data e o horário da missa para buscar, mesclar e exibir os relatórios do AutoCrat[cite: 1]:")
     
     col_d, col_h = st.columns(2)
     with col_d:
@@ -263,12 +265,8 @@ elif btn_ver_intencoes:
             try:
                 with st.spinner("Buscando relatórios no Google Drive..."):
                     drive_service = get_drive_service()
-                    
-                    # Nome padrão gerado pelo AutoCrat configurado nas regras: intenções_<Data>_<Horário>
-                    # Vamos montar uma query de busca parcial no Drive
                     query_nome = f"intenções_{filtro_data}_{filtro_horario}"
                     
-                    # Busca arquivos no Google Drive cujo nome contenha o padrão
                     results = drive_service.files().list(
                         q=f"name contains '{query_nome}' and trashed = false",
                         pageSize=10,
@@ -280,7 +278,7 @@ elif btn_ver_intencoes:
                     if not files:
                         st.info(f"Nenhum relatório encontrado para {filtro_data} às {filtro_horario}.")
                     else:
-                        st.success(f"{len(files)} relatório(s) encontrado(s). Mesclando conteúdo...")
+                        st.success(f"{len(files)} relatório(s) encontrado(s). Mesclando conteúdo[cite: 1]...")
                         
                         conteudo_mesclado = ""
                         for file in files:
@@ -288,7 +286,6 @@ elif btn_ver_intencoes:
                             file_name = file['name']
                             conteudo_mesclado += f"\n\n--- [ Relatório de: {file_name} ] ---\n\n"
                             
-                            # Se for Google Doc, exportamos como texto plano; se for arquivo de texto, baixamos diretamente
                             if file['mimeType'] == 'application/vnd.google-apps.document':
                                 request = drive_service.files().export_media(fileId=file_id, mimeType='text/plain')
                                 data_bytes = request.execute()
@@ -300,6 +297,6 @@ elif btn_ver_intencoes:
                         
                         st.markdown("### Relatório Consolidado para Impressão:")
                         st.text_area("Conteúdo Mesclado", conteudo_mesclado, height=300)
-                        st.markdown("*Dica: Use Ctrl+P no seu navegador para imprimir este relatório consolidade.*")
+                        st.markdown("*Dica: Use Ctrl+P no seu navegador para imprimir este relatório consolidado.*")
             except Exception as e:
                 st.error(f"Erro ao acessar o Google Drive: {e}")
