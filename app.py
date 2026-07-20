@@ -180,7 +180,7 @@ if btn_escala_geral or not (btn_minha_escala or btn_coletar or btn_exibir_escala
 # 2. MINHA ESCALA
 elif btn_minha_escala:
     st.subheader("Minha Escala")
-    st.info(fExibindo eventos agendados para: {st.session_state.user_name})
+    st.info(f"Exibindo eventos agendados para: {st.session_state.user_name}")
     
     encontrou_meu = False
     for idx, row in enumerate(escala_data):
