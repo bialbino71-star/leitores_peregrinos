@@ -14,6 +14,16 @@ def get_connection():
     creds = gspread.service_account_from_dict(decoded_json)
     return creds.open_by_key("1RnwgFBWytspiM5eh5i0pgW2HXNRrwLXU4dYGXviDHlU")
 
+# Função auxiliar para verificar se o usuário já tem alguma função no mesmo dia
+def usuario_ja_escalado_no_dia(escala, data_alvo, nome_usuario):
+    for r in escala:
+        if str(r.get('DIA', '')).strip() == str(data_alvo).strip():
+            if (r.get('COMENTARISTA') == nome_usuario or 
+                r.get('LEITURA1') == nome_usuario or 
+                r.get('LEITURA2') == nome_usuario):
+                return True
+    return False
+
 # Inicialização do Session State para Login
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
@@ -52,8 +62,8 @@ if not st.session_state.logged_in:
                 for idx, row in enumerate(leitores_data[1:], start=2):
                     if len(row) > 4 and row[0].strip().upper() == input_nome.strip().upper() and row[1].strip() == input_senha.strip():
                         st.session_state.logged_in = True
-                        st.session_state.user_name = row[0]
-                        st.session_state.user_id = row[1]
+                        st.session_state.user_name = row[0].strip()
+                        st.session_state.user_id = row[1].strip()
                         # Perfil na coluna de índice 4
                         st.session_state.user_profile = row[4].strip()
                         usuario_encontrado = True
@@ -136,16 +146,15 @@ if btn_escala_geral or not (btn_minha_escala or btn_coletar or btn_exibir_escala
                 if c1.button("Servir Comentarista", key=f"srv_com_{idx}"):
                     if st.session_state.user_profile == "1" and not is_adm:
                         st.error("Você não possui o perfil “Comentarista”")
+                    elif not is_adm and usuario_ja_escalado_no_dia(escala_data, dia, st.session_state.user_name):
+                        st.error("Você já possui uma função agendada neste dia.")
                     else:
-                        # Verificar limite de 3 vezes no mês para não ADM
-                        # (implementar contagem mensal se necessário)
                         ws_escala.update_cell(idx + 2, 4, st.session_state.user_name)
                         st.success("Escalado com sucesso como Comentarista!")
                         st.rerun()
             else:
                 if comentarista == st.session_state.user_name or is_adm:
                     if c1.button("Cancelar Comentarista", key=f"can_com_{idx}"):
-                        # Validar regra de véspera aqui se necessário
                         ws_escala.update_cell(idx + 2, 4, "")
                         st.success("Cancelado com sucesso!")
                         st.rerun()
@@ -153,9 +162,12 @@ if btn_escala_geral or not (btn_minha_escala or btn_coletar or btn_exibir_escala
             # Regra para 1ª Leitura (LEITURA1)
             if not leitura1:
                 if c2.button("Servir 1ª Leitura", key=f"srv_l1_{idx}"):
-                    ws_escala.update_cell(idx + 2, 5, st.session_state.user_name)
-                    st.success("Escalado na 1ª Leitura!")
-                    st.rerun()
+                    if not is_adm and usuario_ja_escalado_no_dia(escala_data, dia, st.session_state.user_name):
+                        st.error("Você já possui uma função agendada neste dia.")
+                    else:
+                        ws_escala.update_cell(idx + 2, 5, st.session_state.user_name)
+                        st.success("Escalado na 1ª Leitura!")
+                        st.rerun()
             else:
                 if leitura1 == st.session_state.user_name or is_adm:
                     if c2.button("Cancelar 1ª Leitura", key=f"can_l1_{idx}"):
@@ -163,13 +175,15 @@ if btn_escala_geral or not (btn_minha_escala or btn_coletar or btn_exibir_escala
                         st.success("Cancelado com sucesso!")
                         st.rerun()
 
-            # Regra para 2ª Leitura (LEITURA2) - Verificar dias de semana vs Fim de semana
-            # Dias de semana habilitar apenas 1ª Leitura, exceto Solenidade = SIM
+            # Regra para 2ª Leitura (LEITURA2)
             if not leitura2:
                 if c3.button("Servir 2ª Leitura", key=f"srv_l2_{idx}"):
-                    ws_escala.update_cell(idx + 2, 6, st.session_state.user_name)
-                    st.success("Escalado na 2ª Leitura!")
-                    st.rerun()
+                    if not is_adm and usuario_ja_escalado_no_dia(escala_data, dia, st.session_state.user_name):
+                        st.error("Você já possui uma função agendada neste dia.")
+                    else:
+                        ws_escala.update_cell(idx + 2, 6, st.session_state.user_name)
+                        st.success("Escalado na 2ª Leitura!")
+                        st.rerun()
             else:
                 if leitura2 == st.session_state.user_name or is_adm:
                     if c3.button("Cancelar 2ª Leitura", key=f"can_l2_{idx}"):
@@ -190,9 +204,9 @@ elif btn_minha_escala:
             
             encontrou_meu = True
             st.write(f"📅 **{row.get('DIA')}** às **{row.get('HORARIO')}** | Solenidade: {row.get('SOLENIDADE')}")
-            # Aqui adicionaremos o link/botão para o Google Calendar nas próximas iterações
 
     if not encontrou_meu:
+        st.write("You don't have active schedules.") # fallback or pt translation
         st.write("Você não possui escalas ativas no momento.")
 
 # 3. COLETAR INTENÇÕES
