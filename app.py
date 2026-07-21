@@ -7,7 +7,7 @@ from datetime import datetime, date, timedelta
 from google.oauth2 import service_account
 from fpdf import FPDF
 
-# Configuração da página - Mantendo o alinhamento amplo e responsivo
+# Configuração da página - Expandindo o contêiner principal para o tamanho correto
 st.set_page_config(
     page_title="Leitores Peregrinos", 
     layout="centered",
@@ -85,23 +85,27 @@ st.markdown("""
         display: flex;
         flex-direction: column;
         align-items: flex-start;
+        width: 65%;
     }
     
-    /* Tratamento para integrar a imagem do traço da igreja ao linho, removendo fundo branco */
+    /* Desenho ampliado na largura do texto e forçado a ficar dourado puro */
     .imagem-logo-igreja {
         mix-blend-mode: multiply;
-        filter: sepia(0.4) saturate(1.8) hue-rotate(5deg) contrast(1.1);
-        width: 175px !important;
+        /* Filtro preciso para converter os traços pretos em dourado #A3794E */
+        filter: invert(53%) sepia(21%) saturate(925%) hue-rotate(349deg) contrast(68%);
+        width: 260px !important; 
         height: auto !important;
+        display: block;
+        margin-bottom: 5px;
     }
     
-    /* Letras em dourado e com tamanho ampliado */
+    /* Letras em dourado oficial e com tamanho ampliado */
     .texto-igreja {
         font-size: 28px;
         font-weight: 700;
         color: #A3794E; 
         line-height: 1.2;
-        margin-top: 14px;
+        margin-top: 10px;
         font-family: 'Georgia', serif;
     }
     
@@ -313,6 +317,7 @@ def deve_exibir_comentarista_e_leitura2(row):
 # --- RENDERIZAÇÃO BLINDADA EM HTML DO TOPO COMPLETO ---
 st.markdown('<div class="titulo-principal">Leitores Peregrinos</div>', unsafe_allow_html=True)
 
+# Estrutura HTML limpa: o logo em texto da imagem original foi removido, restando apenas o desenho dourado ampliado
 st.markdown("""
     <div class="cartao-superior-oficial">
         <div class="bloco-logo-texto">
@@ -508,7 +513,7 @@ def renderizar_evento(idx, row, modo_aguardando=False):
                     st.success("Escalado na 1ª Leitura!")
                     st.rerun()
         else:
-            if leitura1.upper() == usuario_atual.upper():
+            if lectura1.upper() == usuario_atual.upper():
                 if l1_col2.button("Cancelar", key=f"c_l1_{idx}"):
                     sh_conn = get_connection()
                     if processar_tentativa_cancelamento(sh_conn, usuario_atual, dia):
@@ -655,7 +660,7 @@ elif st.session_state.pagina == "aguardando":
         l1 = str(row.get('LEITURA1', '')).strip()
         l2 = str(row.get('LEITURA2', '')).strip()
         
-        if (not l1) or (mostrar_com_l2 and (not c or not l2)):
+        if (not l1) or (mostrar_com_l2 && (not c or not l2)):
             encontrou_vaga = True
             renderizar_evento(idx, row, modo_aguardando=True)
             
