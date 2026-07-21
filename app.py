@@ -10,7 +10,7 @@ from fpdf import FPDF
 # Configuração da página otimizada para dispositivos móveis
 st.set_page_config(page_title="Leitores Peregrinos", layout="centered")
 
-# --- CONEXÃO COM CACHE E TRATAMENTO DE COTA DO GOOGLE SHEETS ---
+# --- CONEXÃO SEGURA COM O GOOGLE SHEETS ---
 @st.cache_resource
 def get_credentials():
     encoded_json = st.secrets["gcp_service_account"]["base64_json"]
@@ -30,10 +30,10 @@ def carregar_dados_escala():
     try:
         sh = get_connection()
         ws_escala = sh.worksheet("Escala")
-        return ws_escala.get_all_records(), ws_escala
+        return ws_escala.get_all_records()
     except Exception as e:
         st.error(f"Erro ao conectar com a base de dados: {e}")
-        return [], None
+        return []
 
 def obter_lista_leitores():
     try:
@@ -214,7 +214,7 @@ with menu_col2:
 st.markdown("---")
 
 # Carregamento seguro dos dados da escala
-escala_data, ws_escala = carregar_dados_escala()
+escala_data = carregar_dados_escala()
 is_adm = (st.session_state.user_profile == "3")
 lista_todos_leitores = obter_lista_leitores() if is_adm else []
 
@@ -263,7 +263,10 @@ def renderizar_evento(idx, row, modo_aguardando=False):
                 novo_nome_com = c_col2.selectbox("Novo Leitor:", ["(Vago)"] + lista_todos_leitores, key=f"sel_com_{idx}")
                 if c_col2.button("Salvar", key=f"save_com_{idx}"):
                     val_salvar = "" if novo_nome_com == "(Vago)" else novo_nome_com
-                    ws_escala.update_cell(idx + 2, 4, val_salvar)
+                    sh_conn = get_connection()
+                    ws_live = sh_conn.worksheet("Escala")
+                    ws_live.update_cell(idx + 2, 4, val_salvar)
+                    st.cache_data.clear()
                     st.session_state[f"alterando_com_{idx}"] = False
                     st.success("Alterado com sucesso!")
                     st.rerun()
@@ -277,7 +280,10 @@ def renderizar_evento(idx, row, modo_aguardando=False):
                     elif usuario_ja_escalado_no_dia(escala_data, dia, usuario_atual):
                         st.error("Você já possui uma função agendada neste dia.")
                     else:
-                        ws_escala.update_cell(idx + 2, 4, usuario_atual)
+                        sh_conn = get_connection()
+                        ws_live = sh_conn.worksheet("Escala")
+                        ws_live.update_cell(idx + 2, 4, usuario_atual)
+                        st.cache_data.clear()
                         st.success("Escalado como Comentarista!")
                         st.rerun()
             else:
@@ -285,7 +291,9 @@ def renderizar_evento(idx, row, modo_aguardando=False):
                     if c_col2.button("Cancelar", key=f"c_com_{idx}"):
                         sh_conn = get_connection()
                         if processar_tentativa_cancelamento(sh_conn, usuario_atual, dia):
-                            ws_escala.update_cell(idx + 2, 4, "")
+                            ws_live = sh_conn.worksheet("Escala")
+                            ws_live.update_cell(idx + 2, 4, "")
+                            st.cache_data.clear()
                             st.success("Cancelado com sucesso!")
                             st.rerun()
 
@@ -303,7 +311,10 @@ def renderizar_evento(idx, row, modo_aguardando=False):
             novo_nome_l1 = l1_col2.selectbox("Novo Leitor:", ["(Vago)"] + lista_todos_leitores, key=f"sel_l1_{idx}")
             if l1_col2.button("Salvar", key=f"save_l1_{idx}"):
                 val_salvar = "" if novo_nome_l1 == "(Vago)" else novo_nome_l1
-                ws_escala.update_cell(idx + 2, 5, val_salvar)
+                sh_conn = get_connection()
+                ws_live = sh_conn.worksheet("Escala")
+                ws_live.update_cell(idx + 2, 5, val_salvar)
+                st.cache_data.clear()
                 st.session_state[f"alterando_l1_{idx}"] = False
                 st.success("Alterado com sucesso!")
                 st.rerun()
@@ -315,7 +326,10 @@ def renderizar_evento(idx, row, modo_aguardando=False):
                 elif usuario_ja_escalado_no_dia(escala_data, dia, usuario_atual):
                     st.error("Você já possui uma função agendada neste dia.")
                 else:
-                    ws_escala.update_cell(idx + 2, 5, usuario_atual)
+                    sh_conn = get_connection()
+                    ws_live = sh_conn.worksheet("Escala")
+                    ws_live.update_cell(idx + 2, 5, usuario_atual)
+                    st.cache_data.clear()
                     st.success("Escalado na 1ª Leitura!")
                     st.rerun()
         else:
@@ -323,7 +337,9 @@ def renderizar_evento(idx, row, modo_aguardando=False):
                 if l1_col2.button("Cancelar", key=f"c_l1_{idx}"):
                     sh_conn = get_connection()
                     if processar_tentativa_cancelamento(sh_conn, usuario_atual, dia):
-                        ws_escala.update_cell(idx + 2, 5, "")
+                        ws_live = sh_conn.worksheet("Escala")
+                        ws_live.update_cell(idx + 2, 5, "")
+                        st.cache_data.clear()
                         st.success("Cancelado com sucesso!")
                         st.rerun()
 
@@ -342,7 +358,10 @@ def renderizar_evento(idx, row, modo_aguardando=False):
                 novo_nome_l2 = l2_col2.selectbox("Novo Leitor:", ["(Vago)"] + lista_todos_leitores, key=f"sel_l2_{idx}")
                 if l2_col2.button("Salvar", key=f"save_l2_{idx}"):
                     val_salvar = "" if novo_nome_l2 == "(Vago)" else novo_nome_l2
-                    ws_escala.update_cell(idx + 2, 6, val_salvar)
+                    sh_conn = get_connection()
+                    ws_live = sh_conn.worksheet("Escala")
+                    ws_live.update_cell(idx + 2, 6, val_salvar)
+                    st.cache_data.clear()
                     st.session_state[f"alterando_l2_{idx}"] = False
                     st.success("Alterado com sucesso!")
                     st.rerun()
@@ -354,7 +373,10 @@ def renderizar_evento(idx, row, modo_aguardando=False):
                     elif usuario_ja_escalado_no_dia(escala_data, dia, usuario_atual):
                         st.error("Você já possui uma função agendada neste dia.")
                     else:
-                        ws_escala.update_cell(idx + 2, 6, usuario_atual)
+                        sh_conn = get_connection()
+                        ws_live = sh_conn.worksheet("Escala")
+                        ws_live.update_cell(idx + 2, 6, usuario_atual)
+                        st.cache_data.clear()
                         st.success("Escalado na 2ª Leitura!")
                         st.rerun()
             else:
@@ -362,7 +384,9 @@ def renderizar_evento(idx, row, modo_aguardando=False):
                     if l2_col2.button("Cancelar", key=f"c_l2_{idx}"):
                         sh_conn = get_connection()
                         if processar_tentativa_cancelamento(sh_conn, usuario_atual, dia):
-                            ws_escala.update_cell(idx + 2, 6, "")
+                            ws_live = sh_conn.worksheet("Escala")
+                            ws_live.update_cell(idx + 2, 6, "")
+                            st.cache_data.clear()
                             st.success("Cancelado com sucesso!")
                             st.rerun()
 
