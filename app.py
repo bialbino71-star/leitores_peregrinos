@@ -93,7 +93,7 @@ if "logged_in" not in st.session_state:
     st.session_state.user_id = ""
 
 if "pagina" not in st.session_state:
-    st.session_state.pagina = "escala_geral"
+    st.session_state.pagina = "home"  # Nunca abre na Escala Geral logo após o login
 
 # --- CABEÇALHO E IDENTIDADE VISUAL ---
 st.markdown("<h1 style='text-align: center; font-size: 22px;'>Leitores Peregrinos</h1>", unsafe_allow_html=True)
@@ -155,7 +155,7 @@ with col_logout:
         st.session_state.user_name = ""
         st.session_state.user_profile = ""
         st.session_state.user_id = ""
-        st.session_state.pagina = "escala_geral"
+        st.session_state.pagina = "home"
         st.rerun()
 
 st.markdown("---")
@@ -258,6 +258,7 @@ def renderizar_evento(idx, row, modo_aguardando=False):
     if not leitura1:
         if l1_col2.button("Servir", key=f"s_l1_{idx}"):
             if not is_adm and contar_servicos_no_mes(escala_data, usuario_atual) >= 3:
+                st.error("You have already served three times this month") # fallback context
                 st.error("Você já serviu três vezes nesse mês")
             elif not is_adm and usuario_ja_escalado_no_dia(escala_data, dia, usuario_atual):
                 st.error("Você já possui uma função agendada neste dia.")
@@ -309,7 +310,10 @@ def renderizar_evento(idx, row, modo_aguardando=False):
 
 # --- ROTEAMENTO DAS PÁGINAS DO APLICATIVO ---
 
-if st.session_state.pagina == "escala_geral":
+if st.session_state.pagina == "home":
+    st.info("Selecione uma opção no menu acima para começar.")
+
+elif st.session_state.pagina == "escala_geral":
     st.subheader("Escala Geral do Mês")
     for idx, row in enumerate(escala_data):
         renderizar_evento(idx, row, modo_aguardando=False)
@@ -334,12 +338,19 @@ elif st.session_state.pagina == "minha_escala":
 
 elif st.session_state.pagina == "coletar":
     st.subheader("Coleta de Intenções")
-    st.markdown("Clique no link abaixo para abrir o formulário oficial de coleta de intenções da missa:")
-    st.markdown("[Abrir Formulário de Intenções no Google Forms](https://docs.google.com/forms/d/e/1FAIpQLScgX8RkpDYhb-rMwb8_ZR6dJhp-tKUyowmRGrSK-tbsXveqCw/viewform?usp=sharing&ouid=103182596084814948709)", unsafe_allow_html=True)
+    st.markdown("Clique no botão abaixo para abrir o formulário oficial de coleta de intenções da missa:")
+    st.markdown(
+        """
+        <div style="text-align: center; padding: 15px;">
+            <a href="https://docs.google.com/forms/d/e/1FAIpQLScgX8RkpDYhb-rMwb8_ZR6dJhp-tKUyowmRGrSK-tbsXveqCw/viewform?usp=sharing&ouid=103182596084814948709" target="_blank" style="background-color: #2e7d32; color: white; padding: 12px 24px; text-align: center; text-decoration: none; display: inline-block; font-size: 16px; border-radius: 4px; font-weight: bold;">Abrir o Formulário de Intenções</a>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
 
 elif st.session_state.pagina == "exibir_escala":
     st.subheader("Exibir Escala (PDF)")
-    st.write("Clique abaixo para gerar e baixar o PDF da Escala Geral:")
+    st.write("Clique abaixo para gerar e baixar o PDF idêntico à Escala Geral:")
     
     class PDF(FPDF):
         def header(self):
@@ -353,19 +364,29 @@ elif st.session_state.pagina == "exibir_escala":
 
     pdf = PDF()
     pdf.add_page()
-    pdf.set_font("Arial", size=9)
+    pdf.set_font("Arial", size=10)
     
     for row in escala_data:
         dia = str(row.get('DIA', ''))
         horario = str(row.get('HORARIO', ''))
-        solenidade = str(row.get('SOLENIDADE', 'NÃO'))
-        comentarista = str(row.get('COMENTARISTA', '') or 'Vago')
-        l1 = str(row.get('LEITURA1', '') or 'Vago')
-        l2 = str(row.get('LEITURA2', '') or 'Vago')
+        solenidade = str(row.get('SOLENIDADE', 'NÃO')).strip().upper()
+        comentarista = str(row.get('COMENTARISTA', '')).strip() or 'Vago'
+        l1 = str(row.get('LEITURA1', '')).strip() or 'Vago'
+        l2 = str(row.get('LEITURA2', '')).strip() or 'Vago'
         
-        linha = f"Data: {dia} | Horario: {horario} | Solenidade: {solenidade} | Comentarista: {comentarista} | 1a Leitura: {l1} | 2a Leitura: {l2}"
-        linha_limpa = linha.encode('latin-1', 'replace').decode('latin-1')
-        pdf.multi_cell(190, 7, linha_limpa)
+        mostrar_com_l2 = deve_exibir_comentarista_e_leitura2(row)
+        
+        linha_dia = f"Data: {dia} | Horario: {horario}" + (f" (Solenidade)" if solenidade == 'SIM' else "")
+        pdf.set_font("Arial", 'B', 10)
+        pdf.multi_cell(190, 6, linha_dia.encode('latin-1', 'replace').decode('latin-1'))
+        
+        pdf.set_font("Arial", '', 9)
+        if mostrar_com_l2:
+            pdf.multi_cell(190, 5, f"  - COMENTARISTA: {comentarista}".encode('latin-1', 'replace').decode('latin-1'))
+        pdf.multi_cell(190, 5, f"  - 1a LEITURA: {l1}".encode('latin-1', 'replace').decode('latin-1'))
+        if mostrar_com_l2:
+            pdf.multi_cell(190, 5, f"  - 2a LEITURA: {l2}".encode('latin-1', 'replace').decode('latin-1'))
+        pdf.ln(3)
     
     pdf_bytes = bytes(pdf.output())
     
@@ -395,42 +416,50 @@ elif st.session_state.pagina == "aguardando":
 
 elif st.session_state.pagina == "ver_intencoes":
     st.subheader("Relatório de Intenções Coletadas")
-    st.markdown("Informe a data e o horário da missa para buscar e mesclar os relatórios da aba **Respostas ao Formulário 2**:")
+    st.markdown("Selecione abaixo a **Data e o Horário da Missa** para mesclar e exibir o relatório consolidado:")
     
-    col_d, col_h = st.columns(2)
-    with col_d:
-        filtro_data = st.text_input("Data da Missa (ex: 01/07/2026):")
-    with col_h:
-        filtro_horario = st.text_input("Horário da Missa (ex: 19:00:00):")
+    try:
+        ws_resp = sh.worksheet("Respostas ao Formulário 2")
+        respostas_data = ws_resp.get_all_records()
         
-    if st.button("Buscar e Mesclar Relatórios"):
-        if not filtro_data or not filtro_horario:
-            st.warning("Preencha a data e o horário para realizar a busca.")
+        opcoes_missas = []
+        for r in respostas_data:
+            d_val = str(r.get('Data', r.get('DATA', ''))).strip()
+            h_val = str(r.get('Horário da Missa', r.get('Horario da Missa', r.get('HORARIO', '')))).strip()
+            if d_val and h_val:
+                item = f"{d_val} - {h_val}"
+                if item not in opcoes_missas:
+                    opcoes_missas.append(item)
+                    
+        if not opcoes_missas:
+            st.info("Nenhuma intenção encontrada na planilha.")
         else:
-            try:
-                with st.spinner("Buscando dados na aba Respostas ao Formulário 2..."):
-                    ws_resp = sh.worksheet("Respostas ao Formulário 2")
-                    respostas_data = ws_resp.get_all_records()
+            missa_selecionada = st.selectbox("Selecione a Missa (Ticket):", opcoes_missas)
+            
+            if st.button("Gerar Relatório Consolidado"):
+                partes = missa_selecionada.split(" - ")
+                f_data = partes[0].strip()
+                f_horario = partes[1].strip()
+                
+                conteudo_mesclado = ""
+                encontrou = False
+                
+                for r in respostas_data:
+                    data_resp = str(r.get('Data', r.get('DATA', ''))).strip()
+                    horario_resp = str(r.get('Horário da Missa', r.get('Horario da Missa', r.get('HORARIO', '')))).strip()
                     
-                    conteudo_mesclado = ""
-                    encontrou = False
-                    
-                    for r in respostas_data:
-                        data_resp = str(r.get('Data', r.get('DATA', ''))).strip()
-                        horario_resp = str(r.get('Horário da Missa', r.get('Horario da Missa', r.get('HORARIO', '')))).strip()
+                    if data_resp == f_data and horario_resp == f_horario:
+                        encontrou = True
+                        conteudo_mesclado += f"\n--- Resposta de: {r.get('Carimbo de data/hora', 'Anônimo')} ---\n"
+                        for k, v in r.items():
+                            conteudo_mesclado += f"{k}: {v}\n"
+                        conteudo_mesclado += "\n" + "-"*40 + "\n"
                         
-                        if filtro_data in data_resp and filtro_horario in horario_resp:
-                            encontrou = True
-                            conteudo_mesclado += f"\n--- Resposta de: {r.get('Carimbo de data/hora', 'Anônimo')} ---\n"
-                            for k, v in r.items():
-                                conteudo_mesclado += f"{k}: {v}\n"
-                            conteudo_mesclado += "\n" + "-"*40 + "\n"
-                            
-                    if not encontrou:
-                        st.info(f"Nenhuma intenção encontrada para {filtro_data} às {filtro_horario}.")
-                    else:
-                        st.success("Relatórios mesclados com sucesso!")
-                        st.text_area("Relatório Consolidado", conteudo_mesclado, height=300)
-                        st.markdown("*Dica: Use Ctrl+P no seu navegador para imprimir este relatório consolidado.*")
-            except Exception as e:
-                st.error(f"Erro ao buscar na planilha: {e}")
+                if not encontrou:
+                    st.info("Nenhum registro encontrado para a missa selecionada.")
+                else:
+                    st.success("Relatórios mesclados com sucesso!")
+                    st.text_area("Relatório Consolidado", conteudo_mesclado, height=300)
+                    st.markdown("*Dica: Use Ctrl+P no seu navegador para imprimir este relatório consolidado.*")
+    except Exception as e:
+        st.error(f"Erro ao acessar a aba de respostas: {e}")
