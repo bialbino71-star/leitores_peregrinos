@@ -24,7 +24,7 @@ if "logged_in" not in st.session_state:
 if "pagina" not in st.session_state:
     st.session_state.pagina = "home"
 
-# --- CAPTURA DE NAVEGAÇÃO DOS BOTÕES COMPATÍVEL COM HTML ESTÁTICO ---
+# --- CAPTURA DE NAVEGAÇÃO DOS BOTÕES ---
 query_params = st.query_params
 if "nav" in query_params:
     st.session_state.pagina = query_params["nav"]
@@ -37,7 +37,7 @@ if "action" in query_params and query_params["action"] == "logout":
     st.query_params.clear()
     st.rerun()
 
-# --- BLINDAGEM VISUAL - ESTILIZAÇÃO DO LAYOUT OFICIAL IMPEDINDO QUEBRAS ---
+# --- BLINDAGEM VISUAL - ESTILIZAÇÃO DO LAYOUT OFICIAL DEFINTIVA ---
 st.markdown("""
     <style>
     /* Forçar a largura ideal da página */
@@ -65,7 +65,7 @@ st.markdown("""
     
     /* Cartão Superior (Painel do Logotipo - Tecido Linho + Moldura Dourada) */
     .cartao-superior-oficial {
-        background-color: #F9F7F1;
+        background-color: #F5F2EB;
         border-radius: 16px;
         padding: 24px;
         box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
@@ -76,16 +76,26 @@ st.markdown("""
         border: 3.5px solid #A3794E !important; 
         
         /* Textura de linho refinada */
-        background-image: linear-gradient(90deg, rgba(163,121,78,0.03) 1px, transparent 1px),
-                          linear-gradient(rgba(163,121,78,0.03) 1px, transparent 1px);
+        background-image: linear-gradient(90deg, rgba(163,121,78,0.04) 1px, transparent 1px),
+                          linear-gradient(rgba(163,121,78,0.04) 1px, transparent 1px);
         background-size: 4px 4px;
     }
     
     .bloco-logo-texto {
         display: flex;
         flex-direction: column;
+        align-items: flex-start;
     }
     
+    /* Tratamento para integrar a imagem do traço da igreja ao linho, removendo fundo branco */
+    .imagem-logo-igreja {
+        mix-blend-mode: multiply;
+        filter: sepia(0.4) saturate(1.8) hue-rotate(5deg) contrast(1.1);
+        width: 175px !important;
+        height: auto !important;
+    }
+    
+    /* Letras em dourado e com tamanho ampliado */
     .texto-igreja {
         font-size: 28px;
         font-weight: 700;
@@ -100,12 +110,15 @@ st.markdown("""
         color: #A3794E;
         font-weight: 500;
         margin-top: 4px;
+        font-family: sans-serif;
     }
     
-    .imagem-santo-moldura {
+    /* Moldura dourada aplicada com precisão na imagem de São Peregrino */
+    .imagem-santo-oficial {
         border-radius: 14px; 
         border: 3.5px solid #A3794E !important; 
-        box-shadow: 0 4px 8px rgba(0,0,0,0.12);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        object-fit: cover;
     }
     
     /* Barra de Status Terracota Completamente Integrada */
@@ -149,7 +162,7 @@ st.markdown("""
         transform: scale(1.02);
     }
     
-    /* Painel do Grid de Botões Estático (Fundo Cinza Escuro Garantido) */
+    /* Painel do Grid de Botões Estático (Fundo Cinza Escuro) */
     .painel-opcoes-estatico {
         background-color: #555E6B; 
         border-radius: 16px;
@@ -161,7 +174,7 @@ st.markdown("""
         gap: 16px;
     }
     
-    /* Estilo Imutável dos Botões (Manto Profundo + Borda Dourada Espessa) */
+    /* Estilo dos Botões (Manto Profundo + Borda Dourada Espessa) */
     .btn-grid-custom {
         background-color: #10141A !important;
         color: #FFFFFF !important;
@@ -297,17 +310,17 @@ def deve_exibir_comentarista_e_leitura2(row):
     return eh_fim_de_semana(dia) or solenidade == 'SIM'
 
 
-# --- RENDERIZAÇÃO FIXA DO TOP COMPONENT (MOLDE ESTÁTICO DE LINHO) ---
+# --- RENDERIZAÇÃO BLINDADA EM HTML DO TOPO COMPLETO ---
 st.markdown('<div class="titulo-principal">Leitores Peregrinos</div>', unsafe_allow_html=True)
 
 st.markdown("""
     <div class="cartao-superior-oficial">
         <div class="bloco-logo-texto">
-            <img src="https://i.ibb.co/HLqFZgZK/logo-igreja.jpg" width="160" style="mix-blend-mode: multiply;"/>
+            <img class="imagem-logo-igreja" src="https://i.ibb.co/HLqFZgZK/logo-igreja.jpg" />
             <div class="texto-igreja">Igreja São Peregrino</div>
             <div class="texto-cidade">São José dos Campos-SP</div>
         </div>
-        <img class="imagem-santo-moldura" src="https://i.ibb.co/hJswKtgV/IMG20260522140332.jpg" width="115" height="135"/>
+        <img class="imagem-santo-oficial" src="https://i.ibb.co/hJswKtgV/IMG20260522140332.jpg" width="115" height="135"/>
     </div>
 """, unsafe_allow_html=True)
 
@@ -346,14 +359,14 @@ if not st.session_state.logged_in:
     st.stop()
 
 
-# --- ELEMENTOS DO PAINEL APÓS LOGIN (STATUS + NAV DE IMAGEM IMUTÁVEL) ---
+# --- ELEMENTOS INTERNOS PÓS LOGIN (STATUS + MENU) ---
 perfil_texto = "LEITOR"
 if st.session_state.user_profile == "2":
     perfil_texto = "LEITOR & COMENTARISTA"
 elif st.session_state.user_profile == "3":
     perfil_texto = "ADM"
 
-# Barra de Status Unificada e Blindada em HTML Nativo
+# Barra de Status Unificada Terracota com Botão Sair integrado
 st.markdown(f"""
     <div class="barra-status-container">
         <div class="texto-logado">Logado: {st.session_state.user_name} ({perfil_texto})</div>
@@ -361,7 +374,7 @@ st.markdown(f"""
     </div>
 """, unsafe_allow_html=True)
 
-# Grid de botões estáticos imutáveis mapeando os estados internos via URL do Streamlit
+# Grid de botões estáticos no painel cinza-escuro
 st.markdown("""
     <div class="painel-opcoes-estatico">
         <a class="btn-grid-custom" href="?nav=escala_geral">Escala Geral</a>
@@ -374,7 +387,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 
-# Carregamento seguro dos dados da escala da planilha
+# Carregamento seguro dos dados da escala
 escala_data = carregar_dados_escala()
 is_adm = (st.session_state.user_profile == "3")
 lista_todos_leitores = obter_lista_leitores() if is_adm else []
@@ -554,7 +567,7 @@ def renderizar_evento(idx, row, modo_aguardando=False):
 
     st.markdown("---")
 
-# --- ROTEAMENTO DAS PÁGINAS DO APLICATIVO ---
+# --- ROTEAMENTO DAS PÁGINAS ---
 if st.session_state.pagina == "home":
     st.markdown('<div class="barra-instrucoes-oficial">Selecione uma opção no menu acima para começar.</div>', unsafe_allow_html=True)
 
