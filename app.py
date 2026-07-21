@@ -91,15 +91,13 @@ st.markdown("""
         font-family: sans-serif;
     }
 
-    /* POSICIONADOR DO BOTÃO SAIR NATIVO CHAVEADO */
+    /* POSICIONADOR DO BOTÃO SAIR NATIVO CHAVEADO (ao lado da barra, mesma altura) */
     .st-key-sair_wrapper {
-        margin-top: -51px !important;
         display: flex;
+        align-items: center;
         justify-content: flex-end;
-        padding-right: 15px;
-        margin-bottom: 30px;
-        position: relative;
-        z-index: 99;
+        height: 56px !important;
+        margin-bottom: 15px !important;
     }
 
     .st-key-sair_wrapper button {
@@ -305,16 +303,19 @@ if st.session_state.user_profile == "2":
 elif st.session_state.user_profile == "3":
     perfil_texto = "ADM"
 
-# 1. Barra Terracota Estática
-st.markdown(f"""
-    <div class="barra-status-alinhada">
-        <div class="texto-logado-interno">Logado: {st.session_state.user_name} ({perfil_texto})</div>
-    </div>
-""", unsafe_allow_html=True)
+# 1. Barra Terracota + Botão Sair, lado a lado na mesma linha
+status_col1, status_col2 = st.columns([4, 1])
 
-# 2. Botão Sair Nativo (Chama a função interna instantaneamente sem recarregar a URL)
-with st.container(key="sair_wrapper"):
-    st.button("Sair", key="btn_logout_definitivo", on_click=efetuar_logout)
+with status_col1:
+    st.markdown(f"""
+        <div class="barra-status-alinhada">
+            <div class="texto-logado-interno">Logado: {st.session_state.user_name} ({perfil_texto})</div>
+        </div>
+    """, unsafe_allow_html=True)
+
+with status_col2:
+    with st.container(key="sair_wrapper"):
+        st.button("Sair", key="btn_logout_definitivo", on_click=efetuar_logout)
 
 # 3. Grid de Botões Nativo (container com key="menu_grid" gera a classe .st-key-menu_grid usada no CSS acima)
 with st.container(key="menu_grid"):
