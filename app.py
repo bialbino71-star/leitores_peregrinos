@@ -134,8 +134,8 @@ st.markdown("""
         border: 3.5px solid #8C6D4F !important;
         outline: 1.5px solid #423224 !important;
         border-radius: 24px !important;
-        padding: 14px 10px !important;
-        font-size: 20px !important;
+        padding: 16px 10px !important;
+        font-size: 23px !important;
         font-weight: 700 !important;
         text-align: center !important;
         width: 100% !important;
