@@ -92,7 +92,7 @@ st.markdown("""
     }
 
     /* POSICIONADOR DO BOTÃO SAIR NATIVO CHAVEADO */
-    .btn-sair-wrapper {
+    .st-key-sair_wrapper {
         margin-top: -51px !important;
         display: flex;
         justify-content: flex-end;
@@ -102,7 +102,7 @@ st.markdown("""
         z-index: 99;
     }
 
-    .btn-sair-wrapper button {
+    .st-key-sair_wrapper button {
         background: #1C120C !important;
         color: #EAB99F !important;
         border: 1px solid #3D2612 !important;
@@ -115,7 +115,7 @@ st.markdown("""
         width: auto !important;
     }
     
-    .btn-sair-wrapper button:hover {
+    .st-key-sair_wrapper button:hover {
         background: #2D1E15 !important;
     }
     
@@ -313,9 +313,8 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 # 2. Botão Sair Nativo (Chama a função interna instantaneamente sem recarregar a URL)
-st.markdown('<div class="btn-sair-wrapper">', unsafe_allow_html=True)
-st.button("Sair", key="btn_logout_definitivo", on_click=efetuar_logout)
-st.markdown('</div>', unsafe_allow_html=True)
+with st.container(key="sair_wrapper"):
+    st.button("Sair", key="btn_logout_definitivo", on_click=efetuar_logout)
 
 # 3. Grid de Botões Nativo (container com key="menu_grid" gera a classe .st-key-menu_grid usada no CSS acima)
 with st.container(key="menu_grid"):
