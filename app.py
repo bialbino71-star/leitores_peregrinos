@@ -24,23 +24,18 @@ if "logged_in" not in st.session_state:
 if "pagina" not in st.session_state:
     st.session_state.pagina = "home"
 
-# --- PROCESSAMENTO DE ROTAS VIA QUERY PARAMS (SEM REMENDOS) ---
-# Captura cliques dos botões HTML puros sem causar reset do estado interno do React
-query_params = st.query_params
-if "nav" in query_params:
-    st.session_state.pagina = query_params["nav"]
-    st.query_params.clear() # Limpa a URL imediatamente para manter o app limpo
+# --- FUNÇÕES DE TRANSIÇÃO DE TELA (NATIVAS E RÁPIDAS) ---
+def navegar_para(nome_pagina):
+    st.session_state.pagina = nome_pagina
 
-if "action" in query_params and query_params["action"] == "logout":
+def efetuar_logout():
     st.session_state.logged_in = False
     st.session_state.user_name = ""
     st.session_state.user_profile = ""
     st.session_state.user_id = ""
     st.session_state.pagina = "home"
-    st.query_params.clear()
-    st.rerun()
 
-# --- ESTILIZAÇÃO ESTRUTURAL DA APLICAÇÃO ---
+# --- FOLHA DE ESTILO GLOBAL (SEM PARAMETROS DE URL OU LINKS FALSOS) ---
 st.markdown("""
     <style>
     /* Forçar a largura ideal da página */
@@ -74,16 +69,16 @@ st.markdown("""
         border-radius: 16px;
     }
     
-    /* BARRA DE STATUS TERRACOTA UNIFICADA REAL */
+    /* BARRA DE STATUS TERRACOTA UNIFICADA */
     .barra-status-alinhada {
         background-color: #EAB99F !important;
         border-radius: 20px !important;
-        padding: 0 20px !important;
+        padding: 14px 20px !important;
         display: flex !important;
         justify-content: space-between !important;
         align-items: center !important;
         height: 56px !important;
-        margin-bottom: 25px !important;
+        margin-bottom: 15px !important;
         box-shadow: 0 3px 6px rgba(0,0,0,0.05);
         width: 100%;
         box-sizing: border-box;
@@ -96,64 +91,66 @@ st.markdown("""
         font-family: sans-serif;
     }
 
-    /* BOTAO SAIR DENTRO DA BARRA */
-    .btn-sair-real {
+    /* POSICIONADOR DO BOTÃO SAIR NATIVO CHAVEADO */
+    .btn-sair-wrapper {
+        margin-top: -51px !important;
+        display: flex;
+        justify-content: flex-end;
+        padding-right: 15px;
+        margin-bottom: 30px;
+        position: relative;
+        z-index: 99;
+    }
+
+    .btn-sair-wrapper button {
         background: #1C120C !important;
         color: #EAB99F !important;
         border: 1px solid #3D2612 !important;
         border-radius: 25px !important;
-        padding: 6px 24px !important;
-        font-size: 14px !important;
+        padding: 4px 24px !important;
+        font-size: 15px !important;
         font-weight: bold !important;
-        box-shadow: 0 4px 8px rgba(0,0,0,0.2) !important;
-        text-decoration: none !important;
-        display: inline-block !important;
-        font-family: sans-serif;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.25) !important;
+        height: 36px !important;
+        width: auto !important;
     }
     
-    .btn-sair-real:hover {
+    .btn-sair-wrapper button:hover {
         background: #2D1E15 !important;
     }
     
-    /* PAINEL CENTRAL DO MENU DE OPÇÕES (AZUL-GRAFITE ACETINADO) */
-    .painel-opcoes-bloco-real {
+    /* ESTILIZAÇÃO DO CONTÊINER DE COLUNAS DO MENU (PAINEL CINZA-GRAFITE) */
+    div[data-testid="stHorizontalBlock"]:has(button[key*="menu_"]) {
         background-color: #4F5666 !important; 
         border-radius: 16px !important;
-        padding: 24px 20px !important;
+        padding: 24px 16px !important;
         margin-bottom: 25px !important;
         box-shadow: inset 0 2px 6px rgba(0,0,0,0.2), 0 4px 10px rgba(0,0,0,0.1) !important;
-        box-sizing: border-box;
-        width: 100%;
     }
     
-    /* GRID DE BOTÕES INTERNOS EM HTML PURO */
-    .grid-botoes-puros {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 16px;
-        width: 100%;
-    }
-    
-    /* DESIGN DOS BOTÕES (AZUL PETRÓLEO + DUPLO CONTORNO CHANFRADO BRONZE) */
-    .btn-puro-menu {
+    /* RESOLUÇÃO VISUAL DOS BOTÕES INTERNOS (AZUL PETRÓLEO + DUPLO CONTORNO CHANFRADO BRONZE) */
+    div[data-testid="stHorizontalBlock"]:has(button[key*="menu_"]) button,
+    div[data-testid="stHorizontalBlock"]:has(button[key*="menu_"]) div.stLinkButton a {
         background: #0D1B2A !important;
         color: #E0E2E5 !important;
         border: 3.5px solid #8C6D4F !important;
         outline: 1.5px solid #423224 !important;
         border-radius: 24px !important;
-        padding: 14px 10px !important;
+        padding: 12px 10px !important;
         font-size: 17px !important;
         font-weight: 600 !important;
         text-align: center !important;
+        width: 100% !important;
         display: block !important;
         box-shadow: 0 4px 8px rgba(0,0,0,0.35), inset 0 1px 2px rgba(255,255,255,0.1) !important;
         font-family: sans-serif;
         text-decoration: none !important;
         box-sizing: border-box !important;
-        cursor: pointer;
+        height: auto !important;
     }
     
-    .btn-puro-menu:hover {
+    div[data-testid="stHorizontalBlock"]:has(button[key*="menu_"]) button:hover,
+    div[data-testid="stHorizontalBlock"]:has(button[key*="menu_"]) div.stLinkButton a:hover {
         background: #15273C !important;
         border-color: #A38465 !important;
     }
@@ -301,37 +298,40 @@ if not st.session_state.logged_in:
     st.stop()
 
 
-# --- AREA LOGADA INTERNA - INTEGRAÇÃO PURA SEM RUPTURAS ---
+# --- ÁREA LOGADA INTERNA ---
 perfil_texto = "LEITOR"
 if st.session_state.user_profile == "2":
     perfil_texto = "LEITOR & COMENTARISTA"
 elif st.session_state.user_profile == "3":
     perfil_texto = "ADM"
 
-# 1. Barra Terracota + Botão Sair Injetados Nativamente Juntos
+# 1. Barra Terracota Estática
 st.markdown(f"""
     <div class="barra-status-alinhada">
         <div class="texto-logado-interno">Logado: {st.session_state.user_name} ({perfil_texto})</div>
-        <a href="?action=logout" class="btn-sair-real" target="_self">Sair</a>
     </div>
 """, unsafe_allow_html=True)
 
-# 2. Painel Inteiro + Grid de Botões Construído em Bloco Único Selado (Sem Remendos React)
-st.markdown("""
-    <div class="painel-opcoes-bloco-real">
-        <div class="grid-botoes-puros">
-            <a href="?nav=escala_geral" class="btn-puro-menu" target="_self">Escala Geral</a>
-            <a href="?nav=exibir_escala" class="btn-puro-menu" target="_self">Exibir Escala (PDF)</a>
-            <a href="?nav=minha_escala" class="btn-puro-menu" target="_self">Minha Escala</a>
-            <a href="?nav=aguardando" class="btn-puro-menu" target="_self">Aguardando Leitores</a>
-            <a href="https://docs.google.com/forms/d/e/1FAIpQLScgX8RkpDYhb-rMwb8_ZR6dJhp-tKUyowmRGrSK-tbsXveqCw/viewform?usp=sharing" class="btn-puro-menu" target="_blank">Coletar Intenções</a>
-            <a href="?nav=ver_intencoes" class="btn-puro-menu" target="_self">Ver Intenções</a>
-        </div>
-    </div>
-""", unsafe_allow_html=True)
+# 2. Botão Sair Nativo (Chama a função interna instantaneamente sem recarregar a URL)
+st.markdown('<div class="btn-sair-wrapper">', unsafe_allow_html=True)
+st.button("Sair", key="btn_logout_definitivo", on_click=efetuar_logout)
+st.markdown('</div>', unsafe_allow_html=True)
+
+# 3. Grid de Botões Nativo (Interceptado pelo CSS via chaveamento de prefixo "menu_")
+grid_col1, grid_col2 = st.columns(2)
+
+with grid_col1:
+    st.button("Escala Geral", key="menu_geral", on_click=navegar_para, args=("escala_geral",), use_container_width=True)
+    st.button("Minha Escala", key="menu_minha", on_click=navegar_para, args=("minha_escala",), use_container_width=True)
+    st.link_button("Coletar Intenções", "https://docs.google.com/forms/d/e/1FAIpQLScgX8RkpDYhb-rMwb8_ZR6dJhp-tKUyowmRGrSK-tbsXveqCw/viewform?usp=sharing", use_container_width=True)
+
+with grid_col2:
+    st.button("Exibir Escala (PDF)", key="menu_pdf", on_click=navegar_para, args=("exibir_escala",), use_container_width=True)
+    st.button("Aguardando Leitores", key="menu_vagas", on_click=navegar_para, args=("aguardando",), use_container_width=True)
+    st.button("Ver Intenções", key="menu_intencoes", on_click=navegar_para, args=("ver_intencoes",), use_container_width=True)
 
 
-# Carregamento seguro dos dados da escala para a área de conteúdo abaixo
+# Carregamento seguro dos dados da escala para os blocos abaixo
 escala_data = carregar_dados_escala()
 is_adm = (st.session_state.user_profile == "3")
 lista_todos_leitores = obter_lista_leitores() if is_adm else []
@@ -511,7 +511,7 @@ def renderizar_evento(idx, row, modo_aguardando=False):
 
     st.markdown("---")
 
-# --- ROTEAMENTO E EXIBIÇÃO DE CONTEÚDOS ---
+# --- ROTEAMENTO E CONTEÚDOS ---
 if st.session_state.pagina == "home":
     st.markdown('<div style="background-color: #A9ACB4; color: #10141A; border-radius: 8px; padding: 16px; text-align: center; font-size: 16px; font-weight: 600; margin-top: 5px; font-family: sans-serif;">Selecione uma opção no menu acima para começar.</div>', unsafe_allow_html=True)
 
