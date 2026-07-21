@@ -7,7 +7,7 @@ from datetime import datetime, date, timedelta
 from google.oauth2 import service_account
 from fpdf import FPDF
 
-# Configuração da página ampla e responsiva conforme o layout oficial
+# Configuração da página - Expandindo o contêiner principal para o tamanho correto
 st.set_page_config(
     page_title="Leitores Peregrinos", 
     layout="centered",
@@ -24,7 +24,7 @@ if "logged_in" not in st.session_state:
 if "pagina" not in st.session_state:
     st.session_state.pagina = "home"
 
-# --- CAPTURA DE NAVEGAÇÃO DOS BOTÕES VIA LINK PARAMS ---
+# --- CAPTURA DE NAVEGAÇÃO DOS BOTÕES ---
 query_params = st.query_params
 if "nav" in query_params:
     st.session_state.pagina = query_params["nav"]
@@ -37,7 +37,7 @@ if "action" in query_params and query_params["action"] == "logout":
     st.query_params.clear()
     st.rerun()
 
-# --- BLINDAGEM VISUAL DEFINITIVA (MANTRA DO LAYOUT OFICIAL) ---
+# --- BLINDAGEM VISUAL - ESTILIZAÇÃO DO LAYOUT OFICIAL DEFINITIVA ---
 st.markdown("""
     <style>
     /* Forçar a largura ideal da página */
@@ -52,7 +52,7 @@ st.markdown("""
         background-color: #FEFAE0 !important;
     }
     
-    /* Ocultar elementos nativos do Streamlit para preencher melhor a tela */
+    /* Ocultar elementos nativos do Streamlit */
     #MainMenu, footer, header {visibility: hidden !important;}
     
     /* Cabeçalho Principal */
@@ -66,7 +66,7 @@ st.markdown("""
         margin-top: -10px;
     }
     
-    /* Cartão Superior (Painel do Logotipo - Tecido Linho + Moldura Dourada) */
+    /* Cartão Superior (Painel do Logotipo Integrado + Moldura Dourada) */
     .cartao-superior-oficial {
         background-color: #F5F2EB;
         border-radius: 16px;
@@ -78,46 +78,27 @@ st.markdown("""
         margin-bottom: 25px;
         border: 3.5px solid #A3794E !important; 
         
-        /* Textura de linho refinada */
+        /* Textura de linho de fundo para harmonização */
         background-image: linear-gradient(90deg, rgba(163,121,78,0.04) 1px, transparent 1px),
                           linear-gradient(rgba(163,121,78,0.04) 1px, transparent 1px);
         background-size: 4px 4px;
     }
     
-    .bloco-logo-texto {
-        display: flex;
-        flex-direction: column;
-        align-items: flex-start;
+    /* Bloco da Imagem do Logo Recortada da Maquete */
+    .bloco-logo-recortado {
         width: 65%;
+        display: flex;
+        align-items: center;
     }
     
-    /* Desenho SVG Nativo Dourado Puro */
-    .svg-igreja-dourada {
-        width: 260px !important;
-        height: auto;
+    .imagem-logo-recortada {
+        width: 100% !important;
+        max-width: 320px !important;
+        height: auto !important;
         display: block;
-        margin-bottom: 5px;
     }
     
-    /* Letras em dourado oficial e com tamanho ampliado */
-    .texto-igreja {
-        font-size: 28px;
-        font-weight: 700;
-        color: #A3794E; 
-        line-height: 1.2;
-        margin-top: 10px;
-        font-family: 'Georgia', serif;
-    }
-    
-    .texto-cidade {
-        font-size: 18px;
-        color: #A3794E;
-        font-weight: 500;
-        margin-top: 4px;
-        font-family: sans-serif;
-    }
-    
-    /* Moldura dourada aplicada na imagem de São Peregrino */
+    /* Moldura dourada aplicada com precisão na imagem de São Peregrino */
     .imagem-santo-oficial {
         border-radius: 14px; 
         border: 3.5px solid #A3794E !important; 
@@ -316,26 +297,11 @@ def deve_exibir_comentarista_e_leitura2(row):
 # --- RENDERIZAÇÃO BLINDADA EM HTML DO TOPO COMPLETO ---
 st.markdown('<div class="titulo-principal">Leitores Peregrinos</div>', unsafe_allow_html=True)
 
+# Nova URL incorporada com sucesso abaixo
 st.markdown("""
     <div class="cartao-superior-oficial">
-        <div class="bloco-logo-texto">
-            <!-- O desenho vetorizado da Fachada em linhas douradas fiéis (#A3794E) -->
-            <svg class="svg-igreja-dourada" viewBox="0 0 450 210" fill="none" stroke="#A3794E" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M 225 10 L 225 55 M 210 25 L 240 25" />
-                <path d="M 185 55 L 265 55 L 265 90 L 185 90 Z" />
-                <path d="M 202 75 L 202 65 M 225 75 L 225 65 M 248 75 L 248 65" />
-                <path d="M 70 145 C 130 115, 320 115, 380 145" />
-                <path d="M 70 145 L 70 200 L 380 200 L 380 145" />
-                <path d="M 70 145 L 30 155 L 30 200 L 70 200" />
-                <path d="M 45 170 L 45 188 M 55 170 L 55 188" />
-                <path d="M 380 145 L 420 155 L 420 200 L 380 200" />
-                <path d="M 395 170 L 395 188 M 405 170 L 405 188" />
-                <path d="M 175 200 L 175 160 C 175 152, 275 152, 275 160 L 275 200" />
-                <path d="M 191 156 L 191 200 M 207 154 L 207 200 M 225 153 L 225 200 M 243 154 L 243 200 M 259 156 L 259 200" />
-                <path d="M 175 172 L 275 172 M 175 186 L 275 186" />
-            </svg>
-            <div class="texto-igreja">Igreja São Peregrino</div>
-            <div class="texto-cidade">São José dos Campos-SP</div>
+        <div class="bloco-logo-recortado">
+            <img class="imagem-logo-recortada" src="https://i.ibb.co/j92LZnZJ/novo-logo-oficial.png" />
         </div>
         <img class="imagem-santo-oficial" src="https://i.ibb.co/hJswKtgV/IMG20260522140332.jpg" width="115" height="135"/>
     </div>
@@ -548,7 +514,7 @@ def renderizar_evento(idx, row, modo_aguardando=False):
                     st.rerun()
             else:
                 novo_nome_l2 = l2_col2.selectbox("Novo Leitor:", ["(Vago)"] + lista_todos_leitores, key=f"sel_l2_{idx}")
-                if c_col2.button("Salvar", key=f"save_l2_{idx}"):
+                if l2_col2.button("Salvar", key=f"save_l2_{idx}"):
                     val_salvar = "" if novo_nome_l2 == "(Vago)" else novo_nome_l2
                     sh_conn = get_connection()
                     ws_live = sh_conn.worksheet("Escala")
