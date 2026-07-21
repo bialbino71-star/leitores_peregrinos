@@ -7,7 +7,7 @@ from datetime import datetime, date, timedelta
 from google.oauth2 import service_account
 from fpdf import FPDF
 
-# Configuração da página - Alinhamento centralizado e responsivo
+# Configuração da página - Cenrado e responsivo
 st.set_page_config(
     page_title="Leitores Peregrinos", 
     layout="centered",
@@ -24,20 +24,18 @@ if "logged_in" not in st.session_state:
 if "pagina" not in st.session_state:
     st.session_state.pagina = "home"
 
-# --- CAPTURA DE NAVEGAÇÃO E LOGOUT VIA QUERY PARAMS ---
-query_params = st.query_params
-if "nav" in query_params:
-    st.session_state.pagina = query_params["nav"]
-if "action" in query_params and query_params["action"] == "logout":
+# --- FUNÇÕES DE TRANSIÇÃO DE TELA (SEM MEXER NA URL) ---
+def navegar_para(nome_pagina):
+    st.session_state.pagina = nome_pagina
+
+def efetuar_logout():
     st.session_state.logged_in = False
     st.session_state.user_name = ""
     st.session_state.user_profile = ""
     st.session_state.user_id = ""
     st.session_state.pagina = "home"
-    st.query_params.clear()
-    st.rerun()
 
-# --- BLINDAGEM VISUAL - ESTILIZAÇÃO DO LAYOUT OFICIAL ---
+# --- BLINDAGEM VISUAL - ESTILIZAÇÃO DO LAYOUT OFICIAL FIDELIDADE MÁXIMA ---
 st.markdown("""
     <style>
     /* Forçar a largura ideal da página */
@@ -52,10 +50,10 @@ st.markdown("""
         background-color: #FEFAE0 !important;
     }
     
-    /* Ocultar elementos nativos desnecessários do Streamlit */
+    /* Ocultar elementos nativos do Streamlit */
     #MainMenu, footer, header {visibility: hidden !important;}
     
-    /* Cartão Superior (Contêiner exclusivo da imagem oficial) */
+    /* Cabeçalho Superior Oficial */
     .cartao-superior-oficial {
         width: 100%;
         margin-bottom: 25px;
@@ -72,96 +70,87 @@ st.markdown("""
         box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
     }
     
-    /* Barra de Status Terracota Perfeitamente Integrada */
-    .barra-status-container {
-        background-color: #EAB99F; 
-        border-radius: 25px;
-        padding: 6px 12px 6px 20px;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 25px;
-        height: 52px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    /* CONTAINER DA BARRA DE STATUS TERRACOTA UNIFICADO */
+    .barra-status-alinhada {
+        background-color: #EAB99F !important;
+        border-radius: 20px !important;
+        padding: 0px 16px !important;
+        display: flex !important;
+        justify-content: space-between !important;
+        align-items: center !important;
+        height: 60px !important;
+        margin-bottom: 25px !important;
+        box-shadow: 0 3px 6px rgba(0,0,0,0.05);
+        width: 100%;
         box-sizing: border-box;
     }
     
-    .texto-logado {
-        color: #10141A;
-        font-weight: 600;
-        font-size: 16px;
+    .texto-logado-interno {
+        color: #3D2612 !important;
+        font-weight: 700 !important;
+        font-size: 17px !important;
         font-family: sans-serif;
     }
-    
-    /* Botão Sair integrado na extremidade direita da barra terracota */
-    .btn-sair-link {
-        background-color: #7B3E3C !important; 
-        color: #FFFFFF !important;
-        text-decoration: none !important;
-        border-radius: 20px !important;
-        padding: 8px 24px !important;
+
+    /* BOTÃO SAIR NATIVO ADAPTADO PARA A BARRA TERRACOTA */
+    div.btn-sair-container div[data-testid="stBtnClickToClickable"] button {
+        background: #1C120C !important;
+        color: #EAB99F !important;
+        border: 1px solid #3D2612 !important;
+        border-radius: 25px !important;
+        padding: 6px 28px !important;
         font-size: 15px !important;
         font-weight: bold !important;
-        display: inline-block;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
-        font-family: sans-serif;
-        border: none;
-        cursor: pointer;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.3) !important;
+        cursor: pointer !important;
+        height: 40px !important;
+        transition: transform 0.1s ease !important;
     }
     
-    .btn-sair-link:hover {
-        background-color: #914947 !important;
+    div.btn-sair-container div[data-testid="stBtnClickToClickable"] button:hover {
+        background: #2D1E15 !important;
+        transform: scale(1.02);
     }
     
-    /* Painel do Grid de Botões Estático (Fundo Cinza Escuro) */
+    /* PAINEL CINZA-GRAFITE ACETINADO DO GRID DE OPÇÕES */
     .painel-opcoes-estatico {
-        background-color: #555E6B; 
-        border-radius: 16px;
-        padding: 24px 20px;
-        margin-bottom: 25px;
-        box-shadow: inset 0 2px 5px rgba(0,0,0,0.2);
+        background-color: #4F5666 !important; 
+        border-radius: 16px !important;
+        padding: 24px 20px !important;
+        margin-bottom: 25px !important;
+        box-shadow: inset 0 2px 6px rgba(0,0,0,0.2), 0 4px 10px rgba(0,0,0,0.1) !important;
     }
     
-    /* Estruturação interna do Grid em HTML Puro */
-    .grid-botoes-html {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 16px;
-    }
-    
-    /* Estilo Real dos Botões (Manto Profundo + Borda Dourada Espessa) */
-    .btn-grid-custom {
-        background-color: #10141A !important;
-        color: #FFFFFF !important;
-        border: 3.5px solid #A3794E !important;
-        border-radius: 30px !important;
+    /* ESTILIZAÇÃO CIRÚRGICA DOS BOTÕES DO GRID (AZUL PETRÓLEO + MOLDURA CHANFRADA BRONZE) */
+    .painel-opcoes-estatico div[data-testid="stBtnClickToClickable"] button,
+    .painel-opcoes-estatico div.stLinkButton > a {
+        background: #0D1B2A !important;
+        color: #E0E2E5 !important;
+        border: 3.5px solid #8C6D4F !important;
+        outline: 1.5px solid #423224 !important;
+        border-radius: 24px !important;
         padding: 14px 10px !important;
-        font-size: 17px !important;
-        font-weight: 700 !important;
+        font-size: 18px !important;
+        font-weight: 600 !important;
         text-align: center !important;
-        width: 100%;
-        box-shadow: inset 0 1px 3px rgba(255,255,255,0.1) !important;
+        width: 100% !important;
+        display: block !important;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.4), inset 0 1px 2px rgba(255,255,255,0.1) !important;
         font-family: sans-serif;
-        cursor: pointer;
-        transition: background-color 0.2s ease;
+        text-decoration: none !important;
+        box-sizing: border-box !important;
+        height: auto !important;
     }
     
-    .btn-grid-custom:hover {
-        background-color: #1c232e !important;
-        border-color: #b88b5c !important;
+    .painel-opcoes-estatico div[data-testid="stBtnClickToClickable"] button:hover,
+    .painel-opcoes-estatico div.stLinkButton > a:hover {
+        background: #15273C !important;
+        border-color: #A38465 !important;
     }
     
-    /* Caixa de Instruções Inferior (Tom Azul Lâmina Fria Oficial) */
-    .barra-instrucoes-oficial {
-        background-color: #A9ACB4; 
-        color: #10141A;
-        border-radius: 8px;
-        padding: 16px;
-        text-align: center;
-        font-size: 16px;
-        font-weight: 600;
-        margin-top: 5px;
-        font-family: sans-serif;
+    /* AJUSTE DE ESPAÇAMENTO DO LINK BUTTON NATIVO */
+    .painel-opcoes-estatico div.stLinkButton {
+        width: 100% !important;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -265,7 +254,7 @@ def deve_exibir_comentarista_e_leitura2(row):
     return eh_fim_de_semana(dia) or solenidade == 'SIM'
 
 
-# --- RENDERIZAÇÃO DO CABEÇALHO OFICIAL (SEM TEXTO DUPLICADO) ---
+# --- RENDERIZAÇÃO DO CABEÇALHO OFICIAL COMPLETO ---
 st.markdown("""
     <div class="cartao-superior-oficial">
         <img class="imagem-layout-completo" src="https://i.ibb.co/j92LZnZJ/novo-logo-oficial.png" />
@@ -307,34 +296,41 @@ if not st.session_state.logged_in:
     st.stop()
 
 
-# --- ELEMENTOS INTERNOS PÓS LOGIN (STATUS + MENU) ---
+# --- ELEMENTOS INTERNOS PÓS LOGIN (BARRA DE STATUS UNIFICADA REAL) ---
 perfil_texto = "LEITOR"
 if st.session_state.user_profile == "2":
     perfil_texto = "LEITOR & COMENTARISTA"
 elif st.session_state.user_profile == "3":
     perfil_texto = "ADM"
 
-# Barra de Status Terracota com Botão Sair incorporado em HTML puro
+# Recriação cirúrgica da barra terracota com o botão integrado sem colunas flutuantes
 st.markdown(f"""
-    <div class="barra-status-container">
-        <div class="texto-logado">Logado: {st.session_state.user_name} ({perfil_texto})</div>
-        <form method="get" style="margin:0;"><input type="hidden" name="action" value="logout"/><button type="submit" class="btn-sair-link">Sair</button></form>
-    </div>
+    <div class="barra-status-alinhada">
+        <div class="texto-logado-interno">Logado: {st.session_state.user_name} ({perfil_texto})</div>
+        <div class="btn-sair-container">
 """, unsafe_allow_html=True)
 
-# Grid de botões estáticos no painel cinza-escuro (completamente travado e funcional)
+st.button("Sair", key="btn_logout_oficial_real", on_click=efetuar_logout)
+
 st.markdown("""
-    <div class="painel-opcoes-estatico">
-        <div class="grid-botoes-html">
-            <form method="get" style="margin:0;"><input type="hidden" name="nav" value="escala_geral"/><button type="submit" class="btn-grid-custom">Escala Geral</button></form>
-            <form method="get" style="margin:0;"><input type="hidden" name="nav" value="exibir_escala"/><button type="submit" class="btn-grid-custom">Exibir Escala (PDF)</button></form>
-            <form method="get" style="margin:0;"><input type="hidden" name="nav" value="minha_escala"/><button type="submit" class="btn-grid-custom">Minha Escala</button></form>
-            <form method="get" style="margin:0;"><input type="hidden" name="nav" value="aguardando"/><button type="submit" class="btn-grid-custom">Aguardando Leitores</button></form>
-            <a href="https://docs.google.com/forms/d/e/1FAIpQLScgX8RkpDYhb-rMwb8_ZR6dJhp-tKUyowmRGrSK-tbsXveqCw/viewform?usp=sharing" target="_blank" style="text-decoration:none; margin:0; display:block;"><button type="button" class="btn-grid-custom" style="width:100%;">Coletar Intenções</button></a>
-            <form method="get" style="margin:0;"><input type="hidden" name="nav" value="ver_intencoes"/><button type="submit" class="btn-grid-custom">Ver Intenções</button></form>
         </div>
     </div>
 """, unsafe_allow_html=True)
+
+# --- PAINEL DO GRID DE BOTÕES (MOLDURA AZUL PETRÓLEO + SUPORTE COMPLETO) ---
+st.markdown('<div class="painel-opcoes-estatico">', unsafe_allow_html=True)
+grid_col1, grid_col2 = st.columns(2)
+
+with grid_col1:
+    st.button("Escala Geral", key="nav_geral", on_click=navegar_para, args=("escala_geral",), use_container_width=True)
+    st.button("Minha Escala", key="nav_minha", on_click=navegar_para, args=("minha_escala",), use_container_width=True)
+    st.link_button("Coletar Intenções", "https://docs.google.com/forms/d/e/1FAIpQLScgX8RkpDYhb-rMwb8_ZR6dJhp-tKUyowmRGrSK-tbsXveqCw/viewform?usp=sharing", use_container_width=True)
+
+with grid_col2:
+    st.button("Exibir Escala (PDF)", key="nav_pdf", on_click=navegar_para, args=("exibir_escala",), use_container_width=True)
+    st.button("Aguardando Leitores", key="nav_vagas", on_click=navegar_para, args=("aguardando",), use_container_width=True)
+    st.button("Ver Intenções", key="nav_intencoes", on_click=navegar_para, args=("ver_intencoes",), use_container_width=True)
+st.markdown('</div>', unsafe_allow_html=True)
 
 
 # Carregamento seguro dos dados da escala
@@ -505,7 +501,7 @@ def renderizar_evento(idx, row, modo_aguardando=False):
                         st.success("Escalado na 2ª Leitura!")
                         st.rerun()
             else:
-                if leitura2.upper() == usuario_atual.upper():
+                if lectura2.upper() == usuario_atual.upper():
                     if l2_col2.button("Cancelar", key=f"c_l2_{idx}"):
                         sh_conn = get_connection()
                         if processar_tentativa_cancelamento(sh_conn, usuario_atual, dia):
@@ -519,7 +515,7 @@ def renderizar_evento(idx, row, modo_aguardando=False):
 
 # --- ROTEAMENTO DAS PÁGINAS ---
 if st.session_state.pagina == "home":
-    st.markdown('<div class="barra-instrucoes-oficial">Selecione uma opção no menu acima para começar.</div>', unsafe_allow_html=True)
+    st.markdown('<div style="background-color: #A9ACB4; color: #10141A; border-radius: 8px; padding: 16px; text-align: center; font-size: 16px; font-weight: 600; margin-top: 5px; font-family: sans-serif;">Selecione uma opção no menu acima para começar.</div>', unsafe_allow_html=True)
 
 elif st.session_state.pagina == "escala_geral":
     st.subheader("Escala Geral do Mês")
