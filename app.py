@@ -55,55 +55,22 @@ st.markdown("""
     /* Ocultar elementos nativos do Streamlit */
     #MainMenu, footer, header {visibility: hidden !important;}
     
-    /* Cabeçalho Principal */
-    .titulo-principal {
-        font-family: 'Georgia', serif;
-        color: #3D2612;
-        font-size: 30px;
-        font-weight: bold;
-        text-align: center;
-        margin-bottom: 25px;
-        margin-top: -10px;
-    }
-    
-    /* Cartão Superior (Painel do Logotipo Integrado + Moldura Dourada) */
+    /* Cartão Superior (Apenas o contêiner da imagem do layout oficial) */
     .cartao-superior-oficial {
-        background-color: #F5F2EB;
-        border-radius: 16px;
-        padding: 24px;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
+        width: 100%;
         margin-bottom: 25px;
-        border: 3.5px solid #A3794E !important; 
-        
-        /* Textura de linho de fundo para harmonização */
-        background-image: linear-gradient(90deg, rgba(163,121,78,0.04) 1px, transparent 1px),
-                          linear-gradient(rgba(163,121,78,0.04) 1px, transparent 1px);
-        background-size: 4px 4px;
-    }
-    
-    /* Bloco da Imagem do Logo Recortada da Maquete */
-    .bloco-logo-recortado {
-        width: 65%;
         display: flex;
+        justify-content: center;
         align-items: center;
     }
     
-    .imagem-logo-recortada {
+    /* Força a imagem do layout oficial a ocupar toda a largura do bloco */
+    .imagem-layout-completo {
         width: 100% !important;
-        max-width: 320px !important;
         height: auto !important;
         display: block;
-    }
-    
-    /* Moldura dourada aplicada com precisão na imagem de São Peregrino */
-    .imagem-santo-oficial {
-        border-radius: 14px; 
-        border: 3.5px solid #A3794E !important; 
-        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-        object-fit: cover;
+        border-radius: 16px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
     }
     
     /* Barra de Status Terracota Completamente Integrada */
@@ -294,16 +261,11 @@ def deve_exibir_comentarista_e_leitura2(row):
     return eh_fim_de_semana(dia) or solenidade == 'SIM'
 
 
-# --- RENDERIZAÇÃO BLINDADA EM HTML DO TOPO COMPLETO ---
-st.markdown('<div class="titulo-principal">Leitores Peregrinos</div>', unsafe_allow_html=True)
-
-# Nova URL incorporada com sucesso abaixo
+# --- RENDERIZAÇÃO DO CABEÇALHO OFICIAL EXPANDIDO ---
+# O bloco superior agora contém apenas o link com a imagem montada que ocupa toda a largura disponível
 st.markdown("""
     <div class="cartao-superior-oficial">
-        <div class="bloco-logo-recortado">
-            <img class="imagem-logo-recortada" src="https://i.ibb.co/j92LZnZJ/novo-logo-oficial.png" />
-        </div>
-        <img class="imagem-santo-oficial" src="https://i.ibb.co/hJswKtgV/IMG20260522140332.jpg" width="115" height="135"/>
+        <img class="imagem-layout-completo" src="https://i.ibb.co/j92LZnZJ/novo-logo-oficial.png" />
     </div>
 """, unsafe_allow_html=True)
 
@@ -357,7 +319,7 @@ st.markdown(f"""
     </div>
 """, unsafe_allow_html=True)
 
-# Grid de botões estáticos no painel cinza-escuro
+# Grid de botões estáticos no painel cinza-escuro (Mantendo o layout gerado perfeito)
 st.markdown("""
     <div class="painel-opcoes-estatico">
         <a class="btn-grid-custom" href="?nav=escala_geral">Escala Geral</a>
