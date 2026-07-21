@@ -307,7 +307,7 @@ def renderizar_evento(idx, row, modo_aguardando=False):
 
     st.markdown("---")
 
-# --- ROTEAMENTO DAS PÁGINas DO APLICATIVO ---
+# --- ROTEAMENTO DAS PÁGINAS DO APLICATIVO ---
 
 if st.session_state.pagina == "escala_geral":
     st.subheader("Escala Geral do Mês")
@@ -344,12 +344,12 @@ elif st.session_state.pagina == "exibir_escala":
     class PDF(FPDF):
         def header(self):
             self.set_font('Arial', 'B', 12)
-            self.cell(0, 10, 'Escala de Leitores - Leitores Peregrinos', 0, 1, 'C')
+            self.cell(190, 10, 'Escala de Leitores - Leitores Peregrinos', 0, 1, 'C')
             self.ln(5)
         def footer(self):
             self.set_y(-15)
             self.set_font('Arial', 'I', 8)
-            self.cell(0, 10, f'Pagina {self.page_no()}', 0, 0, 'C')
+            self.cell(190, 10, f'Pagina {self.page_no()}', 0, 0, 'C')
 
     pdf = PDF()
     pdf.add_page()
@@ -365,7 +365,7 @@ elif st.session_state.pagina == "exibir_escala":
         
         linha = f"Data: {dia} | Horario: {horario} | Solenidade: {solenidade} | Comentarista: {comentarista} | 1a Leitura: {l1} | 2a Leitura: {l2}"
         linha_limpa = linha.encode('latin-1', 'replace').decode('latin-1')
-        pdf.multi_cell(0, 7, linha_limpa)
+        pdf.multi_cell(190, 7, linha_limpa)
     
     pdf_bytes = pdf.output(dest='S').encode('latin1', errors='ignore')
     
