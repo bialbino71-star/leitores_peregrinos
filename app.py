@@ -638,15 +638,55 @@ if st.session_state.pagina != "home":
     # Rola automaticamente até o início do conteúdo desta tela
     components.html("""
         <script>
-            var el = window.parent.document.getElementById("ancora-conteudo");
-            if (el) { el.scrollIntoView({behavior: "auto", block: "start"}); }
+            setTimeout(function() {
+                try {
+                    var doc = window.parent.document;
+                    var el = doc.getElementById("ancora-conteudo");
+                    if (!el) { return; }
+                    var contentEl = el;
+                    var scrollable = null;
+                    while (contentEl && contentEl !== doc.body) {
+                        var style = doc.defaultView.getComputedStyle(contentEl);
+                        if ((style.overflowY === "auto" || style.overflowY === "scroll") && contentEl.scrollHeight > contentEl.clientHeight) {
+                            scrollable = contentEl;
+                            break;
+                        }
+                        contentEl = contentEl.parentElement;
+                    }
+                    if (scrollable) {
+                        scrollable.scrollTop = el.offsetTop - scrollable.offsetTop;
+                    } else {
+                        el.scrollIntoView({behavior: "auto", block: "start"});
+                        doc.documentElement.scrollTop = el.offsetTop;
+                        doc.body.scrollTop = el.offsetTop;
+                    }
+                } catch (e) {
+                    console.log("Erro ao rolar para o conteúdo:", e);
+                }
+            }, 80);
         </script>
     """, height=0)
 else:
     # De volta ao menu principal: rola instantaneamente para o topo da página
     components.html("""
         <script>
-            window.parent.scrollTo(0, 0);
+            setTimeout(function() {
+                try {
+                    var doc = window.parent.document;
+                    var candidatos = doc.querySelectorAll('section, div, main');
+                    candidatos.forEach(function(el) {
+                        var style = doc.defaultView.getComputedStyle(el);
+                        if ((style.overflowY === "auto" || style.overflowY === "scroll") && el.scrollHeight > el.clientHeight) {
+                            el.scrollTop = 0;
+                        }
+                    });
+                    doc.documentElement.scrollTop = 0;
+                    doc.body.scrollTop = 0;
+                    window.parent.scrollTo(0, 0);
+                } catch (e) {
+                    console.log("Erro ao rolar para o topo:", e);
+                }
+            }, 80);
         </script>
     """, height=0)
 
