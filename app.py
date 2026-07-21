@@ -1,4 +1,5 @@
 import streamlit as st
+import streamlit.components.v1 as components
 import gspread
 import base64
 import json
@@ -632,7 +633,22 @@ def renderizar_evento(idx, row, modo_aguardando=False):
 # --- ROTEAMENTO E CONTEÚDOS ---
 if st.session_state.pagina != "home":
     st.button("⬅️ Voltar ao Menu Principal", key="btn_voltar_menu", on_click=navegar_para, args=("home",))
-    st.markdown("")
+    st.markdown('<div id="ancora-conteudo"></div>', unsafe_allow_html=True)
+
+    # Rola automaticamente até o início do conteúdo desta tela
+    components.html("""
+        <script>
+            var el = window.parent.document.getElementById("ancora-conteudo");
+            if (el) { el.scrollIntoView({behavior: "auto", block: "start"}); }
+        </script>
+    """, height=0)
+else:
+    # De volta ao menu principal: rola instantaneamente para o topo da página
+    components.html("""
+        <script>
+            window.parent.scrollTo(0, 0);
+        </script>
+    """, height=0)
 
 if st.session_state.pagina == "home":
     st.markdown('<div style="background-color: #A9ACB4; color: #10141A; border-radius: 8px; padding: 16px; text-align: center; font-size: 16px; font-weight: 600; margin-top: 5px; font-family: sans-serif;">Selecione uma opção no menu acima para começar.</div>', unsafe_allow_html=True)
