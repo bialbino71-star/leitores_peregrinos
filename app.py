@@ -7,21 +7,21 @@ from datetime import datetime, date, timedelta
 from google.oauth2 import service_account
 from fpdf import FPDF
 
-# Configuração da página - Ampliando o tamanho geral para não ficar espremido
+# Configuração da página - Mantendo o alinhamento amplo e responsivo
 st.set_page_config(
     page_title="Leitores Peregrinos", 
     layout="centered",
     initial_sidebar_state="collapsed"
 )
 
-# --- INJEÇÃO DO VISUAL E ESTILIZAÇÃO DO LAYOUT OFICIAL (MANTRA) ---
+# --- INJEÇÃO DEFINITIVA DO VISUAL E ESTILIZAÇÃO DO LAYOUT OFICIAL ---
 st.markdown("""
     <style>
-    /* Forçar a largura geral da página a ser maior (800px) */
+    /* Forçar a largura ideal da página */
     .block-container {
-        max-width: 800px !important;
-        padding-top: 2rem !important;
-        padding-bottom: 2rem !important;
+        max-width: 650px !important;
+        padding-top: 1.5rem !important;
+        padding-bottom: 1.5rem !important;
     }
     
     /* Fundo Geral da Página (Marfim Quente / Creme) */
@@ -29,15 +29,15 @@ st.markdown("""
         background-color: #FEFAE0 !important;
     }
     
-    /* Cabeçalho Principal (Aumentado em 2 pontos) */
+    /* Cabeçalho Principal */
     .titulo-principal {
         font-family: 'Georgia', serif;
         color: #3D2612;
-        font-size: 26px;
+        font-size: 28px;
         font-weight: bold;
         text-align: center;
-        margin-bottom: 25px;
-        margin-top: -30px;
+        margin-bottom: 20px;
+        margin-top: -10px;
     }
     
     /* Cartão Superior (Painel do Logotipo Unificado) */
@@ -45,12 +45,14 @@ st.markdown("""
         background-color: #FFFFFF;
         border-radius: 16px;
         padding: 24px;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
         display: flex;
         justify-content: space-between;
         align-items: center;
         margin-bottom: 25px;
-        border: 1px solid rgba(0,0,0,0.05);
+        border: 1px solid rgba(0,0,0,0.04);
+        background-image: radial-gradient(rgba(0,0,0,0.015) 1px, transparent 0);
+        background-size: 8px 8px;
     }
     
     .bloco-logo-texto {
@@ -59,8 +61,8 @@ st.markdown("""
     }
     
     .texto-igreja {
-        font-size: 22px;
-        font-weight: 600;
+        font-size: 24px;
+        font-weight: 700;
         color: #A3794E; /* Cabo Dourado */
         line-height: 1.2;
         margin-top: 12px;
@@ -68,26 +70,44 @@ st.markdown("""
     
     .texto-cidade {
         font-size: 16px;
-        color: #A3794E; /* Cabo Dourado */
+        color: #A3794E;
         margin-top: 2px;
     }
     
-    /* Container do Grid de Botões (Fundo Cinza Escuro do Layout Oficial) */
-    .painel-opcoes {
-        background-color: #4A515B !important; 
-        border-radius: 16px;
-        padding: 24px;
+    /* Container da Barra de Status do Usuário */
+    .container-status-flex {
+        background-color: #EAB99F; /* Fronte Dolorosa */
+        border-radius: 25px;
+        padding: 4px 6px 4px 20px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
         margin-bottom: 25px;
-        box-shadow: inset 0 2px 4px rgba(0,0,0,0.15);
+        height: 48px;
     }
     
-    /* Customização dos Botões da Grade (Manto Profundo + Borda Dourada) */
-    div.stButton > button {
+    .texto-logado {
+        color: #10141A;
+        font-weight: 600;
+        font-size: 15px;
+    }
+    
+    /* Container do Grid de Botões (Fundo Cinza Escuro do Layout Oficial) */
+    .painel-opcoes-grid {
+        background-color: #555E6B !important; 
+        border-radius: 16px;
+        padding: 20px 18px;
+        margin-bottom: 25px;
+        box-shadow: inset 0 2px 5px rgba(0,0,0,0.2);
+    }
+    
+    /* Customização Cirúrgica de Botões da Grade (Manto Profundo + Borda Dourada) */
+    div.painel-opcoes-grid div.stButton > button {
         background-color: #10141A !important; /* Manto Profundo */
         color: #FFFFFF !important;
         border: 2px solid #A3794E !important; /* Cabo Dourado */
         border-radius: 30px !important;
-        padding: 12px 20px !important;
+        padding: 12px 10px !important;
         font-size: 15px !important;
         font-weight: 500 !important;
         width: 100% !important;
@@ -95,27 +115,29 @@ st.markdown("""
         transition: all 0.2s ease;
     }
     
-    div.stButton > button:hover {
+    div.painel-opcoes-grid div.stButton > button:hover {
         background-color: #1c232e !important;
         border-color: #b88b5c !important;
         transform: scale(1.02);
     }
     
-    /* Botão Sair Isolado e com a Cor Correta (Veste de Dores) */
-    div.stButton > button[key="btn_sair_oficial"] {
+    /* Botão Sair - Encaixado perfeitamente no padrão da maquete (Veste de Dores) */
+    div.container-status-flex div.stButton > button {
         background-color: #7B3E3C !important; /* Veste de Dores */
         color: #FFFFFF !important;
         border: none !important;
         border-radius: 20px !important;
-        padding: 6px 18px !important;
-        height: auto !important;
+        padding: 6px 22px !important;
+        font-size: 14px !important;
+        font-weight: bold !important;
+        height: 36px !important;
         width: auto !important;
-        box-shadow: none !important;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
     }
     
-    div.stButton > button[key="btn_sair_oficial"]:hover {
+    div.container-status-flex div.stButton > button:hover {
         background-color: #914947 !important;
-        transform: scale(1.05);
+        transform: scale(1.03);
     }
     
     /* Caixa de Instruções Inferior (Lâmina Fria) */
@@ -126,8 +148,9 @@ st.markdown("""
         padding: 16px;
         text-align: center;
         font-size: 15px;
-        font-weight: 500;
-        margin-top: 20px;
+        font-weight: 600;
+        margin-top: 5px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
     }
     </style>
 """, unsafe_allow_html=True)
@@ -246,7 +269,7 @@ st.markdown('<div class="titulo-principal">Leitores Peregrinos</div>', unsafe_al
 st.markdown(f"""
     <div class="cartao-superior">
         <div class="bloco-logo-texto">
-            <img src="https://i.ibb.co/HLqFZgZK/logo-igreja.jpg" width="130" style="opacity: 0.95;"/>
+            <img src="https://i.ibb.co/HLqFZgZK/logo-igreja.jpg" width="125" style="opacity: 0.95;"/>
             <div class="texto-igreja">Igreja São Peregrino</div>
             <div class="texto-cidade">São José dos Campos-SP</div>
         </div>
@@ -287,36 +310,36 @@ if not st.session_state.logged_in:
                 st.error(f"Erro ao conectar com a base de dados: {e}")
     st.stop()
 
-# --- BARRA DO USUÁRIO LOGADO (MOLDURA FRONTE DOLOROSA) ---
+# --- BARRA DO USUÁRIO LOGADO (CONTAINER FLEX HÍBRIDO) ---
 perfil_texto = "LEITOR"
 if st.session_state.user_profile == "2":
     perfil_texto = "LEITOR & COMENTARISTA"
 elif st.session_state.user_profile == "3":
     perfil_texto = "ADM"
 
-col_info, col_logout = st.columns([4, 1])
+# Criamos a div flex com abertura HTML nativa
+st.markdown(f"""
+    <div class="container-status-flex">
+        <div class="texto-logado">Logado: {st.session_state.user_name} ({perfil_texto})</div>
+        <div>
+""", unsafe_allow_html=True)
 
-with col_info:
-    st.markdown(f"""
-        <div style="background-color: #EAB99F; border-radius: 25px; padding: 10px 20px; height: 46px; display: flex; align-items: center; color: #10141A; font-weight: 500; width: 100%;">
-            Logado: {st.session_state.user_name} ({perfil_texto})
-        </div>
-    """, unsafe_allow_html=True)
+# Injetamos o botão do streamlit no local exato do fechamento flex
+if st.button("Sair"):
+    st.session_state.logged_in = False
+    st.session_state.user_name = ""
+    st.session_state.user_profile = ""
+    st.session_state.user_id = ""
+    st.session_state.pagina = "home"
+    st.rerun()
 
-with col_logout:
-    st.markdown('<div style="margin-top: 4px;"></div>', unsafe_allow_html=True)
-    if st.button("Sair", key="btn_sair_oficial"):
-        st.session_state.logged_in = False
-        st.session_state.user_name = ""
-        st.session_state.user_profile = ""
-        st.session_state.user_id = ""
-        st.session_state.pagina = "home"
-        st.rerun()
+# Fechamos as tags abertas
+st.markdown("</div></div>", unsafe_allow_html=True)
 
-st.write("") 
 
-# --- MENU DE NAVEGAÇÃO (PAINEL DE OPÇÕES INTEGRADO) ---
-st.markdown('<div class="painel-opcoes">', unsafe_allow_html=True)
+# --- MENU DE NAVEGAÇÃO PRINCIPAL (GRID TOTALMENTE EMBUTIDO NO CONTEXTO CINZA) ---
+# Abrimos o wrapper com estilo cinza de fundo
+st.markdown('<div class="painel-opcoes-grid">', unsafe_allow_html=True)
 
 menu_col1, menu_col2 = st.columns(2)
 with menu_col1:
@@ -343,6 +366,7 @@ with menu_col2:
         st.session_state.pagina = "ver_intencoes"
         st.rerun()
 
+# Fechamos o painel cinza para que ele empacote os botões corretamente
 st.markdown('</div>', unsafe_allow_html=True)
 
 # Carregamento seguro dos dados da escala
@@ -524,7 +548,7 @@ def renderizar_evento(idx, row, modo_aguardando=False):
 
     st.markdown("---")
 
-# --- ROTEAMENTO DAS PÁGINAS ---
+# --- ROTEAMENTO DAS PÁGINAS DO APLICATIVO ---
 if st.session_state.pagina == "home":
     st.markdown('<div class="barra-instrucoes">Selecione uma opção no menu acima para começar.</div>', unsafe_allow_html=True)
 
