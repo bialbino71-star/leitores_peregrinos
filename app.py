@@ -134,9 +134,9 @@ st.markdown("""
         border: 3.5px solid #8C6D4F !important;
         outline: 1.5px solid #423224 !important;
         border-radius: 24px !important;
-        padding: 12px 10px !important;
-        font-size: 17px !important;
-        font-weight: 600 !important;
+        padding: 14px 10px !important;
+        font-size: 20px !important;
+        font-weight: 700 !important;
         text-align: center !important;
         width: 100% !important;
         display: block !important;
@@ -656,4 +656,3 @@ elif st.session_state.pagina == "ver_intencoes":
                     st.text_area("Relatório Consolidado", conteudo_mesclado, height=300)
     except Exception as e:
         st.error(f"Erro ao acessar a aba de respostas: {e}")
-
