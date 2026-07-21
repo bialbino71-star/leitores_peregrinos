@@ -117,7 +117,7 @@ st.markdown("""
         background: #2D1E15 !important;
     }
     
-    /* ESTILIZAÇÃO DO CONTÊINER DE COLUNAS DO MENU (PAINEL CINZA-GRAFITE) */
+    /* ESTILIZAÇÃO DO PAINEL DO MENU (CINZA-GRAFITE) - AGORA EM COLUNA ÚNICA */
     .st-key-menu_grid {
         background-color: #4F5666 !important;
         border-radius: 16px !important;
@@ -130,11 +130,10 @@ st.markdown("""
     .st-key-menu_grid button,
     .st-key-menu_grid div.stLinkButton a {
         background: #0D1B2A !important;
-        color: #E0E2E5 !important;
         border: 3.5px solid #8C6D4F !important;
         outline: 1.5px solid #423224 !important;
         border-radius: 24px !important;
-        padding: 12px 6px !important;
+        padding: 12px 10px !important;
         font-size: 18px !important;
         font-weight: 700 !important;
         text-align: center !important;
@@ -148,22 +147,19 @@ st.markdown("""
         white-space: normal !important;
         line-height: 1.2 !important;
     }
+
+    /* Cor do texto DENTRO do botão (inclui qualquer p/div/span interno gerado pelo Streamlit) */
+    .st-key-menu_grid button,
+    .st-key-menu_grid button *,
+    .st-key-menu_grid div.stLinkButton a,
+    .st-key-menu_grid div.stLinkButton a * {
+        color: #E0E2E5 !important;
+    }
     
     .st-key-menu_grid button:hover,
     .st-key-menu_grid div.stLinkButton a:hover {
         background: #15273C !important;
         border-color: #A38465 !important;
-    }
-
-    /* FORÇAR 2 COLUNAS NO GRID DO MENU MESMO EM TELAS ESTREITAS (CELULAR) */
-    .st-key-menu_grid div[data-testid="stHorizontalBlock"] {
-        flex-wrap: nowrap !important;
-        gap: 10px !important;
-    }
-    .st-key-menu_grid div[data-testid="column"] {
-        min-width: 0 !important;
-        width: 50% !important;
-        flex: 1 1 0 !important;
     }
 
     /* TÍTULO "Identificação do Leitor" (mesma paleta/estilo do cabeçalho oficial) */
@@ -176,9 +172,9 @@ st.markdown("""
         margin-bottom: 10px;
     }
 
-    /* LABELS E TEXTOS PADRÃO DO APP: sempre em tom escuro, mesmo se o celular estiver em modo escuro */
+    /* LABELS E TÍTULOS PADRÃO DO APP: sempre em tom escuro, mesmo se o celular estiver em modo escuro */
     .stApp h1, .stApp h2, .stApp h3, .stApp h4, .stApp h5, .stApp h6,
-    .stApp label, .stApp p {
+    .stApp label {
         color: #3D2612 !important;
     }
 
@@ -187,6 +183,32 @@ st.markdown("""
         background-color: #FFFFFF !important;
         color: #000000 !important;
         -webkit-text-fill-color: #000000 !important;
+    }
+
+    /* BOTÕES PADRÃO DO APP (Entrar, Voltar ao Menu, Alterar, Salvar, Servir, Cancelar etc.) 
+       Estes não têm key específico, então aplicamos um estilo legível (fundo escuro + texto dourado) */
+    div[data-testid="stButton"] button,
+    div[data-testid="stFormSubmitButton"] button {
+        background-color: #0D1B2A !important;
+        border: 1px solid #3D2612 !important;
+        border-radius: 14px !important;
+        font-weight: 600 !important;
+    }
+    div[data-testid="stButton"] button,
+    div[data-testid="stButton"] button *,
+    div[data-testid="stFormSubmitButton"] button,
+    div[data-testid="stFormSubmitButton"] button * {
+        color: #EAB99F !important;
+    }
+    div[data-testid="stButton"] button:hover,
+    div[data-testid="stFormSubmitButton"] button:hover {
+        background-color: #15273C !important;
+    }
+
+    /* O botão Sair e os botões do menu têm estilo próprio mais específico, então continuam intactos abaixo */
+    .st-key-sair_wrapper button,
+    .st-key-sair_wrapper button * {
+        color: #EAB99F !important;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -388,22 +410,17 @@ with status_col2:
     with st.container(key="sair_wrapper"):
         st.button("Sair", key="btn_logout_definitivo", on_click=efetuar_logout)
 
-# 3. Grid de Botões Nativo (container com key="menu_grid" gera a classe .st-key-menu_grid usada no CSS acima)
+# 3. Menu de Botões Nativo, em coluna única (container com key="menu_grid" gera a classe .st-key-menu_grid usada no CSS acima)
 with st.container(key="menu_grid"):
-    grid_col1, grid_col2 = st.columns(2)
-
-    with grid_col1:
-        st.button("Escala Geral", key="menu_geral", on_click=navegar_para, args=("escala_geral",), use_container_width=True)
-        st.button("Minha Escala", key="menu_minha", on_click=navegar_para, args=("minha_escala",), use_container_width=True)
-        st.link_button("Coletar Intenções", "https://docs.google.com/forms/d/e/1FAIpQLScgX8RkpDYhb-rMwb8_ZR6dJhp-tKUyowmRGrSK-tbsXveqCw/viewform?usp=sharing", use_container_width=True)
-        st.link_button("Liturgia Diária", "https://liturgia.cancaonova.com/pb/", use_container_width=True)
-
-    with grid_col2:
-        st.button("Exibir Escala (PDF)", key="menu_pdf", on_click=navegar_para, args=("exibir_escala",), use_container_width=True)
-        st.button("Aguardando Leitores", key="menu_vagas", on_click=navegar_para, args=("aguardando",), use_container_width=True)
-        st.button("Ver Intenções", key="menu_intencoes", on_click=navegar_para, args=("ver_intencoes",), use_container_width=True)
-        if st.session_state.user_profile == "3":
-            st.button("Roteiro", key="menu_roteiro", on_click=navegar_para, args=("cadastrar_roteiro",), use_container_width=True)
+    st.button("Escala Geral", key="menu_geral", on_click=navegar_para, args=("escala_geral",), use_container_width=True)
+    st.button("Minha Escala", key="menu_minha", on_click=navegar_para, args=("minha_escala",), use_container_width=True)
+    st.button("Exibir Escala (PDF)", key="menu_pdf", on_click=navegar_para, args=("exibir_escala",), use_container_width=True)
+    st.button("Aguardando Leitores", key="menu_vagas", on_click=navegar_para, args=("aguardando",), use_container_width=True)
+    st.link_button("Coletar Intenções", "https://docs.google.com/forms/d/e/1FAIpQLScgX8RkpDYhb-rMwb8_ZR6dJhp-tKUyowmRGrSK-tbsXveqCw/viewform?usp=sharing", use_container_width=True)
+    st.button("Ver Intenções", key="menu_intencoes", on_click=navegar_para, args=("ver_intencoes",), use_container_width=True)
+    st.link_button("Liturgia Diária", "https://liturgia.cancaonova.com/pb/", use_container_width=True)
+    if st.session_state.user_profile == "3":
+        st.button("Roteiro", key="menu_roteiro", on_click=navegar_para, args=("cadastrar_roteiro",), use_container_width=True)
 
 
 # Carregamento seguro dos dados da escala para os blocos abaixo
@@ -698,14 +715,6 @@ elif st.session_state.pagina == "exibir_escala":
         pdf.ln(4)
     
     pdf_bytes = bytes(pdf.output())
-
-    st.download_button(
-        label="📥 Baixar Escala em PDF",
-        data=pdf_bytes,
-        file_name="escala_leitores.pdf",
-        mime="application/pdf",
-        use_container_width=True
-    )
 
     b64_pdf = base64.b64encode(pdf_bytes).decode('utf-8')
     st.markdown(f"""
