@@ -7,14 +7,37 @@ from datetime import datetime, date, timedelta
 from google.oauth2 import service_account
 from fpdf import FPDF
 
-# Configuração da página - Expandindo o contêiner principal para o tamanho correto
+# Configuração da página - Mantendo o alinhamento amplo e responsivo
 st.set_page_config(
     page_title="Leitores Peregrinos", 
     layout="centered",
     initial_sidebar_state="collapsed"
 )
 
-# --- INJEÇÃO DO VISUAL E ESTILIZAÇÃO DO LAYOUT OFICIAL ---
+# --- GERENCIAMENTO DE ESTADO DA SESSÃO ---
+if "logged_in" not in st.session_state:
+    st.session_state.logged_in = False
+    st.session_state.user_name = ""
+    st.session_state.user_profile = ""
+    st.session_state.user_id = ""
+
+if "pagina" not in st.session_state:
+    st.session_state.pagina = "home"
+
+# --- CAPTURA DE NAVEGAÇÃO DOS BOTÕES COMPATÍVEL COM HTML ESTÁTICO ---
+query_params = st.query_params
+if "nav" in query_params:
+    st.session_state.pagina = query_params["nav"]
+if "action" in query_params and query_params["action"] == "logout":
+    st.session_state.logged_in = False
+    st.session_state.user_name = ""
+    st.session_state.user_profile = ""
+    st.session_state.user_id = ""
+    st.session_state.pagina = "home"
+    st.query_params.clear()
+    st.rerun()
+
+# --- BLINDAGEM VISUAL - ESTILIZAÇÃO DO LAYOUT OFICIAL IMPEDINDO QUEBRAS ---
 st.markdown("""
     <style>
     /* Forçar a largura ideal da página */
@@ -33,35 +56,42 @@ st.markdown("""
     .titulo-principal {
         font-family: 'Georgia', serif;
         color: #3D2612;
-        font-size: 28px;
+        font-size: 30px;
         font-weight: bold;
         text-align: center;
-        margin-bottom: 20px;
+        margin-bottom: 25px;
         margin-top: -10px;
     }
     
-    /* Painel do Logotipo Unificado - Customização da linha do bloco superior */
-    div[data-testid="stHorizontalBlock"]:has(.texto-igreja) {
-        background-color: #F9F7F1 !important;
-        border-radius: 16px !important;
-        padding: 24px !important;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06) !important;
-        border: 3px solid #A3794E !important; 
-        margin-bottom: 25px !important;
+    /* Cartão Superior (Painel do Logotipo - Tecido Linho + Moldura Dourada) */
+    .cartao-superior-oficial {
+        background-color: #F9F7F1;
+        border-radius: 16px;
+        padding: 24px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 25px;
+        border: 3.5px solid #A3794E !important; 
         
-        /* Efeito visual simulando textura de tecido linho */
-        background-image: linear-gradient(90deg, rgba(163,121,78,0.04) 1px, transparent 1px),
-                          linear-gradient(rgba(163,121,78,0.04) 1px, transparent 1px) !important;
-        background-size: 4px 4px !important;
+        /* Textura de linho refinada */
+        background-image: linear-gradient(90deg, rgba(163,121,78,0.03) 1px, transparent 1px),
+                          linear-gradient(rgba(163,121,78,0.03) 1px, transparent 1px);
+        background-size: 4px 4px;
     }
     
-    /* Estilização dos textos dourados aumentados do cabeçalho */
+    .bloco-logo-texto {
+        display: flex;
+        flex-direction: column;
+    }
+    
     .texto-igreja {
-        font-size: 26px;
+        font-size: 28px;
         font-weight: 700;
-        color: #A3794E; /* Dourado / Bronze */
+        color: #A3794E; 
         line-height: 1.2;
-        margin-top: 12px;
+        margin-top: 14px;
         font-family: 'Georgia', serif;
     }
     
@@ -72,85 +102,89 @@ st.markdown("""
         margin-top: 4px;
     }
     
-    /* Barra de Status do Usuário Terracota */
-    div[data-testid="stHorizontalBlock"]:has(.texto-logado) {
-        background-color: #EAB99F !important; /* Fronte Dolorosa */
-        border-radius: 25px !important;
-        padding: 6px 16px 6px 20px !important;
-        margin-bottom: 25px !important;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.05) !important;
-        display: flex !important;
-        align-items: center !important;
+    .imagem-santo-moldura {
+        border-radius: 14px; 
+        border: 3.5px solid #A3794E !important; 
+        box-shadow: 0 4px 8px rgba(0,0,0,0.12);
+    }
+    
+    /* Barra de Status Terracota Completamente Integrada */
+    .barra-status-container {
+        background-color: #EAB99F; 
+        border-radius: 25px;
+        padding: 6px 12px 6px 20px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 25px;
+        height: 52px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        box-sizing: border-box;
     }
     
     .texto-logado {
         color: #10141A;
         font-weight: 600;
         font-size: 16px;
-        margin-top: 8px;
+        font-family: sans-serif;
     }
     
-    /* Botão Sair integrado na ponta direita da barra terracota (Veste de Dores) */
-    div[data-testid="stHorizontalBlock"]:has(.texto-logado) div.stButton > button {
+    /* Botão Sair integrado na extremidade direita da barra terracota */
+    .btn-sair-link {
         background-color: #7B3E3C !important; 
         color: #FFFFFF !important;
-        border: none !important;
+        text-decoration: none !important;
         border-radius: 20px !important;
-        padding: 6px 24px !important;
+        padding: 8px 24px !important;
         font-size: 15px !important;
         font-weight: bold !important;
-        height: 38px !important;
-        width: auto !important;
+        display: inline-block;
         box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
+        font-family: sans-serif;
+        transition: transform 0.1s ease;
     }
     
-    div[data-testid="stHorizontalBlock"]:has(.texto-logado) div.stButton > button:hover {
+    .btn-sair-link:hover {
         background-color: #914947 !important;
         transform: scale(1.02);
     }
     
-    /* Container do Grid de Botões Principal (Fundo Cinza Escuro) */
-    div[data-testid="stHorizontalBlock"]:has(.btn-grid) {
-        background-color: #555E6B !important; 
-        border-radius: 16px !important;
-        padding: 24px 20px !important;
-        margin-bottom: 25px !important;
-        box-shadow: inset 0 2px 5px rgba(0,0,0,0.2) !important;
-        gap: 16px !important;
+    /* Painel do Grid de Botões Estático (Fundo Cinza Escuro Garantido) */
+    .painel-opcoes-estatico {
+        background-color: #555E6B; 
+        border-radius: 16px;
+        padding: 24px 20px;
+        margin-bottom: 25px;
+        box-shadow: inset 0 2px 5px rgba(0,0,0,0.2);
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
     }
     
-    /* Customização dos Botões da Grade (Manto Profundo + Borda Dourada Espessa) */
-    div[data-testid="stHorizontalBlock"]:has(.btn-grid) div.stButton > button {
-        background-color: #10141A !important; 
+    /* Estilo Imutável dos Botões (Manto Profundo + Borda Dourada Espessa) */
+    .btn-grid-custom {
+        background-color: #10141A !important;
         color: #FFFFFF !important;
-        border: 3.5px solid #A3794E !important; 
+        border: 3.5px solid #A3794E !important;
         border-radius: 30px !important;
         padding: 14px 10px !important;
-        font-size: 17px !important; 
-        font-weight: 700 !important; 
-        width: 100% !important;
+        font-size: 17px !important;
+        font-weight: 700 !important;
+        text-align: center !important;
+        text-decoration: none !important;
+        display: block !important;
         box-shadow: inset 0 1px 3px rgba(255,255,255,0.1) !important;
-        transition: all 0.2s ease;
+        font-family: sans-serif;
+        transition: background-color 0.2s ease;
     }
     
-    div[data-testid="stHorizontalBlock"]:has(.btn-grid) div.stButton > button:hover {
+    .btn-grid-custom:hover {
         background-color: #1c232e !important;
         border-color: #b88b5c !important;
-        transform: scale(1.02);
     }
     
-    /* Moldura dourada na foto de São Peregrino e arredondamento nas imagens */
-    div[data-testid="stCustomComponentV1"] img, img {
-        border-radius: 12px;
-    }
-    
-    .moldura-santo img {
-        border: 3px solid #A3794E !important;
-        box-shadow: 0 4px 8px rgba(0,0,0,0.15) !important;
-    }
-    
-    /* Caixa de Instruções Inferior (Azul Lâmina Fria) */
-    .barra-instrucoes {
+    /* Caixa de Instruções Inferior (Tom Azul Lâmina Fria Oficial) */
+    .barra-instrucoes-oficial {
         background-color: #A9ACB4; 
         color: #10141A;
         border-radius: 8px;
@@ -159,6 +193,7 @@ st.markdown("""
         font-size: 16px;
         font-weight: 600;
         margin-top: 5px;
+        font-family: sans-serif;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -261,30 +296,20 @@ def deve_exibir_comentarista_e_leitura2(row):
     solenidade = str(row.get('SOLENIDADE', 'NÃO')).strip().upper()
     return eh_fim_de_semana(dia) or solenidade == 'SIM'
 
-# --- GERENCIAMENTO DE ESTADO DA SESSÃO ---
-if "logged_in" not in st.session_state:
-    st.session_state.logged_in = False
-    st.session_state.user_name = ""
-    st.session_state.user_profile = ""
-    st.session_state.user_id = ""
 
-if "pagina" not in st.session_state:
-    st.session_state.pagina = "home"
-
-# --- RENDERIZAÇÃO DO CABEÇALHO (LAYOUT OFICIAL EM LINHO) ---
+# --- RENDERIZAÇÃO FIXA DO TOP COMPONENT (MOLDE ESTÁTICO DE LINHO) ---
 st.markdown('<div class="titulo-principal">Leitores Peregrinos</div>', unsafe_allow_html=True)
 
-head_col1, head_col2 = st.columns([4, 1.2])
-with head_col1:
-    # Aumentando significativamente o tamanho de renderização do logotipo limpo
-    st.image("https://i.ibb.co/HLqFZgZK/logo-igreja.jpg", width=170)
-    st.markdown('<div class="texto-igreja">Igreja São Peregrino</div>', unsafe_allow_html=True)
-    st.markdown('<div class="texto-cidade">São José dos Campos-SP</div>', unsafe_allow_html=True)
-
-with head_col2:
-    st.markdown('<div class="moldura-santo">', unsafe_allow_html=True)
-    st.image("https://i.ibb.co/hJswKtgV/IMG20260522140332.jpg", width=110)
-    st.markdown('</div>', unsafe_allow_html=True)
+st.markdown("""
+    <div class="cartao-superior-oficial">
+        <div class="bloco-logo-texto">
+            <img src="https://i.ibb.co/HLqFZgZK/logo-igreja.jpg" width="160" style="mix-blend-mode: multiply;"/>
+            <div class="texto-igreja">Igreja São Peregrino</div>
+            <div class="texto-cidade">São José dos Campos-SP</div>
+        </div>
+        <img class="imagem-santo-moldura" src="https://i.ibb.co/hJswKtgV/IMG20260522140332.jpg" width="115" height="135"/>
+    </div>
+""", unsafe_allow_html=True)
 
 
 # --- TELA DE LOGIN ---
@@ -320,62 +345,40 @@ if not st.session_state.logged_in:
                 st.error(f"Erro ao conectar com a base de dados: {e}")
     st.stop()
 
-# --- BARRA DO USUÁRIO LOGADO E BOTÃO SAIR INTEGRADOS ---
+
+# --- ELEMENTOS DO PAINEL APÓS LOGIN (STATUS + NAV DE IMAGEM IMUTÁVEL) ---
 perfil_texto = "LEITOR"
 if st.session_state.user_profile == "2":
     perfil_texto = "LEITOR & COMENTARISTA"
 elif st.session_state.user_profile == "3":
     perfil_texto = "ADM"
 
-status_col1, status_col2 = st.columns([4, 1])
-with status_col1:
-    st.markdown(f'<div class="texto-logado">Logado: {st.session_state.user_name} ({perfil_texto})</div>', unsafe_allow_html=True)
-with status_col2:
-    if st.button("Sair", key="btn_sair_oficial"):
-        st.session_state.logged_in = False
-        st.session_state.user_name = ""
-        st.session_state.user_profile = ""
-        st.session_state.user_id = ""
-        st.session_state.pagina = "home"
-        st.rerun()
+# Barra de Status Unificada e Blindada em HTML Nativo
+st.markdown(f"""
+    <div class="barra-status-container">
+        <div class="texto-logado">Logado: {st.session_state.user_name} ({perfil_texto})</div>
+        <a class="btn-sair-link" href="?action=logout">Sair</a>
+    </div>
+""", unsafe_allow_html=True)
 
-st.write("") 
+# Grid de botões estáticos imutáveis mapeando os estados internos via URL do Streamlit
+st.markdown("""
+    <div class="painel-opcoes-estatico">
+        <a class="btn-grid-custom" href="?nav=escala_geral">Escala Geral</a>
+        <a class="btn-grid-custom" href="?nav=exibir_escala">Exibir Escala (PDF)</a>
+        <a class="btn-grid-custom" href="?nav=minha_escala">Minha Escala</a>
+        <a class="btn-grid-custom" href="?nav=aguardando">Aguardando Leitores</a>
+        <a class="btn-grid-custom" href="https://docs.google.com/forms/d/e/1FAIpQLScgX8RkpDYhb-rMwb8_ZR6dJhp-tKUyowmRGrSK-tbsXveqCw/viewform?usp=sharing" target="_blank">Coletar Intenções</a>
+        <a class="btn-grid-custom" href="?nav=ver_intencoes">Ver Intenções</a>
+    </div>
+""", unsafe_allow_html=True)
 
-# --- MENU DE NAVEGAÇÃO PRINCIPAL (GRID RECOLOCADO NO LUGAR) ---
-menu_col1, menu_col2 = st.columns(2)
 
-with menu_col1:
-    if st.button("Escala Geral", use_container_width=True, key="btn_g1"):
-        st.session_state.pagina = "escala_geral"
-        st.rerun()
-    if st.button("Minha Escala", use_container_width=True, key="btn_g2"):
-        st.session_state.pagina = "minha_escala"
-        st.rerun()
-    if st.button("Coletar Intenções", use_container_width=True, key="btn_g3"):
-        st.markdown(
-            '<meta http-equiv="refresh" content="0;url=https://docs.google.com/forms/d/e/1FAIpQLScgX8RkpDYhb-rMwb8_ZR6dJhp-tKUyowmRGrSK-tbsXveqCw/viewform?usp=sharing&ouid=103182596084814948709">',
-            unsafe_allow_html=True
-        )
-
-with menu_col2:
-    # A classe oculta '.btn-grid' força o bloco horizontal do Streamlit a ativar o CSS do painel cinza
-    if st.button("Exibir Escala (PDF)", use_container_width=True, key="btn_g4"):
-        st.session_state.pagina = "exibir_escala"
-        st.rerun()
-    if st.button("Aguardando Leitores", use_container_width=True, key="btn_g5"):
-        st.session_state.pagina = "aguardando"
-        st.rerun()
-    if st.button("Ver Intenções", use_container_width=True, key="btn_g6"):
-        st.session_state.pagina = "ver_intencoes"
-        st.rerun()
-
-# Marca invisível para o seletor CSS do grid identificar o bloco horizontal
-st.markdown('<span class="btn-grid"></span>', unsafe_allow_html=True)
-
-# Carregamento seguro dos dados da escala
+# Carregamento seguro dos dados da escala da planilha
 escala_data = carregar_dados_escala()
 is_adm = (st.session_state.user_profile == "3")
 lista_todos_leitores = obter_lista_leitores() if is_adm else []
+
 
 # --- FUNÇÃO CENTRAL DE RENDERIZAÇÃO DOS EVENTOS ---
 def renderizar_evento(idx, row, modo_aguardando=False):
@@ -551,9 +554,9 @@ def renderizar_evento(idx, row, modo_aguardando=False):
 
     st.markdown("---")
 
-# --- ROTEAMENTO DAS PÁGINAS ---
+# --- ROTEAMENTO DAS PÁGINAS DO APLICATIVO ---
 if st.session_state.pagina == "home":
-    st.markdown('<div class="barra-instrucoes">Selecione uma opção no menu acima para começar.</div>', unsafe_allow_html=True)
+    st.markdown('<div class="barra-instrucoes-oficial">Selecione uma opção no menu acima para começar.</div>', unsafe_allow_html=True)
 
 elif st.session_state.pagina == "escala_geral":
     st.subheader("Escala Geral do Mês")
