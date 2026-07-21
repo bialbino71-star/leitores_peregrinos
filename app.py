@@ -7,7 +7,7 @@ from datetime import datetime, date, timedelta
 from google.oauth2 import service_account
 from fpdf import FPDF
 
-# Configuração da página - Expandindo o contêiner principal para o tamanho correto
+# Configuração da página ampla e responsiva conforme o layout oficial
 st.set_page_config(
     page_title="Leitores Peregrinos", 
     layout="centered",
@@ -24,7 +24,7 @@ if "logged_in" not in st.session_state:
 if "pagina" not in st.session_state:
     st.session_state.pagina = "home"
 
-# --- CAPTURA DE NAVEGAÇÃO DOS BOTÕES ---
+# --- CAPTURA DE NAVEGAÇÃO DOS BOTÕES VIA LINK PARAMS ---
 query_params = st.query_params
 if "nav" in query_params:
     st.session_state.pagina = query_params["nav"]
@@ -37,7 +37,7 @@ if "action" in query_params and query_params["action"] == "logout":
     st.query_params.clear()
     st.rerun()
 
-# --- BLINDAGEM VISUAL - ESTILIZAÇÃO DO LAYOUT OFICIAL DEFINTIVA ---
+# --- BLINDAGEM VISUAL DEFINITIVA (MANTRA DO LAYOUT OFICIAL) ---
 st.markdown("""
     <style>
     /* Forçar a largura ideal da página */
@@ -51,6 +51,9 @@ st.markdown("""
     .stApp {
         background-color: #FEFAE0 !important;
     }
+    
+    /* Ocultar elementos nativos do Streamlit para preencher melhor a tela */
+    #MainMenu, footer, header {visibility: hidden !important;}
     
     /* Cabeçalho Principal */
     .titulo-principal {
@@ -88,13 +91,10 @@ st.markdown("""
         width: 65%;
     }
     
-    /* Desenho ampliado na largura do texto e forçado a ficar dourado puro */
-    .imagem-logo-igreja {
-        mix-blend-mode: multiply;
-        /* Filtro preciso para converter os traços pretos em dourado #A3794E */
-        filter: invert(53%) sepia(21%) saturate(925%) hue-rotate(349deg) contrast(68%);
-        width: 260px !important; 
-        height: auto !important;
+    /* Desenho SVG Nativo Dourado Puro */
+    .svg-igreja-dourada {
+        width: 260px !important;
+        height: auto;
         display: block;
         margin-bottom: 5px;
     }
@@ -117,7 +117,7 @@ st.markdown("""
         font-family: sans-serif;
     }
     
-    /* Moldura dourada aplicada com precisão na imagem de São Peregrino */
+    /* Moldura dourada aplicada na imagem de São Peregrino */
     .imagem-santo-oficial {
         border-radius: 14px; 
         border: 3.5px solid #A3794E !important; 
@@ -158,7 +158,6 @@ st.markdown("""
         display: inline-block;
         box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
         font-family: sans-serif;
-        transition: transform 0.1s ease;
     }
     
     .btn-sair-link:hover {
@@ -317,11 +316,24 @@ def deve_exibir_comentarista_e_leitura2(row):
 # --- RENDERIZAÇÃO BLINDADA EM HTML DO TOPO COMPLETO ---
 st.markdown('<div class="titulo-principal">Leitores Peregrinos</div>', unsafe_allow_html=True)
 
-# Estrutura HTML limpa: o logo em texto da imagem original foi removido, restando apenas o desenho dourado ampliado
 st.markdown("""
     <div class="cartao-superior-oficial">
         <div class="bloco-logo-texto">
-            <img class="imagem-logo-igreja" src="https://i.ibb.co/HLqFZgZK/logo-igreja.jpg" />
+            <!-- O desenho vetorizado da Fachada em linhas douradas fiéis (#A3794E) -->
+            <svg class="svg-igreja-dourada" viewBox="0 0 450 210" fill="none" stroke="#A3794E" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M 225 10 L 225 55 M 210 25 L 240 25" />
+                <path d="M 185 55 L 265 55 L 265 90 L 185 90 Z" />
+                <path d="M 202 75 L 202 65 M 225 75 L 225 65 M 248 75 L 248 65" />
+                <path d="M 70 145 C 130 115, 320 115, 380 145" />
+                <path d="M 70 145 L 70 200 L 380 200 L 380 145" />
+                <path d="M 70 145 L 30 155 L 30 200 L 70 200" />
+                <path d="M 45 170 L 45 188 M 55 170 L 55 188" />
+                <path d="M 380 145 L 420 155 L 420 200 L 380 200" />
+                <path d="M 395 170 L 395 188 M 405 170 L 405 188" />
+                <path d="M 175 200 L 175 160 C 175 152, 275 152, 275 160 L 275 200" />
+                <path d="M 191 156 L 191 200 M 207 154 L 207 200 M 225 153 L 225 200 M 243 154 L 243 200 M 259 156 L 259 200" />
+                <path d="M 175 172 L 275 172 M 175 186 L 275 186" />
+            </svg>
             <div class="texto-igreja">Igreja São Peregrino</div>
             <div class="texto-cidade">São José dos Campos-SP</div>
         </div>
@@ -513,7 +525,7 @@ def renderizar_evento(idx, row, modo_aguardando=False):
                     st.success("Escalado na 1ª Leitura!")
                     st.rerun()
         else:
-            if lectura1.upper() == usuario_atual.upper():
+            if leitura1.upper() == usuario_atual.upper():
                 if l1_col2.button("Cancelar", key=f"c_l1_{idx}"):
                     sh_conn = get_connection()
                     if processar_tentativa_cancelamento(sh_conn, usuario_atual, dia):
@@ -536,7 +548,7 @@ def renderizar_evento(idx, row, modo_aguardando=False):
                     st.rerun()
             else:
                 novo_nome_l2 = l2_col2.selectbox("Novo Leitor:", ["(Vago)"] + lista_todos_leitores, key=f"sel_l2_{idx}")
-                if l2_col2.button("Salvar", key=f"save_l2_{idx}"):
+                if c_col2.button("Salvar", key=f"save_l2_{idx}"):
                     val_salvar = "" if novo_nome_l2 == "(Vago)" else novo_nome_l2
                     sh_conn = get_connection()
                     ws_live = sh_conn.worksheet("Escala")
