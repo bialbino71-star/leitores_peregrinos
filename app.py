@@ -367,7 +367,7 @@ elif st.session_state.pagina == "exibir_escala":
         linha_limpa = linha.encode('latin-1', 'replace').decode('latin-1')
         pdf.multi_cell(190, 7, linha_limpa)
     
-    pdf_bytes = pdf.output(dest='S').encode('latin1', errors='ignore')
+    pdf_bytes = bytes(pdf.output())
     
     st.download_button(
         label="📥 Baixar Escala em PDF",
