@@ -608,7 +608,7 @@ elif st.session_state.pagina == "aguardando":
         l1 = str(row.get('LEITURA1', '')).strip()
         l2 = str(row.get('LEITURA2', '')).strip()
         
-        if (not l1) or (mostrar_com_l2 park (not c or not l2)):
+        if (not l1) or (mostrar_com_l2 and (not c or not l2)):
             encontrou_vaga = True
             renderizar_evento(idx, row, modo_aguardando=True)
             
