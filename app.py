@@ -2,32 +2,27 @@ import streamlit as st
 import gspread
 import base64
 import json
+import re
+from datetime import datetime, date, timedelta
 from google.oauth2 import service_account
-from googleapiclient.discovery import build
+from fpdf import FPDF
 
 # Configuração da página
 st.set_page_config(page_title="Leitores Peregrinos", layout="centered")
 
-# --- CONEXÃO COM GOOGLE SHEETS E DRIVE ---
+# --- CONEXÃO COM GOOGLE SHEETS ---
 def get_credentials():
     encoded_json = st.secrets["gcp_service_account"]["base64_json"]
     decoded_json = json.loads(base64.b64decode(encoded_json).decode('utf-8'))
     return service_account.Credentials.from_service_account_info(
         decoded_json,
-        scopes=[
-            "https://www.googleapis.com/auth/spreadsheets",
-            "https://www.googleapis.com/auth/drive"
-        ]
+        scopes=["https://www.googleapis.com/auth/spreadsheets"]
     )
 
 def get_connection():
     creds = get_credentials()
     client = gspread.authorize(creds)
     return client.open_by_key("1RnwgFBWytspiM5eh5i0pgW2HXNRrwLXU4dYGXviDHlU")
-
-def get_drive_service():
-    creds = get_credentials()
-    return build('drive', 'v3', credentials=creds)
 
 # --- FUNÇÕES AUXILIARES DE REGRAS ---
 def usuario_ja_escalado_no_dia(escala, data_alvo, nome_usuario):
@@ -38,6 +33,47 @@ def usuario_ja_escalado_no_dia(escala, data_alvo, nome_usuario):
                 str(r.get('LEITURA2', '')).strip() == nome_usuario):
                 return True
     return False
+
+def contar_servicos_no_mes(escala, nome_usuario):
+    count = 0
+    for r in escala:
+        if str(r.get('COMENTARISTA', '')).strip() == nome_usuario:
+            count += 1
+        if str(r.get('LEITURA1', '')).strip() == nome_usuario:
+            count += 1
+        if str(r.get('LEITURA2', '')).strip() == nome_usuario:
+            count += 1
+    return count
+
+def extrair_data_evento(dia_str):
+    match = re.search(r'(\d{2}/\d{2}/\d{4})', str(dia_str))
+    if match:
+        try:
+            return datetime.strptime(match.group(1), "%d/%m/%Y").date()
+        except:
+            pass
+    return None
+
+def processar_tentativa_cancelamento(sh, nome_usuario, dia_evento):
+    data_evento = extrair_data_evento(dia_evento)
+    if data_evento:
+        hoje = date.today()
+        vespera = data_evento - timedelta(days=1)
+        if hoje >= vespera:
+            st.error("Contate o coordenador para a sua substituição")
+            try:
+                ws_leitores = sh.worksheet("Nomes dos Leitores")
+                leitores_rows = ws_leitores.get_all_values()
+                for r_idx, l_row in enumerate(leitores_rows[1:], start=2):
+                    if len(l_row) > 0 and l_row[0].strip().upper() == nome_usuario.strip().upper():
+                        faltas_atual = l_row[2].strip() if len(l_row) > 2 and l_row[2].strip().isdigit() else "0"
+                        novo_faltas = int(faltas_atual) + 1
+                        ws_leitores.update_cell(r_idx, 3, str(novo_faltas))
+                        break
+            except Exception as e:
+                pass
+            return False
+    return True
 
 def eh_fim_de_semana(dia_str):
     d = dia_str.lower()
@@ -58,7 +94,7 @@ if "logged_in" not in st.session_state:
 if "pagina" not in st.session_state:
     st.session_state.pagina = "escala_geral"
 
-# --- CABEÇALHO VISUAL (Ajuste de tamanho para smartphone) ---
+# --- CABEÇALHO VISUAL ---
 st.markdown("<h1 style='text-align: center; font-size: 24px;'>Leitores Peregrinos</h1>", unsafe_allow_html=True)
 
 col_l, col_img = st.columns([1, 2])
@@ -102,7 +138,7 @@ if not st.session_state.logged_in:
                 st.error(f"Erro ao conectar com a base de dados: {e}")
     st.stop()
 
-# --- BARRA DE USUÁRIO LOGADO (Sem resíduos de formatação) ---
+# --- BARRA DE USUÁRIO LOGADO ---
 col_info, col_logout = st.columns([4, 1])
 with col_info:
     perfil_texto = "LEITOR"
@@ -123,7 +159,7 @@ with col_logout:
 
 st.markdown("---")
 
-# --- MENU PRINCIPAL (Apenas os botões) ---
+# --- MENU PRINCIPAL (Apenas Botões) ---
 menu_col1, menu_col2 = st.columns(2)
 with menu_col1:
     if st.button("Escala Geral", use_container_width=True):
@@ -149,7 +185,7 @@ with menu_col2:
 
 st.markdown("---")
 
-# Carregamento dos dados da planilha
+# Conexão e carregamento de dados da Escala
 sh = get_connection()
 try:
     ws_escala = sh.worksheet("Escala")
@@ -159,7 +195,7 @@ except:
 
 is_adm = (st.session_state.user_profile == "3")
 
-# Função para renderizar blocos de eventos com o layout solicitado
+# Função de renderização estruturada dos eventos
 def renderizar_evento(idx, row, modo_aguardando=False):
     dia = str(row.get('DIA', ''))
     horario = str(row.get('HORARIO', ''))
@@ -169,7 +205,6 @@ def renderizar_evento(idx, row, modo_aguardando=False):
     leitura1 = str(row.get('LEITURA1', '')).strip()
     leitura2 = str(row.get('LEITURA2', '')).strip()
     
-    # Se modo aguardando, filtrar apenas se tiver pelo menos um Vago nas funções visíveis
     mostrar_com_l2 = deve_exibir_comentarista_e_leitura2(row)
     
     tem_vago = (not leitura1) or (mostrar_com_l2 and (not comentarista or not leitura2))
@@ -183,13 +218,12 @@ def renderizar_evento(idx, row, modo_aguardando=False):
     
     st.markdown(header_text)
     
-    # 1. COMENTARISTA (Apenas se sábado, domingo ou Solenidade == 'SIM')
+    # 1. COMENTARISTA (se sábado, domingo ou Solenidade == 'SIM')
     if mostrar_com_l2:
         val_com = comentarista if comentarista else "Vago"
         c_col1, c_col2 = st.columns([3, 1])
         c_col1.write(f"**COMENTARISTA:** {val_com}")
         
-        # Regra de ADM: Nem mesmo perfil 3 pode alterar/cancelar seus próprios eventos diretamente por bypass se for dono
         is_owner_com = (comentarista == st.session_state.user_name)
         pode_agir_adm = is_adm and not is_owner_com
 
@@ -197,6 +231,8 @@ def renderizar_evento(idx, row, modo_aguardando=False):
             if c_col2.button("Servir", key=f"s_com_{idx}"):
                 if st.session_state.user_profile == "1" and not is_adm:
                     st.error("Você não possui o perfil “Comentarista”")
+                elif not is_adm and contar_servicos_no_mes(escala_data, st.session_state.user_name) >= 3:
+                    st.error("Você já serviu três vezes nesse mês")
                 elif not is_adm and usuario_ja_escalado_no_dia(escala_data, dia, st.session_state.user_name):
                     st.error("Você já possui uma função agendada neste dia.")
                 else:
@@ -206,11 +242,15 @@ def renderizar_evento(idx, row, modo_aguardando=False):
         else:
             if comentarista == st.session_state.user_name or pode_agir_adm:
                 if c_col2.button("Cancelar", key=f"c_com_{idx}"):
+                    if comentarista == st.session_state.user_name and not is_adm:
+                        if not processar_tentativa_cancelamento(sh, st.session_state.user_name, dia):
+                            st.rerun()
+                            return
                     ws_escala.update_cell(idx + 2, 4, "")
                     st.success("Cancelado com sucesso!")
                     st.rerun()
 
-    # 2. 1ª LEITURA (Exibida todos os dias)
+    # 2. 1ª LEITURA (todos os dias)
     val_l1 = leitura1 if leitura1 else "Vago"
     l1_col1, l1_col2 = st.columns([3, 1])
     l1_col1.write(f"**1ª LEITURA:** {val_l1}")
@@ -220,7 +260,9 @@ def renderizar_evento(idx, row, modo_aguardando=False):
 
     if not leitura1:
         if l1_col2.button("Servir", key=f"s_l1_{idx}"):
-            if not is_adm and usuario_ja_escalado_no_dia(escala_data, dia, st.session_state.user_name):
+            if not is_adm and contar_servicos_no_mes(escala_data, st.session_state.user_name) >= 3:
+                st.error("Você já serviu três vezes nesse mês")
+            elif not is_adm and usuario_ja_escalado_no_dia(escala_data, dia, st.session_state.user_name):
                 st.error("Você já possui uma função agendada neste dia.")
             else:
                 ws_escala.update_cell(idx + 2, 5, st.session_state.user_name)
@@ -229,11 +271,15 @@ def renderizar_evento(idx, row, modo_aguardando=False):
     else:
         if leitura1 == st.session_state.user_name or pode_agir_l1:
             if l1_col2.button("Cancelar", key=f"c_l1_{idx}"):
+                if leitura1 == st.session_state.user_name and not is_adm:
+                    if not processar_tentativa_cancelamento(sh, st.session_state.user_name, dia):
+                        st.rerun()
+                        return
                 ws_escala.update_cell(idx + 2, 5, "")
                 st.success("Cancelado com sucesso!")
                 st.rerun()
 
-    # 3. 2ª LEITURA (Apenas se sábado, domingo ou Solenidade == 'SIM')
+    # 3. 2ª LEITURA (se sábado, domingo ou Solenidade == 'SIM')
     if mostrar_com_l2:
         val_l2 = leitura2 if leitura2 else "Vago"
         l2_col1, l2_col2 = st.columns([3, 1])
@@ -244,7 +290,9 @@ def renderizar_evento(idx, row, modo_aguardando=False):
 
         if not leitura2:
             if l2_col2.button("Servir", key=f"s_l2_{idx}"):
-                if not is_adm and usuario_ja_escalado_no_dia(escala_data, dia, st.session_state.user_name):
+                if not is_adm and contar_servicos_no_mes(escala_data, st.session_state.user_name) >= 3:
+                    st.error("Você já serviu três vezes nesse mês")
+                elif not is_adm and usuario_ja_escalado_no_dia(escala_data, dia, st.session_state.user_name):
                     st.error("Você já possui uma função agendada neste dia.")
                 else:
                     ws_escala.update_cell(idx + 2, 6, st.session_state.user_name)
@@ -253,13 +301,17 @@ def renderizar_evento(idx, row, modo_aguardando=False):
         else:
             if leitura2 == st.session_state.user_name or pode_agir_l2:
                 if l2_col2.button("Cancelar", key=f"c_l2_{idx}"):
+                    if leitura2 == st.session_state.user_name and not is_adm:
+                        if not processar_tentativa_cancelamento(sh, st.session_state.user_name, dia):
+                            st.rerun()
+                            return
                     ws_escala.update_cell(idx + 2, 6, "")
                     st.success("Cancelado com sucesso!")
                     st.rerun()
 
     st.markdown("---")
 
-# --- ROTEAMENTO DE PÁGINAS POR ESTADO ---
+# --- ROTEAMENTO DE PÁGINAS ---
 
 if st.session_state.pagina == "escala_geral":
     st.subheader("Escala Geral do Mês")
@@ -289,10 +341,37 @@ elif st.session_state.pagina == "coletar":
     st.markdown("[Abrir Formulário de Intenções no Google Forms](https://docs.google.com/forms/d/e/1FAIpQLScgX8RkpDYhb-rMwb8_ZR6dJhp-tKUyowmRGrSK-tbsXveqCw/viewform?usp=sharing&ouid=103182596084814948709)", unsafe_allow_html=True)
 
 elif st.session_state.pagina == "exibir_escala":
-    st.subheader("Exibir Escala (Impressão / PDF)")
-    st.write("Visualização consolidada para impressão:")
-    st.dataframe(escala_data, use_container_width=True)
-    st.markdown("*Dica: Use Ctrl+P no seu navegador para imprimir.*")
+    st.subheader("Exibir Escala (PDF)")
+    st.write("Clique abaixo para baixar o PDF da Escala Geral:")
+    
+    # Geração de PDF via FPDF
+    class PDF(FPDF):
+        def header(self):
+            self.set_font('Arial', 'B', 12)
+            self.cell(0, 10, 'Escala de Leitores - Leitores Peregrinos', 0, 1, 'C')
+            self.ln(5)
+        def footer(self):
+            self.set_y(-15)
+            self.set_font('Arial', 'I', 8)
+            self.cell(0, 10, f'Página {self.page_no()}', 0, 0, 'C')
+
+    pdf = PDF()
+    pdf.add_page()
+    pdf.set_font("Arial", size=10)
+    
+    for row in escala_data:
+        linha = f"Data: {row.get('DIA')} | Horário: {row.get('HORARIO')} | Solenidade: {row.get('SOLENIDADE')} | Comentarista: {row.get('COMENTARISTA') or 'Vago'} | 1ª Leitura: {row.get('LEITURA1') or 'Vago'} | 2ª Leitura: {row.get('LEITURA2') or 'Vago'}"
+        pdf.multi_cell(0, 8, linha)
+        
+    pdf_bytes = pdf.output(dest='S').encode('latin1', errors='ignore')
+    
+    st.download_button(
+        label="📥 Baixar Escala em PDF",
+        data=pdf_bytes,
+        file_name="escala_leitores.pdf",
+        mime="application/pdf",
+        use_container_width=True
+    )
 
 elif st.session_state.pagina == "aguardando":
     st.subheader("Aguardando Leitores (Vagas Pendentes)")
@@ -312,7 +391,7 @@ elif st.session_state.pagina == "aguardando":
 
 elif st.session_state.pagina == "ver_intencoes":
     st.subheader("Relatório de Intenções Coletadas")
-    st.markdown("Selecione a data e o horário da missa para buscar, mesclar e exibir os relatórios do AutoCrat:")
+    st.markdown("Informe a data e o horário da missa para buscar e mesclar os relatórios da aba **Respostas ao Formulário 2**:")
     
     col_d, col_h = st.columns(2)
     with col_d:
@@ -325,40 +404,29 @@ elif st.session_state.pagina == "ver_intencoes":
             st.warning("Preencha a data e o horário para realizar a busca.")
         else:
             try:
-                with st.spinner("Buscando relatórios no Google Drive..."):
-                    drive_service = get_drive_service()
-                    query_nome = f"intenções_{filtro_data}_{filtro_horario}"
+                with st.spinner("Buscando dados na planilha..."):
+                    ws_resp = sh.worksheet("Respostas ao Formulário 2")
+                    respostas_data = ws_resp.get_all_records()
                     
-                    results = drive_service.files().list(
-                        q=f"name contains '{query_nome}' and trashed = false",
-                        pageSize=10,
-                        fields="files(id, name, mimeType)"
-                    ).execute()
+                    conteudo_mesclado = ""
+                    encontrou = False
                     
-                    files = results.get('files', [])
-                    
-                    if not files:
-                        st.info(f"Nenhum relatório encontrado para {filtro_data} às {filtro_horario}.")
-                    else:
-                        st.success(f"{len(files)} relatório(s) encontrado(s). Mesclando conteúdo...")
+                    for r in respostas_data:
+                        data_resp = str(r.get('Data', r.get('DATA', ''))).strip()
+                        horario_resp = str(r.get('Horário da Missa', r.get('Horario da Missa', r.get('HORARIO', '')))).strip()
                         
-                        conteudo_mesclado = ""
-                        for file in files:
-                            file_id = file['id']
-                            file_name = file['name']
-                            conteudo_mesclado += f"\n\n--- [ Relatório de: {file_name} ] ---\n\n"
+                        if filtro_data in data_resp and filtro_horario in horario_resp:
+                            encontrou = True
+                            conteudo_mesclado += f"\n--- Resposta de: {r.get('Carimbo de data/hora', 'Anônimo')} ---\n"
+                            for k, v in r.items():
+                                conteudo_mesclado += f"{k}: {v}\n"
+                            conteudo_mesclado += "\n" + "-"*40 + "\n"
                             
-                            if file['mimeType'] == 'application/vnd.google-apps.document':
-                                request = drive_service.files().export_media(fileId=file_id, mimeType='text/plain')
-                                data_bytes = request.execute()
-                                conteudo_mesclado += data_bytes.decode('utf-8', errors='ignore')
-                            else:
-                                request = drive_service.files().get_media(fileId=file_id)
-                                data_bytes = request.execute()
-                                conteudo_mesclado += data_bytes.decode('utf-8', errors='ignore')
-                        
-                        st.markdown("### Relatório Consolidado para Impressão:")
-                        st.text_area("Conteúdo Mesclado", conteudo_mesclado, height=300)
+                    if not encontrou:
+                        st.info(f"Nenhuma intenção encontrada para {filtro_data} às {filtro_horario}.")
+                    else:
+                        st.success("Relatórios mesclados com sucesso!")
+                        st.text_area("Relatório Consolidado", conteudo_mesclado, height=300)
                         st.markdown("*Dica: Use Ctrl+P no seu navegador para imprimir este relatório consolidado.*")
             except Exception as e:
-                st.error(f"Erro ao acessar o Google Drive: {e}")
+                st.error(f"Erro ao buscar na planilha: {e}")
