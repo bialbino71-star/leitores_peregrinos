@@ -102,7 +102,7 @@ st.markdown("""
 
     .st-key-sair_wrapper button {
         background: #1C120C !important;
-        color: #EAB99F !important;
+        color: #FFFFFF !important;
         border: 1px solid #3D2612 !important;
         border-radius: 25px !important;
         padding: 4px 24px !important;
@@ -153,7 +153,7 @@ st.markdown("""
     .st-key-menu_grid button *,
     .st-key-menu_grid div.stLinkButton a,
     .st-key-menu_grid div.stLinkButton a * {
-        color: #E0E2E5 !important;
+        color: #FFFFFF !important;
     }
     
     .st-key-menu_grid button:hover,
@@ -206,7 +206,7 @@ st.markdown("""
     div[data-testid="stButton"] button *,
     div[data-testid="stFormSubmitButton"] button,
     div[data-testid="stFormSubmitButton"] button * {
-        color: #EAB99F !important;
+        color: #FFFFFF !important;
     }
     div[data-testid="stButton"] button:hover,
     div[data-testid="stFormSubmitButton"] button:hover {
@@ -216,7 +216,7 @@ st.markdown("""
     /* O botão Sair e os botões do menu têm estilo próprio mais específico, então continuam intactos abaixo */
     .st-key-sair_wrapper button,
     .st-key-sair_wrapper button * {
-        color: #EAB99F !important;
+        color: #FFFFFF !important;
     }
     </style>
 """, unsafe_allow_html=True)
