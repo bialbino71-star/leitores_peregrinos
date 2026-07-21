@@ -7,19 +7,19 @@ from datetime import datetime, date, timedelta
 from google.oauth2 import service_account
 from fpdf import FPDF
 
-# Configuração da página - Mantendo o alinhamento amplo e responsivo
+# Configuração da página - Expandindo o contêiner principal para o tamanho correto
 st.set_page_config(
     page_title="Leitores Peregrinos", 
     layout="centered",
     initial_sidebar_state="collapsed"
 )
 
-# --- INJEÇÃO DEFINITIVA DO VISUAL E ESTILIZAÇÃO DO LAYOUT OFICIAL ---
+# --- INJEÇÃO DO VISUAL E ESTILIZAÇÃO DO LAYOUT OFICIAL ---
 st.markdown("""
     <style>
     /* Forçar a largura ideal da página */
     .block-container {
-        max-width: 650px !important;
+        max-width: 700px !important;
         padding-top: 1.5rem !important;
         padding-bottom: 1.5rem !important;
     }
@@ -51,8 +51,6 @@ st.markdown("""
         align-items: center;
         margin-bottom: 25px;
         border: 1px solid rgba(0,0,0,0.04);
-        background-image: radial-gradient(rgba(0,0,0,0.015) 1px, transparent 0);
-        background-size: 8px 8px;
     }
     
     .bloco-logo-texto {
@@ -74,68 +72,71 @@ st.markdown("""
         margin-top: 2px;
     }
     
-    /* Container da Barra de Status do Usuário */
-    .container-status-flex {
+    /* Barra de Status do Usuário (Fronte Dolorosa) */
+    .barra-status-oficial {
         background-color: #EAB99F; /* Fronte Dolorosa */
         border-radius: 25px;
-        padding: 4px 6px 4px 20px;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 25px;
-        height: 48px;
-    }
-    
-    .texto-logado {
+        padding: 12px 20px;
         color: #10141A;
         font-weight: 600;
         font-size: 15px;
+        text-align: center;
+        margin-bottom: 15px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
     }
     
-    /* Container do Grid de Botões (Fundo Cinza Escuro do Layout Oficial) */
-    .painel-opcoes-grid {
-        background-color: #555E6B !important; 
-        border-radius: 16px;
-        padding: 20px 18px;
-        margin-bottom: 25px;
-        box-shadow: inset 0 2px 5px rgba(0,0,0,0.2);
+    /* Customização do Bloco do Menu para criar o fundo cinza unificado */
+    [data-testid="stHorizontalBlock"] {
+        background-color: #555E6B !important; /* Fundo Cinza Escuro */
+        border-radius: 16px !important;
+        padding: 24px 20px !important;
+        margin-bottom: 25px !important;
+        box-shadow: inset 0 2px 5px rgba(0,0,0,0.2) !important;
+        gap: 16px !important;
     }
     
-    /* Customização Cirúrgica de Botões da Grade (Manto Profundo + Borda Dourada) */
-    div.painel-opcoes-grid div.stButton > button {
+    /* Garantir neutralidade nas colunas internas do Streamlit */
+    [data-testid="stColumn"] {
+        background-color: transparent !important;
+        padding: 0 !important;
+    }
+    
+    /* Customização de Botões do Menu (Manto Profundo + Moldura Dourada) */
+    [data-testid="stHorizontalBlock"] div.stButton > button {
         background-color: #10141A !important; /* Manto Profundo */
         color: #FFFFFF !important;
         border: 2px solid #A3794E !important; /* Cabo Dourado */
         border-radius: 30px !important;
         padding: 12px 10px !important;
         font-size: 15px !important;
-        font-weight: 500 !important;
+        font-weight: 600 !important;
         width: 100% !important;
         box-shadow: inset 0 1px 3px rgba(255,255,255,0.1) !important;
         transition: all 0.2s ease;
     }
     
-    div.painel-opcoes-grid div.stButton > button:hover {
+    [data-testid="stHorizontalBlock"] div.stButton > button:hover {
         background-color: #1c232e !important;
         border-color: #b88b5c !important;
         transform: scale(1.02);
     }
     
-    /* Botão Sair - Encaixado perfeitamente no padrão da maquete (Veste de Dores) */
-    div.container-status-flex div.stButton > button {
+    /* Botão Sair isolado (Estilo Veste de Dores) */
+    div.element-container:has(button[key="btn_sair_oficial"]) div.stButton > button {
         background-color: #7B3E3C !important; /* Veste de Dores */
         color: #FFFFFF !important;
         border: none !important;
         border-radius: 20px !important;
-        padding: 6px 22px !important;
+        padding: 6px 30px !important;
         font-size: 14px !important;
         font-weight: bold !important;
-        height: 36px !important;
         width: auto !important;
+        margin: 0 auto !important;
+        display: block !important;
         box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
     }
     
-    div.container-status-flex div.stButton > button:hover {
+    div.element-container:has(button[key="btn_sair_oficial"]) div.stButton > button:hover {
         background-color: #914947 !important;
         transform: scale(1.03);
     }
@@ -150,7 +151,6 @@ st.markdown("""
         font-size: 15px;
         font-weight: 600;
         margin-top: 5px;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
     }
     </style>
 """, unsafe_allow_html=True)
@@ -263,7 +263,7 @@ if "logged_in" not in st.session_state:
 if "pagina" not in st.session_state:
     st.session_state.pagina = "home"
 
-# --- RENDERIZAÇÃO ESTRUTURAL DO TOPO (LAYOUT OFICIAL) ---
+# --- RENDERIZAÇÃO DO TOPO (LAYOUT OFICIAL) ---
 st.markdown('<div class="titulo-principal">Leitores Peregrinos</div>', unsafe_allow_html=True)
 
 st.markdown(f"""
@@ -310,22 +310,20 @@ if not st.session_state.logged_in:
                 st.error(f"Erro ao conectar com a base de dados: {e}")
     st.stop()
 
-# --- BARRA DO USUÁRIO LOGADO (CONTAINER FLEX HÍBRIDO) ---
+# --- BARRA DO USUÁRIO LOGADO ---
 perfil_texto = "LEITOR"
 if st.session_state.user_profile == "2":
     perfil_texto = "LEITOR & COMENTARISTA"
 elif st.session_state.user_profile == "3":
     perfil_texto = "ADM"
 
-# Criamos a div flex com abertura HTML nativa
 st.markdown(f"""
-    <div class="container-status-flex">
-        <div class="texto-logado">Logado: {st.session_state.user_name} ({perfil_texto})</div>
-        <div>
+    <div class="barra-status-oficial">
+        Logado: {st.session_state.user_name} ({perfil_texto})
+    </div>
 """, unsafe_allow_html=True)
 
-# Injetamos o botão do streamlit no local exato do fechamento flex
-if st.button("Sair"):
+if st.button("Sair", key="btn_sair_oficial"):
     st.session_state.logged_in = False
     st.session_state.user_name = ""
     st.session_state.user_profile = ""
@@ -333,15 +331,11 @@ if st.button("Sair"):
     st.session_state.pagina = "home"
     st.rerun()
 
-# Fechamos as tags abertas
-st.markdown("</div></div>", unsafe_allow_html=True)
+st.write("") 
 
-
-# --- MENU DE NAVEGAÇÃO PRINCIPAL (GRID TOTALMENTE EMBUTIDO NO CONTEXTO CINZA) ---
-# Abrimos o wrapper com estilo cinza de fundo
-st.markdown('<div class="painel-opcoes-grid">', unsafe_allow_html=True)
-
+# --- MENU DE NAVEGAÇÃO PRINCIPAL (GRID TOTALMENTE APROVEITADO) ---
 menu_col1, menu_col2 = st.columns(2)
+
 with menu_col1:
     if st.button("Escala Geral", use_container_width=True):
         st.session_state.pagina = "escala_geral"
@@ -365,9 +359,6 @@ with menu_col2:
     if st.button("Ver Intenções", use_container_width=True):
         st.session_state.pagina = "ver_intencoes"
         st.rerun()
-
-# Fechamos o painel cinza para que ele empacote os botões corretamente
-st.markdown('</div>', unsafe_allow_html=True)
 
 # Carregamento seguro dos dados da escala
 escala_data = carregar_dados_escala()
@@ -548,7 +539,7 @@ def renderizar_evento(idx, row, modo_aguardando=False):
 
     st.markdown("---")
 
-# --- ROTEAMENTO DAS PÁGINAS DO APLICATIVO ---
+# --- ROTEAMENTO DAS PÁGINAS ---
 if st.session_state.pagina == "home":
     st.markdown('<div class="barra-instrucoes">Selecione uma opção no menu acima para começar.</div>', unsafe_allow_html=True)
 
