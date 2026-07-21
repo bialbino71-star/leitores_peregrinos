@@ -309,7 +309,7 @@ status_col1, status_col2 = st.columns([4, 1])
 with status_col1:
     st.markdown(f"""
         <div class="barra-status-alinhada">
-            <div class="texto-logado-interno">Servo: {st.session_state.user_name} ({perfil_texto})</div>
+            <div class="texto-logado-interno">Servo(a): {st.session_state.user_name} ({perfil_texto})</div>
         </div>
     """, unsafe_allow_html=True)
 
@@ -656,3 +656,4 @@ elif st.session_state.pagina == "ver_intencoes":
                     st.text_area("Relatório Consolidado", conteudo_mesclado, height=300)
     except Exception as e:
         st.error(f"Erro ao acessar a aba de respostas: {e}")
+
