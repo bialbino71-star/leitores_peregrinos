@@ -178,6 +178,14 @@ st.markdown("""
         color: #3D2612 !important;
     }
 
+    /* TEXTO DE CONTEÚDO (descrições dos eventos em Escala Geral, Minha Escala, Aguardando Leitores etc.)
+       Mira apenas o texto dentro de blocos de markdown/write - nunca o texto interno de botões. */
+    .stApp div[data-testid="stMarkdownContainer"] p,
+    .stApp div[data-testid="stMarkdownContainer"] li,
+    .stApp div[data-testid="stMarkdownContainer"] {
+        color: #3D2612 !important;
+    }
+
     /* CAIXAS DE TEXTO (login e demais formulários): fundo branco, texto preto */
     .stTextInput input, .stTextArea textarea {
         background-color: #FFFFFF !important;
