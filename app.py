@@ -7,19 +7,19 @@ from datetime import datetime, date, timedelta
 from google.oauth2 import service_account
 from fpdf import FPDF
 
-# Configuração da página - Mantendo o alinhamento amplo e responsivo
+# Configuração da página - Expandindo o contêiner principal para o tamanho correto
 st.set_page_config(
     page_title="Leitores Peregrinos", 
     layout="centered",
     initial_sidebar_state="collapsed"
 )
 
-# --- INJEÇÃO DO VISUAL E ESTILIZAÇÃO COMPLETA DO LAYOUT OFICIAL ---
+# --- INJEÇÃO DO VISUAL E ESTILIZAÇÃO DO LAYOUT OFICIAL ---
 st.markdown("""
     <style>
     /* Forçar a largura ideal da página */
     .block-container {
-        max-width: 720px !important;
+        max-width: 700px !important;
         padding-top: 1.5rem !important;
         padding-bottom: 1.5rem !important;
     }
@@ -40,76 +40,59 @@ st.markdown("""
         margin-top: -10px;
     }
     
-    /* Cartão Superior (Painel do Logotipo Unificado - Estilo Tecido Linho + Moldura Dourada) */
-    .cartao-superior {
-        background-color: #F9F7F1;
-        border-radius: 16px;
-        padding: 24px;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 25px;
-        /* Moldura dourada/bronze em todo o cabeçalho */
+    /* Painel do Logotipo Unificado - Customização da linha do bloco superior */
+    div[data-testid="stHorizontalBlock"]:has(.texto-igreja) {
+        background-color: #F9F7F1 !important;
+        border-radius: 16px !important;
+        padding: 24px !important;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06) !important;
         border: 3px solid #A3794E !important; 
+        margin-bottom: 25px !important;
         
         /* Efeito visual simulando textura de tecido linho */
         background-image: linear-gradient(90deg, rgba(163,121,78,0.04) 1px, transparent 1px),
-                          linear-gradient(rgba(163,121,78,0.04) 1px, transparent 1px);
-        background-size: 4px 4px;
+                          linear-gradient(rgba(163,121,78,0.04) 1px, transparent 1px) !important;
+        background-size: 4px 4px !important;
     }
     
-    .bloco-logo-texto {
-        display: flex;
-        flex-direction: column;
-    }
-    
-    /* Aumento das letras escritas em dourado */
+    /* Estilização dos textos dourados aumentados do cabeçalho */
     .texto-igreja {
         font-size: 26px;
         font-weight: 700;
         color: #A3794E; /* Dourado / Bronze */
         line-height: 1.2;
-        margin-top: 16px;
+        margin-top: 12px;
         font-family: 'Georgia', serif;
     }
     
     .texto-cidade {
         font-size: 18px;
-        color: #A3794E; /* Dourado / Bronze */
+        color: #A3794E;
         font-weight: 500;
         margin-top: 4px;
     }
     
-    /* Moldura dourada espessa aplicada na imagem de São Peregrino */
-    .imagem-santo-moldura {
-        border-radius: 14px; 
-        border: 3px solid #A3794E !important; 
-        box-shadow: 0 4px 8px rgba(0,0,0,0.15);
-    }
-    
-    /* Barra de Status Flex (Logado Integrado ao Botão Sair na faixa Terracota) */
-    .barra-status-container {
-        background-color: #EAB99F; /* Tom Terracota / Fronte Dolorosa */
-        border-radius: 25px;
-        padding: 4px 6px 4px 20px;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 25px;
-        height: 48px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    /* Barra de Status do Usuário Terracota */
+    div[data-testid="stHorizontalBlock"]:has(.texto-logado) {
+        background-color: #EAB99F !important; /* Fronte Dolorosa */
+        border-radius: 25px !important;
+        padding: 6px 16px 6px 20px !important;
+        margin-bottom: 25px !important;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05) !important;
+        display: flex !important;
+        align-items: center !important;
     }
     
     .texto-logado {
         color: #10141A;
         font-weight: 600;
         font-size: 16px;
+        margin-top: 8px;
     }
     
-    /* Botão Sair integrado na extremidade direita da barra terracota */
-    .barra-status-container div.stButton > button {
-        background-color: #7B3E3C !important; /* Veste de Dores (Marrom/Vinho) */
+    /* Botão Sair integrado na ponta direita da barra terracota (Veste de Dores) */
+    div[data-testid="stHorizontalBlock"]:has(.texto-logado) div.stButton > button {
+        background-color: #7B3E3C !important; 
         color: #FFFFFF !important;
         border: none !important;
         border-radius: 20px !important;
@@ -121,13 +104,13 @@ st.markdown("""
         box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
     }
     
-    .barra-status-container div.stButton > button:hover {
+    div[data-testid="stHorizontalBlock"]:has(.texto-logado) div.stButton > button:hover {
         background-color: #914947 !important;
         transform: scale(1.02);
     }
     
-    /* Customização do Painel de Fundo do Menu */
-    [data-testid="stHorizontalBlock"] {
+    /* Container do Grid de Botões Principal (Fundo Cinza Escuro) */
+    div[data-testid="stHorizontalBlock"]:has(.btn-grid) {
         background-color: #555E6B !important; 
         border-radius: 16px !important;
         padding: 24px 20px !important;
@@ -136,34 +119,39 @@ st.markdown("""
         gap: 16px !important;
     }
     
-    [data-testid="stColumn"] {
-        background-color: transparent !important;
-        padding: 0 !important;
-    }
-    
-    /* Customização Agressiva dos Botões da Grade (Manto Profundo + Borda Dourada Aumentada) */
-    [data-testid="stHorizontalBlock"] div.stButton > button {
-        background-color: #10141A !important; /* Manto Profundo */
+    /* Customização dos Botões da Grade (Manto Profundo + Borda Dourada Espessa) */
+    div[data-testid="stHorizontalBlock"]:has(.btn-grid) div.stButton > button {
+        background-color: #10141A !important; 
         color: #FFFFFF !important;
-        border: 3.5px solid #A3794E !important; /* Espessura da borda dourada aumentada */
+        border: 3.5px solid #A3794E !important; 
         border-radius: 30px !important;
         padding: 14px 10px !important;
-        font-size: 17px !important; /* Tamanho da letra aumentado */
+        font-size: 17px !important; 
         font-weight: 700 !important; 
         width: 100% !important;
         box-shadow: inset 0 1px 3px rgba(255,255,255,0.1) !important;
         transition: all 0.2s ease;
     }
     
-    [data-testid="stHorizontalBlock"] div.stButton > button:hover {
+    div[data-testid="stHorizontalBlock"]:has(.btn-grid) div.stButton > button:hover {
         background-color: #1c232e !important;
         border-color: #b88b5c !important;
         transform: scale(1.02);
     }
     
-    /* Caixa de Instruções Inferior (Tom Azul Lâmina Fria Oficial) */
+    /* Moldura dourada na foto de São Peregrino e arredondamento nas imagens */
+    div[data-testid="stCustomComponentV1"] img, img {
+        border-radius: 12px;
+    }
+    
+    .moldura-santo img {
+        border: 3px solid #A3794E !important;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.15) !important;
+    }
+    
+    /* Caixa de Instruções Inferior (Azul Lâmina Fria) */
     .barra-instrucoes {
-        background-color: #A9ACB4; /* Azul Frio / Lâmina Fria */
+        background-color: #A9ACB4; 
         color: #10141A;
         border-radius: 8px;
         padding: 16px;
@@ -171,7 +159,6 @@ st.markdown("""
         font-size: 16px;
         font-weight: 600;
         margin-top: 5px;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
     }
     </style>
 """, unsafe_allow_html=True)
@@ -284,20 +271,21 @@ if "logged_in" not in st.session_state:
 if "pagina" not in st.session_state:
     st.session_state.pagina = "home"
 
-# --- RENDERIZAÇÃO DO TOP COMPONENT (LAYOUT OFICIAL CONFIGURADO) ---
+# --- RENDERIZAÇÃO DO CABEÇALHO (LAYOUT OFICIAL EM LINHO) ---
 st.markdown('<div class="titulo-principal">Leitores Peregrinos</div>', unsafe_allow_html=True)
 
-# Logo da igreja aumentado (160px) e moldura dourada na imagem do Santo
-st.markdown(f"""
-    <div class="cartao-superior">
-        <div class="bloco-logo-texto">
-            <img src="https://i.ibb.co/HLqFZgZK/logo-igreja.jpg" width="160" style="opacity: 0.95;"/>
-            <div class="texto-igreja">Igreja São Peregrino</div>
-            <div class="texto-cidade">São José dos Campos-SP</div>
-        </div>
-        <img class="imagem-santo-moldura" src="https://i.ibb.co/hJswKtgV/IMG20260522140332.jpg" width="95"/>
-    </div>
-""", unsafe_allow_html=True)
+head_col1, head_col2 = st.columns([4, 1.2])
+with head_col1:
+    # Aumentando significativamente o tamanho de renderização do logotipo limpo
+    st.image("https://i.ibb.co/HLqFZgZK/logo-igreja.jpg", width=170)
+    st.markdown('<div class="texto-igreja">Igreja São Peregrino</div>', unsafe_allow_html=True)
+    st.markdown('<div class="texto-cidade">São José dos Campos-SP</div>', unsafe_allow_html=True)
+
+with head_col2:
+    st.markdown('<div class="moldura-santo">', unsafe_allow_html=True)
+    st.image("https://i.ibb.co/hJswKtgV/IMG20260522140332.jpg", width=110)
+    st.markdown('</div>', unsafe_allow_html=True)
+
 
 # --- TELA DE LOGIN ---
 if not st.session_state.logged_in:
@@ -332,58 +320,57 @@ if not st.session_state.logged_in:
                 st.error(f"Erro ao conectar com a base de dados: {e}")
     st.stop()
 
-# --- BARRA DO USUÁRIO LOGADO INTEGRADA COM O BOTÃO SAIR ---
+# --- BARRA DO USUÁRIO LOGADO E BOTÃO SAIR INTEGRADOS ---
 perfil_texto = "LEITOR"
 if st.session_state.user_profile == "2":
     perfil_texto = "LEITOR & COMENTARISTA"
 elif st.session_state.user_profile == "3":
     perfil_texto = "ADM"
 
-# Abertura estrutural flexbox
-st.markdown(f"""
-    <div class="barra-status-container">
-        <div class="texto-logado">Logado: {st.session_state.user_name} ({perfil_texto})</div>
-        <div>
-""", unsafe_allow_html=True)
+status_col1, status_col2 = st.columns([4, 1])
+with status_col1:
+    st.markdown(f'<div class="texto-logado">Logado: {st.session_state.user_name} ({perfil_texto})</div>', unsafe_allow_html=True)
+with status_col2:
+    if st.button("Sair", key="btn_sair_oficial"):
+        st.session_state.logged_in = False
+        st.session_state.user_name = ""
+        st.session_state.user_profile = ""
+        st.session_state.user_id = ""
+        st.session_state.pagina = "home"
+        st.rerun()
 
-# Botão incorporado na ponta direita
-if st.button("Sair"):
-    st.session_state.logged_in = False
-    st.session_state.user_name = ""
-    st.session_state.user_profile = ""
-    st.session_state.user_id = ""
-    st.session_state.pagina = "home"
-    st.rerun()
-
-st.markdown("</div></div>", unsafe_allow_html=True)
 st.write("") 
 
-# --- MENU DE NAVEGAÇÃO PRINCIPAL (GRID REFINADO) ---
+# --- MENU DE NAVEGAÇÃO PRINCIPAL (GRID RECOLOCADO NO LUGAR) ---
 menu_col1, menu_col2 = st.columns(2)
 
 with menu_col1:
-    if st.button("Escala Geral", use_container_width=True):
+    if st.button("Escala Geral", use_container_width=True, key="btn_g1"):
         st.session_state.pagina = "escala_geral"
         st.rerun()
-    if st.button("Minha Escala", use_container_width=True):
+    if st.button("Minha Escala", use_container_width=True, key="btn_g2"):
         st.session_state.pagina = "minha_escala"
         st.rerun()
-    if st.button("Coletar Intenções", use_container_width=True):
+    if st.button("Coletar Intenções", use_container_width=True, key="btn_g3"):
         st.markdown(
             '<meta http-equiv="refresh" content="0;url=https://docs.google.com/forms/d/e/1FAIpQLScgX8RkpDYhb-rMwb8_ZR6dJhp-tKUyowmRGrSK-tbsXveqCw/viewform?usp=sharing&ouid=103182596084814948709">',
             unsafe_allow_html=True
         )
 
 with menu_col2:
-    if st.button("Exibir Escala (PDF)", use_container_width=True):
+    # A classe oculta '.btn-grid' força o bloco horizontal do Streamlit a ativar o CSS do painel cinza
+    if st.button("Exibir Escala (PDF)", use_container_width=True, key="btn_g4"):
         st.session_state.pagina = "exibir_escala"
         st.rerun()
-    if st.button("Aguardando Leitores", use_container_width=True):
+    if st.button("Aguardando Leitores", use_container_width=True, key="btn_g5"):
         st.session_state.pagina = "aguardando"
         st.rerun()
-    if st.button("Ver Intenções", use_container_width=True):
+    if st.button("Ver Intenções", use_container_width=True, key="btn_g6"):
         st.session_state.pagina = "ver_intencoes"
         st.rerun()
+
+# Marca invisível para o seletor CSS do grid identificar o bloco horizontal
+st.markdown('<span class="btn-grid"></span>', unsafe_allow_html=True)
 
 # Carregamento seguro dos dados da escala
 escala_data = carregar_dados_escala()
