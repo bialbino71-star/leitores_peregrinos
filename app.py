@@ -7,8 +7,105 @@ from datetime import datetime, date, timedelta
 from google.oauth2 import service_account
 from fpdf import FPDF
 
-# Configuração da página otimizada para dispositivos móveis
+# Configuração da página otimizada para dispositivos móveis com o layout_oficial
 st.set_page_config(page_title="Leitores Peregrinos", layout="centered")
+
+# --- INJEÇÃO DO VISUAL E ESTILIZAÇÃO DO LAYOUT OFICIAL ---
+st.markdown("""
+    <style>
+    /* Resetando o fundo do Streamlit para o Marfim Quente / Creme */
+    .stApp {
+        background-color: #FEFAE0;
+    }
+    
+    /* Cabeçalho Principal (Aumentado em 2 pontos) */
+    .titulo-principal {
+        font-family: 'Georgia', serif;
+        color: #3D2612;
+        font-size: 26px;
+        font-weight: bold;
+        text-align: center;
+        margin-bottom: 25px;
+        margin-top: -30px;
+    }
+    
+    /* Cartão Superior (Painel do Logotipo Unificado) */
+    .cartao-superior {
+        background-color: #FFFFFF;
+        border-radius: 16px;
+        padding: 20px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+        border: 1px solid rgba(0,0,0,0.05);
+    }
+    
+    .bloco-logo-texto {
+        display: flex;
+        flex-direction: column;
+    }
+    
+    .texto-igreja {
+        font-size: 22px;
+        font-weight: 600;
+        color: #A3794E; /* Cabo Dourado */
+        line-height: 1.2;
+        margin-top: 8px;
+    }
+    
+    .texto-cidade {
+        font-size: 16px;
+        color: #A3794E; /* Cabo Dourado */
+        margin-top: 2px;
+    }
+    
+    /* Customização Global de Botões do Streamlit (Estilo Pílula e Manto Profundo) */
+    div.stButton > button {
+        background-color: #10141A !important; /* Manto Profundo */
+        color: #FFFFFF !important;
+        border: 2px solid #A3794E !important; /* Cabo Dourado */
+        border-radius: 30px !important;
+        padding: 10px 20px !important;
+        font-size: 15px !important;
+        font-weight: 500 !important;
+        width: 100% !important;
+        box-shadow: inset 0 1px 3px rgba(255,255,255,0.1) !important;
+        transition: all 0.2s ease;
+    }
+    
+    div.stButton > button:hover {
+        background-color: #1c232e !important;
+        border-color: #b88b5c !important;
+        transform: scale(1.02);
+    }
+    
+    /* Estilização específica do botão Sair (Veste de Dores) */
+    div.stButton > button[key="btn_sair_oficial"] {
+        background-color: #7B3E3C !important; /* Veste de Dores */
+        border: none !important;
+        border-top-right-radius: 25px !important;
+        border-bottom-right-radius: 25px !important;
+        border-top-left-radius: 0px !important;
+        border-bottom-left-radius: 0px !important;
+        height: 46px !important;
+    }
+    
+    /* Caixa de Informações Inferior (Lâmina Fria) */
+    .barra-instrucoes {
+        background-color: #A9ACB4; /* Lâmina Fria */
+        color: #10141A;
+        border-radius: 8px;
+        padding: 14px;
+        text-align: center;
+        font-size: 14px;
+        font-weight: 500;
+        margin-top: 20px;
+    }
+    </style>
+""", unsafe_allow_html=True)
+
 
 # --- CONEXÃO SEGURA COM O GOOGLE SHEETS ---
 @st.cache_resource
@@ -119,16 +216,21 @@ if "logged_in" not in st.session_state:
 if "pagina" not in st.session_state:
     st.session_state.pagina = "home"
 
-# --- CABEÇALHO E IDENTIDADE VISUAL ---
-st.markdown("<h1 style='text-align: center; font-size: 22px;'>Leitores Peregrinos</h1>", unsafe_allow_html=True)
+# --- RENDERIZAÇÃO DO TOPO DO APP (LAYOUT OFICIAL) ---
+st.markdown('<div class="titulo-principal">Leitores Peregrinos</div>', unsafe_allow_html=True)
 
-col_l, col_img = st.columns([1, 2])
-with col_l:
-    st.image("https://i.ibb.co/HLqFZgZK/logo-igreja.jpg", width=70)
-with col_img:
-    st.image("https://i.ibb.co/hJswKtgV/IMG20260522140332.jpg", width=150)
+# Cartão unificado contendo o logo em traço, textos e a foto tratada do Santo
+st.markdown(f"""
+    <div class="cartao-superior">
+        <div class="bloco-logo-texto">
+            <img src="https://i.ibb.co/HLqFZgZK/logo-igreja.jpg" width="130" style="opacity: 0.95;"/>
+            <div class="texto-igreja">Igreja São Peregrino</div>
+            <div class="texto-cidade">São José dos Campos-SP</div>
+        </div>
+        <img src="https://i.ibb.co/hJswKtgV/IMG20260522140332.jpg" width="95" style="border-radius: 12px; border: 2px solid #A3794E; box-shadow: 0 2px 6px rgba(0,0,0,0.15);"/>
+    </div>
+""", unsafe_allow_html=True)
 
-st.markdown("---")
 
 # --- TELA DE LOGIN ---
 if not st.session_state.logged_in:
@@ -163,18 +265,23 @@ if not st.session_state.logged_in:
                 st.error(f"Erro ao conectar com a base de dados: {e}")
     st.stop()
 
-# --- BARRA DO USUÁRIO LOGADO ---
-col_info, col_logout = st.columns([3, 1])
+# --- BARRA DO USUÁRIO LOGADO (MOLDURA FRONTE DOLOROSA) ---
+col_info, col_logout = st.columns([4, 1.3])
 with col_info:
     perfil_texto = "LEITOR"
     if st.session_state.user_profile == "2":
         perfil_texto = "LEITOR & COMENTARISTA"
     elif st.session_state.user_profile == "3":
         perfil_texto = "ADM"
-    st.markdown(f"**Logado:** {st.session_state.user_name} ({perfil_texto})")
+        
+    st.markdown(f"""
+        <div style="background-color: #EAB99F; border-top-left-radius: 25px; border-bottom-left-radius: 25px; padding: 10px 20px; height: 46px; display: flex; align-items: center; color: #10141A; font-weight: 500;">
+            Logado: {st.session_state.user_name} ({perfil_texto})
+        </div>
+    """, unsafe_allow_html=True)
 
 with col_logout:
-    if st.button("Sair"):
+    if st.button("Sair", key="btn_sair_oficial"):
         st.session_state.logged_in = False
         st.session_state.user_name = ""
         st.session_state.user_profile = ""
@@ -182,9 +289,9 @@ with col_logout:
         st.session_state.pagina = "home"
         st.rerun()
 
-st.markdown("---")
+st.write("") # Espaçador técnico sutil
 
-# --- MENU DE NAVEGAÇÃO PRINCIPAL ---
+# --- MENU DE NAVEGAÇÃO PRINCIPAL (GRID 2 COLUNAS SEM DUPLICIDADES) ---
 menu_col1, menu_col2 = st.columns(2)
 with menu_col1:
     if st.button("Escala Geral", use_container_width=True):
@@ -198,7 +305,6 @@ with menu_col1:
             '<meta http-equiv="refresh" content="0;url=https://docs.google.com/forms/d/e/1FAIpQLScgX8RkpDYhb-rMwb8_ZR6dJhp-tKUyowmRGrSK-tbsXveqCw/viewform?usp=sharing&ouid=103182596084814948709">',
             unsafe_allow_html=True
         )
-        st.markdown("[Clique aqui se a página não abrir automaticamente](https://docs.google.com/forms/d/e/1FAIpQLScgX8RkpDYhb-rMwb8_ZR6dJhp-tKUyowmRGrSK-tbsXveqCw/viewform?usp=sharing&ouid=103182596084814948709)")
 
 with menu_col2:
     if st.button("Exibir Escala (PDF)", use_container_width=True):
@@ -211,7 +317,7 @@ with menu_col2:
         st.session_state.pagina = "ver_intencoes"
         st.rerun()
 
-st.markdown("---")
+st.markdown("<br>", unsafe_allow_html=True)
 
 # Carregamento seguro dos dados da escala
 escala_data = carregar_dados_escala()
@@ -251,7 +357,7 @@ def renderizar_evento(idx, row, modo_aguardando=False):
     # 1. COMENTARISTA
     if mostrar_com_l2:
         val_com = comentarista if comentarista else "Vago"
-        c_col1, c_col2 = st.columns([3, 1])
+        c_col1, c_col2 = st.columns([3, 1.5])
         c_col1.write(f"**COMENTARISTA:** {val_com}")
         
         if is_adm:
@@ -299,7 +405,7 @@ def renderizar_evento(idx, row, modo_aguardando=False):
 
     # 2. 1ª LEITURA
     val_l1 = leitura1 if leitura1 else "Vago"
-    l1_col1, l1_col2 = st.columns([3, 1])
+    l1_col1, l1_col2 = st.columns([3, 1.5])
     l1_col1.write(f"**1ª LEITURA:** {val_l1}")
 
     if is_adm:
@@ -346,7 +452,7 @@ def renderizar_evento(idx, row, modo_aguardando=False):
     # 3. 2ª LEITURA
     if mostrar_com_l2:
         val_l2 = leitura2 if leitura2 else "Vago"
-        l2_col1, l2_col2 = st.columns([3, 1])
+        l2_col1, l2_col2 = st.columns([3, 1.5])
         l2_col1.write(f"**2ª LEITURA:** {val_l2}")
 
         if is_adm:
@@ -380,7 +486,7 @@ def renderizar_evento(idx, row, modo_aguardando=False):
                         st.success("Escalado na 2ª Leitura!")
                         st.rerun()
             else:
-                if leitura2.upper() == usuario_atual.upper():
+                if lectura2.upper() == usuario_atual.upper():
                     if l2_col2.button("Cancelar", key=f"c_l2_{idx}"):
                         sh_conn = get_connection()
                         if processar_tentativa_cancelamento(sh_conn, usuario_atual, dia):
@@ -395,7 +501,8 @@ def renderizar_evento(idx, row, modo_aguardando=False):
 # --- ROTEAMENTO DAS PÁGINAS DO APLICATIVO ---
 
 if st.session_state.pagina == "home":
-    st.info("Selecione uma opção no menu acima para começar.")
+    # Renderização da barra inferior baseada no layout_oficial (Lâmina Fria)
+    st.markdown('<div class="barra-instrucoes">Selecione uma opção no menu acima para começar.</div>', unsafe_allow_html=True)
 
 elif st.session_state.pagina == "escala_geral":
     st.subheader("Escala Geral do Mês")
@@ -419,9 +526,6 @@ elif st.session_state.pagina == "minha_escala":
             
     if not encontrou:
         st.write("Você não possui escalas ativas no momento.")
-
-elif st.session_state.pagina == "coletar":
-    pass
 
 elif st.session_state.pagina == "exibir_escala":
     st.subheader("Exibir Escala (PDF)")
