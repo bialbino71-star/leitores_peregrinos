@@ -26,8 +26,6 @@ def get_connection():
     return client.open_by_key("1RnwgFBWytspiM5eh5i0pgW2HXNRrwLXU4dYGXviDHlU")
 
 @st.cache_data(ttl=30)
-py_cache_escala = None # placeholder for cache control reference
-
 def carregar_dados_escala():
     try:
         sh = get_connection()
@@ -428,7 +426,6 @@ elif st.session_state.pagina == "exibir_escala":
         
         mostrar_com_l2 = deve_exibir_comentarista_e_leitura2(row)
         
-        # Cabeçalho do evento alinhado perfeitamente
         texto_cabecalho = f"Data: {dia} - Horario: {horario}"
         if solenidade == 'SIM':
             texto_cabecalho += " (Solenidade)"
