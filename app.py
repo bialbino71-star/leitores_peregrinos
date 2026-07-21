@@ -7,15 +7,26 @@ from datetime import datetime, date, timedelta
 from google.oauth2 import service_account
 from fpdf import FPDF
 
-# Configuração da página otimizada para dispositivos móveis com o layout_oficial
-st.set_page_config(page_title="Leitores Peregrinos", layout="centered")
+# Configuração da página - Ampliando o tamanho geral para não ficar espremido
+st.set_page_config(
+    page_title="Leitores Peregrinos", 
+    layout="centered",
+    initial_sidebar_state="collapsed"
+)
 
-# --- INJEÇÃO DO VISUAL E ESTILIZAÇÃO DO LAYOUT OFICIAL ---
+# --- INJEÇÃO DO VISUAL E ESTILIZAÇÃO DO LAYOUT OFICIAL (MANTRA) ---
 st.markdown("""
     <style>
-    /* Resetando o fundo do Streamlit para o Marfim Quente / Creme */
+    /* Forçar a largura geral da página a ser maior (800px) */
+    .block-container {
+        max-width: 800px !important;
+        padding-top: 2rem !important;
+        padding-bottom: 2rem !important;
+    }
+    
+    /* Fundo Geral da Página (Marfim Quente / Creme) */
     .stApp {
-        background-color: #FEFAE0;
+        background-color: #FEFAE0 !important;
     }
     
     /* Cabeçalho Principal (Aumentado em 2 pontos) */
@@ -33,12 +44,12 @@ st.markdown("""
     .cartao-superior {
         background-color: #FFFFFF;
         border-radius: 16px;
-        padding: 20px;
+        padding: 24px;
         box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
         display: flex;
         justify-content: space-between;
         align-items: center;
-        margin-bottom: 20px;
+        margin-bottom: 25px;
         border: 1px solid rgba(0,0,0,0.05);
     }
     
@@ -52,7 +63,7 @@ st.markdown("""
         font-weight: 600;
         color: #A3794E; /* Cabo Dourado */
         line-height: 1.2;
-        margin-top: 8px;
+        margin-top: 12px;
     }
     
     .texto-cidade {
@@ -61,13 +72,22 @@ st.markdown("""
         margin-top: 2px;
     }
     
-    /* Customização Global de Botões do Streamlit (Estilo Pílula e Manto Profundo) */
+    /* Container do Grid de Botões (Fundo Cinza Escuro do Layout Oficial) */
+    .painel-opcoes {
+        background-color: #4A515B !important; 
+        border-radius: 16px;
+        padding: 24px;
+        margin-bottom: 25px;
+        box-shadow: inset 0 2px 4px rgba(0,0,0,0.15);
+    }
+    
+    /* Customização dos Botões da Grade (Manto Profundo + Borda Dourada) */
     div.stButton > button {
         background-color: #10141A !important; /* Manto Profundo */
         color: #FFFFFF !important;
         border: 2px solid #A3794E !important; /* Cabo Dourado */
         border-radius: 30px !important;
-        padding: 10px 20px !important;
+        padding: 12px 20px !important;
         font-size: 15px !important;
         font-weight: 500 !important;
         width: 100% !important;
@@ -81,31 +101,36 @@ st.markdown("""
         transform: scale(1.02);
     }
     
-    /* Estilização específica do botão Sair (Veste de Dores) */
+    /* Botão Sair Isolado e com a Cor Correta (Veste de Dores) */
     div.stButton > button[key="btn_sair_oficial"] {
         background-color: #7B3E3C !important; /* Veste de Dores */
+        color: #FFFFFF !important;
         border: none !important;
-        border-top-right-radius: 25px !important;
-        border-bottom-right-radius: 25px !important;
-        border-top-left-radius: 0px !important;
-        border-bottom-left-radius: 0px !important;
-        height: 46px !important;
+        border-radius: 20px !important;
+        padding: 6px 18px !important;
+        height: auto !important;
+        width: auto !important;
+        box-shadow: none !important;
     }
     
-    /* Caixa de Informações Inferior (Lâmina Fria) */
+    div.stButton > button[key="btn_sair_oficial"]:hover {
+        background-color: #914947 !important;
+        transform: scale(1.05);
+    }
+    
+    /* Caixa de Instruções Inferior (Lâmina Fria) */
     .barra-instrucoes {
         background-color: #A9ACB4; /* Lâmina Fria */
         color: #10141A;
         border-radius: 8px;
-        padding: 14px;
+        padding: 16px;
         text-align: center;
-        font-size: 14px;
+        font-size: 15px;
         font-weight: 500;
         margin-top: 20px;
     }
     </style>
 """, unsafe_allow_html=True)
-
 
 # --- CONEXÃO SEGURA COM O GOOGLE SHEETS ---
 @st.cache_resource
@@ -146,7 +171,6 @@ def obter_lista_leitores():
         return []
 
 # --- FUNÇÕES DE VALIDAÇÃO E REGRAS DE NEGÓCIO ---
-
 def usuario_ja_escalado_no_dia(escala, data_alvo, nome_usuario):
     for r in escala:
         if str(r.get('DIA', '')).strip() == str(data_alvo).strip():
@@ -216,10 +240,9 @@ if "logged_in" not in st.session_state:
 if "pagina" not in st.session_state:
     st.session_state.pagina = "home"
 
-# --- RENDERIZAÇÃO DO TOPO DO APP (LAYOUT OFICIAL) ---
+# --- RENDERIZAÇÃO ESTRUTURAL DO TOPO (LAYOUT OFICIAL) ---
 st.markdown('<div class="titulo-principal">Leitores Peregrinos</div>', unsafe_allow_html=True)
 
-# Cartão unificado contendo o logo em traço, textos e a foto tratada do Santo
 st.markdown(f"""
     <div class="cartao-superior">
         <div class="bloco-logo-texto">
@@ -230,7 +253,6 @@ st.markdown(f"""
         <img src="https://i.ibb.co/hJswKtgV/IMG20260522140332.jpg" width="95" style="border-radius: 12px; border: 2px solid #A3794E; box-shadow: 0 2px 6px rgba(0,0,0,0.15);"/>
     </div>
 """, unsafe_allow_html=True)
-
 
 # --- TELA DE LOGIN ---
 if not st.session_state.logged_in:
@@ -266,21 +288,23 @@ if not st.session_state.logged_in:
     st.stop()
 
 # --- BARRA DO USUÁRIO LOGADO (MOLDURA FRONTE DOLOROSA) ---
-col_info, col_logout = st.columns([4, 1.3])
+perfil_texto = "LEITOR"
+if st.session_state.user_profile == "2":
+    perfil_texto = "LEITOR & COMENTARISTA"
+elif st.session_state.user_profile == "3":
+    perfil_texto = "ADM"
+
+col_info, col_logout = st.columns([4, 1])
+
 with col_info:
-    perfil_texto = "LEITOR"
-    if st.session_state.user_profile == "2":
-        perfil_texto = "LEITOR & COMENTARISTA"
-    elif st.session_state.user_profile == "3":
-        perfil_texto = "ADM"
-        
     st.markdown(f"""
-        <div style="background-color: #EAB99F; border-top-left-radius: 25px; border-bottom-left-radius: 25px; padding: 10px 20px; height: 46px; display: flex; align-items: center; color: #10141A; font-weight: 500;">
+        <div style="background-color: #EAB99F; border-radius: 25px; padding: 10px 20px; height: 46px; display: flex; align-items: center; color: #10141A; font-weight: 500; width: 100%;">
             Logado: {st.session_state.user_name} ({perfil_texto})
         </div>
     """, unsafe_allow_html=True)
 
 with col_logout:
+    st.markdown('<div style="margin-top: 4px;"></div>', unsafe_allow_html=True)
     if st.button("Sair", key="btn_sair_oficial"):
         st.session_state.logged_in = False
         st.session_state.user_name = ""
@@ -289,9 +313,11 @@ with col_logout:
         st.session_state.pagina = "home"
         st.rerun()
 
-st.write("") # Espaçador técnico sutil
+st.write("") 
 
-# --- MENU DE NAVEGAÇÃO PRINCIPAL (GRID 2 COLUNAS SEM DUPLICIDADES) ---
+# --- MENU DE NAVEGAÇÃO (PAINEL DE OPÇÕES INTEGRADO) ---
+st.markdown('<div class="painel-opcoes">', unsafe_allow_html=True)
+
 menu_col1, menu_col2 = st.columns(2)
 with menu_col1:
     if st.button("Escala Geral", use_container_width=True):
@@ -317,7 +343,7 @@ with menu_col2:
         st.session_state.pagina = "ver_intencoes"
         st.rerun()
 
-st.markdown("<br>", unsafe_allow_html=True)
+st.markdown('</div>', unsafe_allow_html=True)
 
 # Carregamento seguro dos dados da escala
 escala_data = carregar_dados_escala()
@@ -486,7 +512,7 @@ def renderizar_evento(idx, row, modo_aguardando=False):
                         st.success("Escalado na 2ª Leitura!")
                         st.rerun()
             else:
-                if lectura2.upper() == usuario_atual.upper():
+                if leitura2.upper() == usuario_atual.upper():
                     if l2_col2.button("Cancelar", key=f"c_l2_{idx}"):
                         sh_conn = get_connection()
                         if processar_tentativa_cancelamento(sh_conn, usuario_atual, dia):
@@ -498,10 +524,8 @@ def renderizar_evento(idx, row, modo_aguardando=False):
 
     st.markdown("---")
 
-# --- ROTEAMENTO DAS PÁGINAS DO APLICATIVO ---
-
+# --- ROTEAMENTO DAS PÁGINAS ---
 if st.session_state.pagina == "home":
-    # Renderização da barra inferior baseada no layout_oficial (Lâmina Fria)
     st.markdown('<div class="barra-instrucoes">Selecione uma opção no menu acima para começar.</div>', unsafe_allow_html=True)
 
 elif st.session_state.pagina == "escala_geral":
@@ -571,7 +595,6 @@ elif st.session_state.pagina == "exibir_escala":
         pdf.ln(4)
     
     pdf_bytes = bytes(pdf.output())
-    
     st.download_button(
         label="📥 Baixar Escala em PDF",
         data=pdf_bytes,
