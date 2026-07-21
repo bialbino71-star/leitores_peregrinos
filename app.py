@@ -148,11 +148,16 @@ st.markdown("""
         line-height: 1.2 !important;
     }
 
-    /* Cor do texto DENTRO do botão (inclui qualquer p/div/span interno gerado pelo Streamlit) */
-    .st-key-menu_grid button,
-    .st-key-menu_grid button *,
-    .st-key-menu_grid div.stLinkButton a,
-    .st-key-menu_grid div.stLinkButton a * {
+    /* Cor do texto DENTRO do botão (o Streamlit envolve o rótulo do botão num stMarkdownContainer,
+       então precisamos de mais especificidade do que a regra de texto de conteúdo abaixo) */
+    .stApp.stApp .st-key-menu_grid button,
+    .stApp.stApp .st-key-menu_grid button p,
+    .stApp.stApp .st-key-menu_grid button div,
+    .stApp.stApp .st-key-menu_grid button span,
+    .stApp.stApp .st-key-menu_grid div.stLinkButton a,
+    .stApp.stApp .st-key-menu_grid div.stLinkButton a p,
+    .stApp.stApp .st-key-menu_grid div.stLinkButton a div,
+    .stApp.stApp .st-key-menu_grid div.stLinkButton a span {
         color: #FFFFFF !important;
     }
     
@@ -202,10 +207,14 @@ st.markdown("""
         border-radius: 14px !important;
         font-weight: 600 !important;
     }
-    div[data-testid="stButton"] button,
-    div[data-testid="stButton"] button *,
-    div[data-testid="stFormSubmitButton"] button,
-    div[data-testid="stFormSubmitButton"] button * {
+    .stApp.stApp div[data-testid="stButton"] button,
+    .stApp.stApp div[data-testid="stButton"] button p,
+    .stApp.stApp div[data-testid="stButton"] button div,
+    .stApp.stApp div[data-testid="stButton"] button span,
+    .stApp.stApp div[data-testid="stFormSubmitButton"] button,
+    .stApp.stApp div[data-testid="stFormSubmitButton"] button p,
+    .stApp.stApp div[data-testid="stFormSubmitButton"] button div,
+    .stApp.stApp div[data-testid="stFormSubmitButton"] button span {
         color: #FFFFFF !important;
     }
     div[data-testid="stButton"] button:hover,
@@ -214,8 +223,10 @@ st.markdown("""
     }
 
     /* O botão Sair e os botões do menu têm estilo próprio mais específico, então continuam intactos abaixo */
-    .st-key-sair_wrapper button,
-    .st-key-sair_wrapper button * {
+    .stApp.stApp .st-key-sair_wrapper button,
+    .stApp.stApp .st-key-sair_wrapper button p,
+    .stApp.stApp .st-key-sair_wrapper button div,
+    .stApp.stApp .st-key-sair_wrapper button span {
         color: #FFFFFF !important;
     }
     </style>
