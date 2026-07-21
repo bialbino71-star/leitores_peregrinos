@@ -24,18 +24,23 @@ if "logged_in" not in st.session_state:
 if "pagina" not in st.session_state:
     st.session_state.pagina = "home"
 
-# --- FUNÇÕES DE TRANSIÇÃO DE TELA (NATIVAS E SEGURAS) ---
-def navegar_para(nome_pagina):
-    st.session_state.pagina = nome_pagina
+# --- PROCESSAMENTO DE ROTAS VIA QUERY PARAMS (SEM REMENDOS) ---
+# Captura cliques dos botões HTML puros sem causar reset do estado interno do React
+query_params = st.query_params
+if "nav" in query_params:
+    st.session_state.pagina = query_params["nav"]
+    st.query_params.clear() # Limpa a URL imediatamente para manter o app limpo
 
-def efetuar_logout():
+if "action" in query_params and query_params["action"] == "logout":
     st.session_state.logged_in = False
     st.session_state.user_name = ""
     st.session_state.user_profile = ""
     st.session_state.user_id = ""
     st.session_state.pagina = "home"
+    st.query_params.clear()
+    st.rerun()
 
-# --- BLINDAGEM VISUAL ABSOLUTA - CSS FIDELIDADE MAQUETE OFICIAL ---
+# --- ESTILIZAÇÃO ESTRUTURAL DA APLICAÇÃO ---
 st.markdown("""
     <style>
     /* Forçar a largura ideal da página */
@@ -67,19 +72,18 @@ st.markdown("""
         height: auto !important;
         display: block;
         border-radius: 16px;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
     }
     
-    /* BARRA DE STATUS TERRACOTA UNIFICADA */
+    /* BARRA DE STATUS TERRACOTA UNIFICADA REAL */
     .barra-status-alinhada {
         background-color: #EAB99F !important;
         border-radius: 20px !important;
-        padding: 14px 20px !important;
+        padding: 0 20px !important;
         display: flex !important;
         justify-content: space-between !important;
         align-items: center !important;
         height: 56px !important;
-        margin-bottom: 10px !important;
+        margin-bottom: 25px !important;
         box-shadow: 0 3px 6px rgba(0,0,0,0.05);
         width: 100%;
         box-sizing: border-box;
@@ -92,74 +96,66 @@ st.markdown("""
         font-family: sans-serif;
     }
 
-    /* POSICIONADOR DO BOTÃO SAIR */
-    .btn-sair-wrapper {
-        margin-top: -38px !important;
-        display: flex;
-        justify-content: flex-end;
-        padding-right: 10px;
-        margin-bottom: 20px;
-    }
-
-    /* ESTILO DO BOTÃO SAIR (OVALADO ESCURO COM TEXTO TERRACOTA) */
-    .btn-sair-wrapper button {
+    /* BOTAO SAIR DENTRO DA BARRA */
+    .btn-sair-real {
         background: #1C120C !important;
         color: #EAB99F !important;
         border: 1px solid #3D2612 !important;
         border-radius: 25px !important;
-        padding: 4px 24px !important;
-        font-size: 15px !important;
+        padding: 6px 24px !important;
+        font-size: 14px !important;
         font-weight: bold !important;
-        box-shadow: 0 4px 8px rgba(0,0,0,0.25) !important;
-        height: 38px !important;
-        width: auto !important;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.2) !important;
+        text-decoration: none !important;
+        display: inline-block !important;
+        font-family: sans-serif;
     }
     
-    .btn-sair-wrapper button:hover {
+    .btn-sair-real:hover {
         background: #2D1E15 !important;
     }
     
-    /* PAINEL AZUL-GRAFITE ACETINADO DO MENU */
-    .painel-opcoes-estatico {
+    /* PAINEL CENTRAL DO MENU DE OPÇÕES (AZUL-GRAFITE ACETINADO) */
+    .painel-opcoes-bloco-real {
         background-color: #4F5666 !important; 
         border-radius: 16px !important;
         padding: 24px 20px !important;
         margin-bottom: 25px !important;
         box-shadow: inset 0 2px 6px rgba(0,0,0,0.2), 0 4px 10px rgba(0,0,0,0.1) !important;
-        position: relative !important;
-        z-index: 10 !important;
+        box-sizing: border-box;
+        width: 100%;
     }
     
-    /* ENFORÇAMENTO DOS BOTÕES DO GRID (AZUL PETRÓLEO + DUPLO CONTORNO CHANFRADO BRONZE) */
-    .painel-opcoes-estatico button,
-    .painel-opcoes-estatico div.stLinkButton > a {
+    /* GRID DE BOTÕES INTERNOS EM HTML PURO */
+    .grid-botoes-puros {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+        width: 100%;
+    }
+    
+    /* DESIGN DOS BOTÕES (AZUL PETRÓLEO + DUPLO CONTORNO CHANFRADO BRONZE) */
+    .btn-puro-menu {
         background: #0D1B2A !important;
         color: #E0E2E5 !important;
         border: 3.5px solid #8C6D4F !important;
         outline: 1.5px solid #423224 !important;
         border-radius: 24px !important;
-        padding: 12px 10px !important;
+        padding: 14px 10px !important;
         font-size: 17px !important;
         font-weight: 600 !important;
         text-align: center !important;
-        width: 100% !important;
         display: block !important;
         box-shadow: 0 4px 8px rgba(0,0,0,0.35), inset 0 1px 2px rgba(255,255,255,0.1) !important;
         font-family: sans-serif;
         text-decoration: none !important;
         box-sizing: border-box !important;
-        height: auto !important;
+        cursor: pointer;
     }
     
-    .painel-opcoes-estatico button:hover,
-    .painel-opcoes-estatico div.stLinkButton > a:hover {
+    .btn-puro-menu:hover {
         background: #15273C !important;
         border-color: #A38465 !important;
-    }
-
-    /* Ajuste para impedir vazamentos de layout nativo */
-    .painel-opcoes-estatico div.stBlock {
-        margin-bottom: 0px !important;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -305,42 +301,37 @@ if not st.session_state.logged_in:
     st.stop()
 
 
-# --- BARRA DE STATUS TERRACOTA COM BOTÃO SAIR EMBUTIDO COM PRECISÃO ---
+# --- AREA LOGADA INTERNA - INTEGRAÇÃO PURA SEM RUPTURAS ---
 perfil_texto = "LEITOR"
 if st.session_state.user_profile == "2":
     perfil_texto = "LEITOR & COMENTARISTA"
 elif st.session_state.user_profile == "3":
     perfil_texto = "ADM"
 
+# 1. Barra Terracota + Botão Sair Injetados Nativamente Juntos
 st.markdown(f"""
     <div class="barra-status-alinhada">
         <div class="texto-logado-interno">Logado: {st.session_state.user_name} ({perfil_texto})</div>
+        <a href="?action=logout" class="btn-sair-real" target="_self">Sair</a>
     </div>
 """, unsafe_allow_html=True)
 
-# O botão de Sair nativo renderiza perfeitamente em cima do slot direito reservado
-st.markdown('<div class="btn-sair-wrapper">', unsafe_allow_html=True)
-st.button("Sair", key="btn_logout_definitivo", on_click=efetuar_logout)
-st.markdown('</div>', unsafe_allow_html=True)
+# 2. Painel Inteiro + Grid de Botões Construído em Bloco Único Selado (Sem Remendos React)
+st.markdown("""
+    <div class="painel-opcoes-bloco-real">
+        <div class="grid-botoes-puros">
+            <a href="?nav=escala_geral" class="btn-puro-menu" target="_self">Escala Geral</a>
+            <a href="?nav=exibir_escala" class="btn-puro-menu" target="_self">Exibir Escala (PDF)</a>
+            <a href="?nav=minha_escala" class="btn-puro-menu" target="_self">Minha Escala</a>
+            <a href="?nav=aguardando" class="btn-puro-menu" target="_self">Aguardando Leitores</a>
+            <a href="https://docs.google.com/forms/d/e/1FAIpQLScgX8RkpDYhb-rMwb8_ZR6dJhp-tKUyowmRGrSK-tbsXveqCw/viewform?usp=sharing" class="btn-puro-menu" target="_blank">Coletar Intenções</a>
+            <a href="?nav=ver_intencoes" class="btn-puro-menu" target="_self">Ver Intenções</a>
+        </div>
+    </div>
+""", unsafe_allow_html=True)
 
 
-# --- PAINEL CINZA-GRAFITE COM GRID DE BOTÕES NATIVOS ---
-st.markdown('<div class="painel-opcoes-estatico">', unsafe_allow_html=True)
-grid_col1, grid_col2 = st.columns(2)
-
-with grid_col1:
-    st.button("Escala Geral", key="nav_geral", on_click=navegar_para, args=("escala_geral",), use_container_width=True)
-    st.button("Minha Escala", key="nav_minha", on_click=navegar_para, args=("minha_escala",), use_container_width=True)
-    st.link_button("Coletar Intenções", "https://docs.google.com/forms/d/e/1FAIpQLScgX8RkpDYhb-rMwb8_ZR6dJhp-tKUyowmRGrSK-tbsXveqCw/viewform?usp=sharing", use_container_width=True)
-
-with grid_col2:
-    st.button("Exibir Escala (PDF)", key="nav_pdf", on_click=navegar_para, args=("exibir_escala",), use_container_width=True)
-    st.button("Aguardando Leitores", key="nav_vagas", on_click=navegar_para, args=("aguardando",), use_container_width=True)
-    st.button("Ver Intenções", key="nav_intencoes", on_click=navegar_para, args=("ver_intencoes",), use_container_width=True)
-st.markdown('</div>', unsafe_allow_html=True)
-
-
-# Carregamento seguro dos dados da escala
+# Carregamento seguro dos dados da escala para a área de conteúdo abaixo
 escala_data = carregar_dados_escala()
 is_adm = (st.session_state.user_profile == "3")
 lista_todos_leitores = obter_lista_leitores() if is_adm else []
@@ -520,7 +511,7 @@ def renderizar_evento(idx, row, modo_aguardando=False):
 
     st.markdown("---")
 
-# --- ROTEAMENTO DAS PÁGINAS ---
+# --- ROTEAMENTO E EXIBIÇÃO DE CONTEÚDOS ---
 if st.session_state.pagina == "home":
     st.markdown('<div style="background-color: #A9ACB4; color: #10141A; border-radius: 8px; padding: 16px; text-align: center; font-size: 16px; font-weight: 600; margin-top: 5px; font-family: sans-serif;">Selecione uma opção no menu acima para começar.</div>', unsafe_allow_html=True)
 
