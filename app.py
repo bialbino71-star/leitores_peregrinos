@@ -658,12 +658,13 @@ if st.session_state.pagina != "home":
                     }
                     console.log("[SCROLL-DEBUG] contêiner rolável encontrado?", scrollable);
                     if (scrollable) {
-                        scrollable.scrollTop = el.offsetTop - scrollable.offsetTop;
-                        console.log("[SCROLL-DEBUG] scrollTop aplicado:", scrollable.scrollTop);
+                        var elRect = el.getBoundingClientRect();
+                        var scrollableRect = scrollable.getBoundingClientRect();
+                        var alvo = scrollable.scrollTop + (elRect.top - scrollableRect.top);
+                        scrollable.scrollTop = alvo;
+                        console.log("[SCROLL-DEBUG] scrollTop aplicado:", scrollable.scrollTop, "alvo calculado:", alvo);
                     } else {
                         el.scrollIntoView({behavior: "auto", block: "start"});
-                        doc.documentElement.scrollTop = el.offsetTop;
-                        doc.body.scrollTop = el.offsetTop;
                         console.log("[SCROLL-DEBUG] fallback scrollIntoView aplicado");
                     }
                 } catch (e) {
