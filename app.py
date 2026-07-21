@@ -134,8 +134,8 @@ st.markdown("""
         border: 3.5px solid #8C6D4F !important;
         outline: 1.5px solid #423224 !important;
         border-radius: 24px !important;
-        padding: 16px 10px !important;
-        font-size: 26px !important;
+        padding: 12px 6px !important;
+        font-size: 18px !important;
         font-weight: 700 !important;
         text-align: center !important;
         width: 100% !important;
@@ -145,12 +145,48 @@ st.markdown("""
         text-decoration: none !important;
         box-sizing: border-box !important;
         height: auto !important;
+        white-space: normal !important;
+        line-height: 1.2 !important;
     }
     
     .st-key-menu_grid button:hover,
     .st-key-menu_grid div.stLinkButton a:hover {
         background: #15273C !important;
         border-color: #A38465 !important;
+    }
+
+    /* FORÇAR 2 COLUNAS NO GRID DO MENU MESMO EM TELAS ESTREITAS (CELULAR) */
+    .st-key-menu_grid div[data-testid="stHorizontalBlock"] {
+        flex-wrap: nowrap !important;
+        gap: 10px !important;
+    }
+    .st-key-menu_grid div[data-testid="column"] {
+        min-width: 0 !important;
+        width: 50% !important;
+        flex: 1 1 0 !important;
+    }
+
+    /* TÍTULO "Identificação do Leitor" (mesma paleta/estilo do cabeçalho oficial) */
+    .titulo-identificacao {
+        color: #5C3A21 !important;
+        font-family: Georgia, 'Times New Roman', serif !important;
+        font-weight: 700 !important;
+        font-size: 26px !important;
+        text-align: center;
+        margin-bottom: 10px;
+    }
+
+    /* LABELS E TEXTOS PADRÃO DO APP: sempre em tom escuro, mesmo se o celular estiver em modo escuro */
+    .stApp h1, .stApp h2, .stApp h3, .stApp h4, .stApp h5, .stApp h6,
+    .stApp label, .stApp p {
+        color: #3D2612 !important;
+    }
+
+    /* CAIXAS DE TEXTO (login e demais formulários): fundo branco, texto preto */
+    .stTextInput input, .stTextArea textarea {
+        background-color: #FFFFFF !important;
+        color: #000000 !important;
+        -webkit-text-fill-color: #000000 !important;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -278,6 +314,16 @@ def deve_exibir_comentarista_e_leitura2(row):
     solenidade = str(row.get('SOLENIDADE', 'NÃO')).strip().upper()
     return eh_fim_de_semana(dia) or solenidade == 'SIM'
 
+def data_valida_para_roteiro(data_roteiro, escala):
+    if data_roteiro.weekday() in (5, 6):
+        return True
+    for r in escala:
+        dia_evento = extrair_data_evento(str(r.get('DIA', '')))
+        solenidade = str(r.get('SOLENIDADE', 'NÃO')).strip().upper()
+        if dia_evento == data_roteiro and solenidade == 'SIM':
+            return True
+    return False
+
 
 # --- RENDERIZAÇÃO DO CABEÇALHO OFICIAL IMUTÁVEL ---
 st.markdown("""
@@ -289,7 +335,7 @@ st.markdown("""
 
 # --- TELA DE LOGIN ---
 if not st.session_state.logged_in:
-    st.subheader("Identificação do Leitor")
+    st.markdown('<div class="titulo-identificacao">Identificação do Leitor</div>', unsafe_allow_html=True)
     with st.form("login_form"):
         input_nome = st.text_input("Nome cadastrado:")
         input_senha = st.text_input("ID (Senha):", type="password")
@@ -548,6 +594,10 @@ def renderizar_evento(idx, row, modo_aguardando=False):
     st.markdown("---")
 
 # --- ROTEAMENTO E CONTEÚDOS ---
+if st.session_state.pagina != "home":
+    st.button("⬅️ Voltar ao Menu Principal", key="btn_voltar_menu", on_click=navegar_para, args=("home",))
+    st.markdown("")
+
 if st.session_state.pagina == "home":
     st.markdown('<div style="background-color: #A9ACB4; color: #10141A; border-radius: 8px; padding: 16px; text-align: center; font-size: 16px; font-weight: 600; margin-top: 5px; font-family: sans-serif;">Selecione uma opção no menu acima para começar.</div>', unsafe_allow_html=True)
 
@@ -556,13 +606,13 @@ elif st.session_state.pagina == "cadastrar_roteiro":
     if st.session_state.user_profile != "3":
         st.error("Apenas o ADM pode acessar esta tela.")
     else:
-        st.write("Selecione a data da missa (sábado ou domingo) e informe o link do arquivo de roteiro.")
+        st.write("Selecione a data da missa (sábado, domingo, ou dia marcado como Solenidade na Escala) e informe o link do arquivo de roteiro.")
         data_roteiro = st.date_input("Data da missa:", format="DD/MM/YYYY")
         link_roteiro = st.text_input("Link do arquivo de roteiro:")
 
         if st.button("Salvar Roteiro"):
-            if data_roteiro.weekday() not in (5, 6):
-                st.error("A data selecionada deve ser um sábado ou domingo.")
+            if not data_valida_para_roteiro(data_roteiro, escala_data):
+                st.error("A data deve ser um sábado, domingo, ou um dia marcado como Solenidade na Escala Geral.")
             elif not link_roteiro.strip():
                 st.error("Informe o link do arquivo de roteiro.")
             else:
@@ -648,6 +698,7 @@ elif st.session_state.pagina == "exibir_escala":
         pdf.ln(4)
     
     pdf_bytes = bytes(pdf.output())
+
     st.download_button(
         label="📥 Baixar Escala em PDF",
         data=pdf_bytes,
@@ -655,6 +706,16 @@ elif st.session_state.pagina == "exibir_escala":
         mime="application/pdf",
         use_container_width=True
     )
+
+    b64_pdf = base64.b64encode(pdf_bytes).decode('utf-8')
+    st.markdown(f"""
+        <a href="data:application/pdf;base64,{b64_pdf}" target="_blank" rel="noopener noreferrer"
+           style="display:block; text-align:center; background:#0D1B2A; color:#E0E2E5; border:3.5px solid #8C6D4F;
+                  border-radius:24px; padding:12px 6px; font-size:18px; font-weight:700; text-decoration:none;
+                  margin-top:10px; font-family:sans-serif;">
+            📄 Abrir Escala em PDF no Navegador
+        </a>
+    """, unsafe_allow_html=True)
 
 elif st.session_state.pagina == "aguardando":
     st.subheader("Aguardando Leitores (Vagas Pendentes)")
