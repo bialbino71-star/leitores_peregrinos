@@ -4,6 +4,7 @@ import gspread
 import base64
 import json
 import re
+import time
 from datetime import datetime, date, timedelta
 from google.oauth2 import service_account
 from fpdf import FPDF
@@ -636,64 +637,63 @@ if st.session_state.pagina != "home":
     st.markdown('<div id="ancora-conteudo"></div>', unsafe_allow_html=True)
 
     # Rola automaticamente até o início do conteúdo desta tela
-    components.html("""
+    # (o comentário com nonce força o navegador a tratar isso como um script novo a cada clique)
+    _nonce_scroll = f"{st.session_state.pagina}-{time.time()}"
+    components.html(f"""
+        <!-- nonce:{_nonce_scroll} -->
         <script>
-            console.log("[SCROLL-DEBUG] script de conteúdo iniciado");
-            setTimeout(function() {
-                try {
+            setTimeout(function() {{
+                try {{
                     var doc = window.parent.document;
-                    console.log("[SCROLL-DEBUG] acesso a window.parent.document OK");
                     var el = doc.getElementById("ancora-conteudo");
-                    console.log("[SCROLL-DEBUG] ancora-conteudo encontrada?", el);
-                    if (!el) { console.log("[SCROLL-DEBUG] âncora não encontrada, abortando"); return; }
+                    if (!el) {{ return; }}
                     var contentEl = el;
                     var scrollable = null;
-                    while (contentEl && contentEl !== doc.body) {
+                    while (contentEl && contentEl !== doc.body) {{
                         var style = doc.defaultView.getComputedStyle(contentEl);
-                        if ((style.overflowY === "auto" || style.overflowY === "scroll") && contentEl.scrollHeight > contentEl.clientHeight) {
+                        if ((style.overflowY === "auto" || style.overflowY === "scroll") && contentEl.scrollHeight > contentEl.clientHeight) {{
                             scrollable = contentEl;
                             break;
-                        }
+                        }}
                         contentEl = contentEl.parentElement;
-                    }
-                    console.log("[SCROLL-DEBUG] contêiner rolável encontrado?", scrollable);
-                    if (scrollable) {
+                    }}
+                    if (scrollable) {{
                         var elRect = el.getBoundingClientRect();
                         var scrollableRect = scrollable.getBoundingClientRect();
                         var alvo = scrollable.scrollTop + (elRect.top - scrollableRect.top);
                         scrollable.scrollTop = alvo;
-                        console.log("[SCROLL-DEBUG] scrollTop aplicado:", scrollable.scrollTop, "alvo calculado:", alvo);
-                    } else {
-                        el.scrollIntoView({behavior: "auto", block: "start"});
-                        console.log("[SCROLL-DEBUG] fallback scrollIntoView aplicado");
-                    }
-                } catch (e) {
+                    }} else {{
+                        el.scrollIntoView({{behavior: "auto", block: "start"}});
+                    }}
+                }} catch (e) {{
                     console.log("[SCROLL-DEBUG] ERRO:", e);
-                }
-            }, 80);
+                }}
+            }}, 80);
         </script>
     """, height=0)
 else:
     # De volta ao menu principal: rola instantaneamente para o topo da página
-    components.html("""
+    _nonce_topo = f"home-{time.time()}"
+    components.html(f"""
+        <!-- nonce:{_nonce_topo} -->
         <script>
-            setTimeout(function() {
-                try {
+            setTimeout(function() {{
+                try {{
                     var doc = window.parent.document;
                     var candidatos = doc.querySelectorAll('section, div, main');
-                    candidatos.forEach(function(el) {
+                    candidatos.forEach(function(el) {{
                         var style = doc.defaultView.getComputedStyle(el);
-                        if ((style.overflowY === "auto" || style.overflowY === "scroll") && el.scrollHeight > el.clientHeight) {
+                        if ((style.overflowY === "auto" || style.overflowY === "scroll") && el.scrollHeight > el.clientHeight) {{
                             el.scrollTop = 0;
-                        }
-                    });
+                        }}
+                    }});
                     doc.documentElement.scrollTop = 0;
                     doc.body.scrollTop = 0;
                     window.parent.scrollTo(0, 0);
-                } catch (e) {
-                    console.log("Erro ao rolar para o topo:", e);
-                }
-            }, 80);
+                }} catch (e) {{
+                    console.log("[SCROLL-DEBUG] ERRO ao rolar para o topo:", e);
+                }}
+            }}, 80);
         </script>
     """, height=0)
 
