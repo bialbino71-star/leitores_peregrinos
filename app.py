@@ -309,7 +309,7 @@ status_col1, status_col2 = st.columns([4, 1])
 with status_col1:
     st.markdown(f"""
         <div class="barra-status-alinhada">
-            <div class="texto-logado-interno">Logado: {st.session_state.user_name} ({perfil_texto})</div>
+            <div class="texto-logado-interno">Servo: {st.session_state.user_name} ({perfil_texto})</div>
         </div>
     """, unsafe_allow_html=True)
 
