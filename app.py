@@ -638,11 +638,14 @@ if st.session_state.pagina != "home":
     # Rola automaticamente até o início do conteúdo desta tela
     components.html("""
         <script>
+            console.log("[SCROLL-DEBUG] script de conteúdo iniciado");
             setTimeout(function() {
                 try {
                     var doc = window.parent.document;
+                    console.log("[SCROLL-DEBUG] acesso a window.parent.document OK");
                     var el = doc.getElementById("ancora-conteudo");
-                    if (!el) { return; }
+                    console.log("[SCROLL-DEBUG] ancora-conteudo encontrada?", el);
+                    if (!el) { console.log("[SCROLL-DEBUG] âncora não encontrada, abortando"); return; }
                     var contentEl = el;
                     var scrollable = null;
                     while (contentEl && contentEl !== doc.body) {
@@ -653,15 +656,18 @@ if st.session_state.pagina != "home":
                         }
                         contentEl = contentEl.parentElement;
                     }
+                    console.log("[SCROLL-DEBUG] contêiner rolável encontrado?", scrollable);
                     if (scrollable) {
                         scrollable.scrollTop = el.offsetTop - scrollable.offsetTop;
+                        console.log("[SCROLL-DEBUG] scrollTop aplicado:", scrollable.scrollTop);
                     } else {
                         el.scrollIntoView({behavior: "auto", block: "start"});
                         doc.documentElement.scrollTop = el.offsetTop;
                         doc.body.scrollTop = el.offsetTop;
+                        console.log("[SCROLL-DEBUG] fallback scrollIntoView aplicado");
                     }
                 } catch (e) {
-                    console.log("Erro ao rolar para o conteúdo:", e);
+                    console.log("[SCROLL-DEBUG] ERRO:", e);
                 }
             }, 80);
         </script>
