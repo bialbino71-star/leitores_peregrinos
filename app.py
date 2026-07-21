@@ -135,7 +135,7 @@ st.markdown("""
         outline: 1.5px solid #423224 !important;
         border-radius: 24px !important;
         padding: 16px 10px !important;
-        font-size: 23px !important;
+        font-size: 26px !important;
         font-weight: 700 !important;
         text-align: center !important;
         width: 100% !important;
@@ -192,6 +192,31 @@ def obter_lista_leitores():
         return sorted(leitores)
     except:
         return []
+
+@st.cache_data(ttl=30)
+def obter_roteiros():
+    try:
+        sh = get_connection()
+        ws_roteiros = sh.worksheet("Roteiros")
+        dados = ws_roteiros.get_all_records()
+        roteiros = {}
+        for r in dados:
+            data_str = str(r.get('DIA', '')).strip()
+            link = str(r.get('LINK', '')).strip()
+            if data_str and link:
+                roteiros[data_str] = link
+        return roteiros
+    except Exception:
+        return {}
+
+def salvar_roteiro(sh, data_str, link):
+    ws_roteiros = sh.worksheet("Roteiros")
+    dados = ws_roteiros.get_all_values()
+    for idx, row in enumerate(dados[1:], start=2):
+        if len(row) > 0 and row[0].strip() == data_str:
+            ws_roteiros.update_cell(idx, 2, link)
+            return
+    ws_roteiros.append_row([data_str, link])
 
 # --- FUNÇÕES DE VALIDAÇÃO E REGRAS DE NEGÓCIO ---
 def usuario_ja_escalado_no_dia(escala, data_alvo, nome_usuario):
@@ -325,15 +350,19 @@ with st.container(key="menu_grid"):
         st.button("Escala Geral", key="menu_geral", on_click=navegar_para, args=("escala_geral",), use_container_width=True)
         st.button("Minha Escala", key="menu_minha", on_click=navegar_para, args=("minha_escala",), use_container_width=True)
         st.link_button("Coletar Intenções", "https://docs.google.com/forms/d/e/1FAIpQLScgX8RkpDYhb-rMwb8_ZR6dJhp-tKUyowmRGrSK-tbsXveqCw/viewform?usp=sharing", use_container_width=True)
+        st.link_button("Liturgia Diária", "https://liturgia.cancaonova.com/pb/", use_container_width=True)
 
     with grid_col2:
         st.button("Exibir Escala (PDF)", key="menu_pdf", on_click=navegar_para, args=("exibir_escala",), use_container_width=True)
         st.button("Aguardando Leitores", key="menu_vagas", on_click=navegar_para, args=("aguardando",), use_container_width=True)
         st.button("Ver Intenções", key="menu_intencoes", on_click=navegar_para, args=("ver_intencoes",), use_container_width=True)
+        if st.session_state.user_profile == "3":
+            st.button("Roteiro", key="menu_roteiro", on_click=navegar_para, args=("cadastrar_roteiro",), use_container_width=True)
 
 
 # Carregamento seguro dos dados da escala para os blocos abaixo
 escala_data = carregar_dados_escala()
+roteiros_data = obter_roteiros()
 is_adm = (st.session_state.user_profile == "3")
 lista_todos_leitores = obter_lista_leitores() if is_adm else []
 
@@ -358,6 +387,12 @@ def renderizar_evento(idx, row, modo_aguardando=False):
     if solenidade == 'SIM':
         header_text += " ✨ *(Solenidade)*"
     st.markdown(header_text)
+
+    data_evento = extrair_data_evento(dia)
+    if data_evento:
+        data_evento_fmt = data_evento.strftime("%d/%m/%Y")
+        if data_evento_fmt in roteiros_data:
+            st.markdown(f"📄 [Roteiro desta missa]({roteiros_data[data_evento_fmt]})")
     
     usuario_atual = st.session_state.user_name
 
@@ -515,6 +550,36 @@ def renderizar_evento(idx, row, modo_aguardando=False):
 # --- ROTEAMENTO E CONTEÚDOS ---
 if st.session_state.pagina == "home":
     st.markdown('<div style="background-color: #A9ACB4; color: #10141A; border-radius: 8px; padding: 16px; text-align: center; font-size: 16px; font-weight: 600; margin-top: 5px; font-family: sans-serif;">Selecione uma opção no menu acima para começar.</div>', unsafe_allow_html=True)
+
+elif st.session_state.pagina == "cadastrar_roteiro":
+    st.subheader("Cadastrar Roteiro")
+    if st.session_state.user_profile != "3":
+        st.error("Apenas o ADM pode acessar esta tela.")
+    else:
+        st.write("Selecione a data da missa (sábado ou domingo) e informe o link do arquivo de roteiro.")
+        data_roteiro = st.date_input("Data da missa:", format="DD/MM/YYYY")
+        link_roteiro = st.text_input("Link do arquivo de roteiro:")
+
+        if st.button("Salvar Roteiro"):
+            if data_roteiro.weekday() not in (5, 6):
+                st.error("A data selecionada deve ser um sábado ou domingo.")
+            elif not link_roteiro.strip():
+                st.error("Informe o link do arquivo de roteiro.")
+            else:
+                sh_conn = get_connection()
+                data_str = data_roteiro.strftime("%d/%m/%Y")
+                salvar_roteiro(sh_conn, data_str, link_roteiro.strip())
+                st.cache_data.clear()
+                st.success(f"Roteiro salvo para {data_str}!")
+                st.rerun()
+
+        st.markdown("---")
+        st.write("**Roteiros já cadastrados:**")
+        if not roteiros_data:
+            st.info("Nenhum roteiro cadastrado ainda.")
+        else:
+            for data_str, link in sorted(roteiros_data.items()):
+                st.markdown(f"- **{data_str}**: [{link}]({link})")
 
 elif st.session_state.pagina == "escala_geral":
     st.subheader("Escala Geral do Mês")
