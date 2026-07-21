@@ -10,7 +10,8 @@ from fpdf import FPDF
 # Configuração da página otimizada para dispositivos móveis
 st.set_page_config(page_title="Leitores Peregrinos", layout="centered")
 
-# --- CONEXÃO SEGURA COM O GOOGLE SHEETS ---
+# --- CONEXÃO COM CACHE E TRATAMENTO DE COTA DO GOOGLE SHEETS ---
+@st.cache_resource
 def get_credentials():
     encoded_json = st.secrets["gcp_service_account"]["base64_json"]
     decoded_json = json.loads(base64.b64decode(encoded_json).decode('utf-8'))
@@ -23,6 +24,31 @@ def get_connection():
     creds = get_credentials()
     client = gspread.authorize(creds)
     return client.open_by_key("1RnwgFBWytspiM5eh5i0pgW2HXNRrwLXU4dYGXviDHlU")
+
+@st.cache_data(ttl=30)
+py_cache_escala = None # placeholder for cache control reference
+
+def carregar_dados_escala():
+    try:
+        sh = get_connection()
+        ws_escala = sh.worksheet("Escala")
+        return ws_escala.get_all_records(), ws_escala
+    except Exception as e:
+        st.error(f"Erro ao conectar com a base de dados: {e}")
+        return [], None
+
+def obter_lista_leitores():
+    try:
+        sh = get_connection()
+        ws_leitores = sh.worksheet("Nomes dos Leitores")
+        dados = ws_leitores.get_all_values()
+        leitores = []
+        for row in dados[1:]:
+            if len(row) > 0 and row[0].strip():
+                leitores.append(row[0].strip())
+        return sorted(leitores)
+    except:
+        return []
 
 # --- FUNÇÕES DE VALIDAÇÃO E REGRAS DE NEGÓCIO ---
 
@@ -84,18 +110,6 @@ def deve_exibir_comentarista_e_leitura2(row):
     dia = str(row.get('DIA', ''))
     solenidade = str(row.get('SOLENIDADE', 'NÃO')).strip().upper()
     return eh_fim_de_semana(dia) or solenidade == 'SIM'
-
-def obter_lista_leitores(sh):
-    try:
-        ws_leitores = sh.worksheet("Nomes dos Leitores")
-        dados = ws_leitores.get_all_values()
-        leitores = []
-        for row in dados[1:]:
-            if len(row) > 0 and row[0].strip():
-                leitores.append(row[0].strip())
-        return sorted(leitores)
-    except:
-        return []
 
 # --- GERENCIAMENTO DE ESTADO DA SESSÃO ---
 if "logged_in" not in st.session_state:
@@ -201,16 +215,10 @@ with menu_col2:
 
 st.markdown("---")
 
-# --- CONEXÃO E CARREGAMENTO DA PLANILHA DE ESCALA ---
-sh = get_connection()
-try:
-    ws_escala = sh.worksheet("Escala")
-    escala_data = ws_escala.get_all_records()
-except:
-    escala_data = []
-
+# Carregamento seguro dos dados da escala
+escala_data, ws_escala = carregar_dados_escala()
 is_adm = (st.session_state.user_profile == "3")
-lista_todos_leitores = obter_lista_leitores(sh) if is_adm else []
+lista_todos_leitores = obter_lista_leitores() if is_adm else []
 
 # --- FUNÇÃO CENTRAL DE RENDERIZAÇÃO DOS EVENTOS ---
 def renderizar_evento(idx, row, modo_aguardando=False):
@@ -235,7 +243,6 @@ def renderizar_evento(idx, row, modo_aguardando=False):
     
     usuario_atual = st.session_state.user_name
 
-    # Gerenciador de estado para o painel de alteração do ADM
     if f"alterando_com_{idx}" not in st.session_state:
         st.session_state[f"alterando_com_{idx}"] = False
     if f"alterando_l1_{idx}" not in st.session_state:
@@ -278,7 +285,8 @@ def renderizar_evento(idx, row, modo_aguardando=False):
             else:
                 if comentarista.upper() == usuario_atual.upper():
                     if c_col2.button("Cancelar", key=f"c_com_{idx}"):
-                        if processar_tentativa_cancelamento(sh, usuario_atual, dia):
+                        sh_conn = get_connection()
+                        if processar_tentativa_cancelamento(sh_conn, usuario_atual, dia):
                             ws_escala.update_cell(idx + 2, 4, "")
                             st.success("Cancelado com sucesso!")
                             st.rerun()
@@ -315,7 +323,8 @@ def renderizar_evento(idx, row, modo_aguardando=False):
         else:
             if leitura1.upper() == usuario_atual.upper():
                 if l1_col2.button("Cancelar", key=f"c_l1_{idx}"):
-                    if processar_tentativa_cancelamento(sh, usuario_atual, dia):
+                    sh_conn = get_connection()
+                    if processar_tentativa_cancelamento(sh_conn, usuario_atual, dia):
                         ws_escala.update_cell(idx + 2, 5, "")
                         st.success("Cancelado com sucesso!")
                         st.rerun()
@@ -353,7 +362,8 @@ def renderizar_evento(idx, row, modo_aguardando=False):
             else:
                 if leitura2.upper() == usuario_atual.upper():
                     if l2_col2.button("Cancelar", key=f"c_l2_{idx}"):
-                        if processar_tentativa_cancelamento(sh, usuario_atual, dia):
+                        sh_conn = get_connection()
+                        if processar_tentativa_cancelamento(sh_conn, usuario_atual, dia):
                             ws_escala.update_cell(idx + 2, 6, "")
                             st.success("Cancelado com sucesso!")
                             st.rerun()
@@ -393,11 +403,11 @@ elif st.session_state.pagina == "coletar":
 
 elif st.session_state.pagina == "exibir_escala":
     st.subheader("Exibir Escala (PDF)")
-    st.write("Gerando PDF com o mesmo layout da Escala Geral:")
+    st.write("Gerando PDF estruturado idêntico ao relatório de Escala Geral:")
     
     class PDF(FPDF):
         def header(self):
-            self.set_font('Arial', 'B', 12)
+            self.set_font('Arial', 'B', 14)
             self.cell(190, 10, 'Escala Geral do Mes', 0, 1, 'C')
             self.ln(5)
         def footer(self):
@@ -407,7 +417,6 @@ elif st.session_state.pagina == "exibir_escala":
 
     pdf = PDF()
     pdf.add_page()
-    pdf.set_font("Arial", size=10)
     
     for row in escala_data:
         dia = str(row.get('DIA', ''))
@@ -419,17 +428,20 @@ elif st.session_state.pagina == "exibir_escala":
         
         mostrar_com_l2 = deve_exibir_comentarista_e_leitura2(row)
         
-        # Cabeçalho do evento idêntico ao visual da tela
-        linha_data = f"{dia} - {horario}" + (" (Solenidade)" if solenidade == 'SIM' else "")
+        # Cabeçalho do evento alinhado perfeitamente
+        texto_cabecalho = f"Data: {dia} - Horario: {horario}"
+        if solenidade == 'SIM':
+            texto_cabecalho += " (Solenidade)"
+            
         pdf.set_font("Arial", 'B', 10)
-        pdf.multi_cell(190, 6, linha_data.encode('latin-1', 'replace').decode('latin-1'))
+        pdf.cell(190, 7, texto_cabecalho.encode('latin-1', 'replace').decode('latin-1'), 0, 1, 'L')
         
         pdf.set_font("Arial", '', 10)
         if mostrar_com_l2:
-            pdf.multi_cell(190, 6, f"COMENTARISTA: {comentarista}".encode('latin-1', 'replace').decode('latin-1'))
-        pdf.multi_cell(190, 6, f"1a LEITURA: {l1}".encode('latin-1', 'replace').decode('latin-1'))
+            pdf.cell(190, 6, f"  - COMENTARISTA: {comentarista}".encode('latin-1', 'replace').decode('latin-1'), 0, 1, 'L')
+        pdf.cell(190, 6, f"  - 1a LEITURA: {l1}".encode('latin-1', 'replace').decode('latin-1'), 0, 1, 'L')
         if mostrar_com_l2:
-            pdf.multi_cell(190, 6, f"2a LEITURA: {l2}".encode('latin-1', 'replace').decode('latin-1'))
+            pdf.cell(190, 6, f"  - 2a LEITURA: {l2}".encode('latin-1', 'replace').decode('latin-1'), 0, 1, 'L')
         
         pdf.ln(4)
     
@@ -464,7 +476,8 @@ elif st.session_state.pagina == "ver_intencoes":
     st.markdown("Selecione abaixo a **Data e o Horário da Missa** para mesclar e exibir o relatório consolidado:")
     
     try:
-        ws_resp = sh.worksheet("Respostas ao Formulário 2")
+        sh_conn = get_connection()
+        ws_resp = sh_conn.worksheet("Respostas ao Formulário 2")
         respostas_data = ws_resp.get_all_records()
         
         opcoes_missas = []
