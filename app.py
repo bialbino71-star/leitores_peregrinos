@@ -7,7 +7,7 @@ from datetime import datetime, date, timedelta
 from google.oauth2 import service_account
 from fpdf import FPDF
 
-# Configuração da página - Expandindo o contêiner principal para o tamanho correto
+# Configuração da página - Mantendo o alinhamento centralizado e responsivo
 st.set_page_config(
     page_title="Leitores Peregrinos", 
     layout="centered",
@@ -23,6 +23,18 @@ if "logged_in" not in st.session_state:
 
 if "pagina" not in st.session_state:
     st.session_state.pagina = "home"
+
+# --- PROCESSAMENTO DOS CLIQUES DO MENU VIA FORMULÁRIO HTML ---
+# Captura as requisições POST nativas enviadas pelos botões HTML para evitar o reset do login
+ query_params = st.query_params
+if "action" in query_params and query_params["action"] == "logout":
+    st.session_state.logged_in = False
+    st.session_state.user_name = ""
+    st.session_state.user_profile = ""
+    st.session_state.user_id = ""
+    st.session_state.pagina = "home"
+    st.query_params.clear()
+    st.rerun()
 
 # --- BLINDAGEM VISUAL - ESTILIZAÇÃO DO LAYOUT OFICIAL DEFINITIVA ---
 st.markdown("""
@@ -42,7 +54,7 @@ st.markdown("""
     /* Ocultar elementos nativos do Streamlit */
     #MainMenu, footer, header {visibility: hidden !important;}
     
-    /* Cartão Superior (Apenas o contêiner da imagem do layout oficial) */
+    /* Cartão Superior (Contêiner da imagem do layout oficial) */
     .cartao-superior-oficial {
         width: 100%;
         margin-bottom: 25px;
@@ -51,7 +63,6 @@ st.markdown("""
         align-items: center;
     }
     
-    /* Força a imagem do layout oficial a ocupar toda a largura do bloco */
     .imagem-layout-completo {
         width: 100% !important;
         height: auto !important;
@@ -64,7 +75,7 @@ st.markdown("""
     .barra-status-container {
         background-color: #EAB99F; 
         border-radius: 25px;
-        padding: 6px 20px;
+        padding: 6px 12px 6px 20px;
         display: flex;
         justify-content: space-between;
         align-items: center;
@@ -81,6 +92,26 @@ st.markdown("""
         font-family: sans-serif;
     }
     
+    /* Botão Sair integrado na extremidade direita da barra terracota */
+    .btn-sair-link {
+        background-color: #7B3E3C !important; 
+        color: #FFFFFF !important;
+        text-decoration: none !important;
+        border-radius: 20px !important;
+        padding: 8px 24px !important;
+        font-size: 15px !important;
+        font-weight: bold !important;
+        display: inline-block;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
+        font-family: sans-serif;
+        border: none;
+        cursor: pointer;
+    }
+    
+    .btn-sair-link:hover {
+        background-color: #914947 !important;
+    }
+    
     /* Painel do Grid de Botões Estático (Fundo Cinza Escuro) */
     .painel-opcoes-estatico {
         background-color: #555E6B; 
@@ -90,8 +121,15 @@ st.markdown("""
         box-shadow: inset 0 2px 5px rgba(0,0,0,0.2);
     }
     
-    /* Hack CSS para embutir botões do Streamlit no layout oficial */
-    .painel-opcoes-estatico div.stButton > button {
+    /* Estruturação interna do Grid em HTML Puro */
+    .grid-botoes-html {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+    }
+    
+    /* Estilo Real dos Botões (Manto Profundo + Borda Dourada Espessa) */
+    .btn-grid-custom {
         background-color: #10141A !important;
         color: #FFFFFF !important;
         border: 3.5px solid #A3794E !important;
@@ -100,32 +138,16 @@ st.markdown("""
         font-size: 17px !important;
         font-weight: 700 !important;
         text-align: center !important;
-        width: 100% !important;
+        width: 100%;
         box-shadow: inset 0 1px 3px rgba(255,255,255,0.1) !important;
         font-family: sans-serif;
+        cursor: pointer;
         transition: background-color 0.2s ease;
     }
     
-    .painel-opcoes-estatico div.stButton > button:hover {
+    .btn-grid-custom:hover {
         background-color: #1c232e !important;
         border-color: #b88b5c !important;
-    }
-    
-    /* Botão Sair Interno da Barra Terracota */
-    div.btn-sair-container > button {
-        background-color: #7B3E3C !important; 
-        color: #FFFFFF !important;
-        border: none !important;
-        border-radius: 20px !important;
-        padding: 4px 24px !important;
-        font-size: 15px !important;
-        font-weight: bold !important;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
-        font-family: sans-serif;
-    }
-    
-    div.btn-sair-container > button:hover {
-        background-color: #914947 !important;
     }
     
     /* Caixa de Instruções Inferior (Tom Azul Lâmina Fria Oficial) */
@@ -291,55 +313,27 @@ if st.session_state.user_profile == "2":
 elif st.session_state.user_profile == "3":
     perfil_texto = "ADM"
 
-# Barra de Status Unificada Terracota com Botão Sair via Streamlit Nativo
-col_status, col_sair = st.columns([3, 1])
-with col_status:
-    st.markdown(f"""
-        <div class="barra-status-container" style="justify-content: flex-start;">
-            <div class="texto-logado">Logado: {st.session_state.user_name} ({perfil_texto})</div>
+# Barra de Status Unificada Terracota com Botão Sair integrado e blindado contra resets
+st.markdown(f"""
+    <div class="barra-status-container">
+        <div class="texto-logado">Logado: {st.session_state.user_name} ({perfil_texto})</div>
+        <a class="btn-sair-link" href="?action=logout">Sair</a>
+    </div>
+""", unsafe_allow_html=True)
+
+# Grid de botões estáticos renderizado em HTML puro para travar os estilos da maquete
+st.markdown("""
+    <div class="painel-opcoes-estatico">
+        <div class="grid-botoes-html">
+            <form method="get" style="margin:0;"><input type="hidden" name="nav" value="escala_geral"/><button type="submit" class="btn-grid-custom">Escala Geral</button></form>
+            <form method="get" style="margin:0;"><input type="hidden" name="nav" value="exibir_escala"/><button type="submit" class="btn-grid-custom">Exibir Escala (PDF)</button></form>
+            <form method="get" style="margin:0;"><input type="hidden" name="nav" value="minha_escala"/><button type="submit" class="btn-grid-custom">Minha Escala</button></form>
+            <form method="get" style="margin:0;"><input type="hidden" name="nav" value="aguardando"/><button type="submit" class="btn-grid-custom">Aguardando Leitores</button></form>
+            <a href="https://docs.google.com/forms/d/e/1FAIpQLScgX8RkpDYhb-rMwb8_ZR6dJhp-tKUyowmRGrSK-tbsXveqCw/viewform?usp=sharing" target="_blank" style="text-decoration:none; margin:0;"><button type="button" class="btn-grid-custom">Coletar Intenções</button></a>
+            <form method="get" style="margin:0;"><input type="hidden" name="nav" value="ver_intencoes"/><button type="submit" class="btn-grid-custom">Ver Intenções</button></form>
         </div>
-    """, unsafe_allow_html=True)
-
-with col_sair:
-    st.markdown('<div class="btn-sair-container" style="margin-top: 8px;">', unsafe_allow_html=True)
-    if st.button("Sair", key="btn_logout_action"):
-        st.session_state.logged_in = False
-        st.session_state.user_name = ""
-        st.session_state.user_profile = ""
-        st.session_state.user_id = ""
-        st.session_state.pagina = "home"
-        st.rerun()
-    st.markdown('</div>', unsafe_allow_html=True)
-
-# Grid de botões reestruturado usando colunas reais do Streamlit dentro da casca CSS
-st.markdown('<div class="painel-opcoes-estatico">', unsafe_allow_html=True)
-btn_col1, btn_col2 = st.columns(2)
-
-with btn_col1:
-    if st.button("Escala Geral", key="nav_escala_geral"):
-        st.session_state.pagina = "escala_geral"
-        st.rerun()
-        
-    if st.button("Minha Escala", key="nav_minha_escala"):
-        st.session_state.pagina = "minha_escala"
-        st.rerun()
-
-    # Botão de link externo mantido nativo
-    st.link_button("Coletar Intenções", "https://docs.google.com/forms/d/e/1FAIpQLScgX8RkpDYhb-rMwb8_ZR6dJhp-tKUyowmRGrSK-tbsXveqCw/viewform?usp=sharing")
-
-with btn_col2:
-    if st.button("Exibir Escala (PDF)", key="nav_exibir_escala"):
-        st.session_state.pagina = "exibir_escala"
-        st.rerun()
-
-    if st.button("Aguardando Leitores", key="nav_aguardando"):
-        st.session_state.pagina = "aguardando"
-        st.rerun()
-
-    if st.button("Ver Intenções", key="nav_ver_intencoes"):
-        st.session_state.pagina = "ver_intencoes"
-        st.rerun()
-st.markdown('</div>', unsafe_allow_html=True)
+    </div>
+""", unsafe_allow_html=True)
 
 
 # Carregamento seguro dos dados da escala
