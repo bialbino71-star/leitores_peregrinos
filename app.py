@@ -120,8 +120,8 @@ st.markdown("""
     }
     
     /* ESTILIZAÇÃO DO CONTÊINER DE COLUNAS DO MENU (PAINEL CINZA-GRAFITE) */
-    div[data-testid="stHorizontalBlock"]:has(button[key*="menu_"]) {
-        background-color: #4F5666 !important; 
+    .st-key-menu_grid {
+        background-color: #4F5666 !important;
         border-radius: 16px !important;
         padding: 24px 16px !important;
         margin-bottom: 25px !important;
@@ -129,8 +129,8 @@ st.markdown("""
     }
     
     /* RESOLUÇÃO VISUAL DOS BOTÕES INTERNOS (AZUL PETRÓLEO + DUPLO CONTORNO CHANFRADO BRONZE) */
-    div[data-testid="stHorizontalBlock"]:has(button[key*="menu_"]) button,
-    div[data-testid="stHorizontalBlock"]:has(button[key*="menu_"]) div.stLinkButton a {
+    .st-key-menu_grid button,
+    .st-key-menu_grid div.stLinkButton a {
         background: #0D1B2A !important;
         color: #E0E2E5 !important;
         border: 3.5px solid #8C6D4F !important;
@@ -149,8 +149,8 @@ st.markdown("""
         height: auto !important;
     }
     
-    div[data-testid="stHorizontalBlock"]:has(button[key*="menu_"]) button:hover,
-    div[data-testid="stHorizontalBlock"]:has(button[key*="menu_"]) div.stLinkButton a:hover {
+    .st-key-menu_grid button:hover,
+    .st-key-menu_grid div.stLinkButton a:hover {
         background: #15273C !important;
         border-color: #A38465 !important;
     }
@@ -317,18 +317,19 @@ st.markdown('<div class="btn-sair-wrapper">', unsafe_allow_html=True)
 st.button("Sair", key="btn_logout_definitivo", on_click=efetuar_logout)
 st.markdown('</div>', unsafe_allow_html=True)
 
-# 3. Grid de Botões Nativo (Interceptado pelo CSS via chaveamento de prefixo "menu_")
-grid_col1, grid_col2 = st.columns(2)
+# 3. Grid de Botões Nativo (container com key="menu_grid" gera a classe .st-key-menu_grid usada no CSS acima)
+with st.container(key="menu_grid"):
+    grid_col1, grid_col2 = st.columns(2)
 
-with grid_col1:
-    st.button("Escala Geral", key="menu_geral", on_click=navegar_para, args=("escala_geral",), use_container_width=True)
-    st.button("Minha Escala", key="menu_minha", on_click=navegar_para, args=("minha_escala",), use_container_width=True)
-    st.link_button("Coletar Intenções", "https://docs.google.com/forms/d/e/1FAIpQLScgX8RkpDYhb-rMwb8_ZR6dJhp-tKUyowmRGrSK-tbsXveqCw/viewform?usp=sharing", use_container_width=True)
+    with grid_col1:
+        st.button("Escala Geral", key="menu_geral", on_click=navegar_para, args=("escala_geral",), use_container_width=True)
+        st.button("Minha Escala", key="menu_minha", on_click=navegar_para, args=("minha_escala",), use_container_width=True)
+        st.link_button("Coletar Intenções", "https://docs.google.com/forms/d/e/1FAIpQLScgX8RkpDYhb-rMwb8_ZR6dJhp-tKUyowmRGrSK-tbsXveqCw/viewform?usp=sharing", use_container_width=True)
 
-with grid_col2:
-    st.button("Exibir Escala (PDF)", key="menu_pdf", on_click=navegar_para, args=("exibir_escala",), use_container_width=True)
-    st.button("Aguardando Leitores", key="menu_vagas", on_click=navegar_para, args=("aguardando",), use_container_width=True)
-    st.button("Ver Intenções", key="menu_intencoes", on_click=navegar_para, args=("ver_intencoes",), use_container_width=True)
+    with grid_col2:
+        st.button("Exibir Escala (PDF)", key="menu_pdf", on_click=navegar_para, args=("exibir_escala",), use_container_width=True)
+        st.button("Aguardando Leitores", key="menu_vagas", on_click=navegar_para, args=("aguardando",), use_container_width=True)
+        st.button("Ver Intenções", key="menu_intencoes", on_click=navegar_para, args=("ver_intencoes",), use_container_width=True)
 
 
 # Carregamento seguro dos dados da escala para os blocos abaixo
