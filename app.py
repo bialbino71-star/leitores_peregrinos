@@ -7,7 +7,7 @@ from datetime import datetime, date, timedelta
 from google.oauth2 import service_account
 from fpdf import FPDF
 
-# Configuração da página - Expandindo o contêiner principal para o tamanho correto
+# Configuração da página - Alinhamento centralizado e responsivo
 st.set_page_config(
     page_title="Leitores Peregrinos", 
     layout="centered",
@@ -24,18 +24,20 @@ if "logged_in" not in st.session_state:
 if "pagina" not in st.session_state:
     st.session_state.pagina = "home"
 
-# --- FUNÇÕES DE NAVEGAÇÃO INTERNA (CALLBACKS) ---
-def navegar_para(nome_pagina):
-    st.session_state.pagina = nome_pagina
-
-def acionar_logout():
+# --- CAPTURA DE NAVEGAÇÃO E LOGOUT VIA QUERY PARAMS ---
+query_params = st.query_params
+if "nav" in query_params:
+    st.session_state.pagina = query_params["nav"]
+if "action" in query_params and query_params["action"] == "logout":
     st.session_state.logged_in = False
     st.session_state.user_name = ""
     st.session_state.user_profile = ""
     st.session_state.user_id = ""
     st.session_state.pagina = "home"
+    st.query_params.clear()
+    st.rerun()
 
-# --- BLINDAGEM VISUAL - ESTILIZAÇÃO DO LAYOUT OFICIAL DEFINITIVA ---
+# --- BLINDAGEM VISUAL - ESTILIZAÇÃO DO LAYOUT OFICIAL ---
 st.markdown("""
     <style>
     /* Forçar a largura ideal da página */
@@ -50,10 +52,10 @@ st.markdown("""
         background-color: #FEFAE0 !important;
     }
     
-    /* Ocultar elementos nativos do Streamlit */
+    /* Ocultar elementos nativos desnecessários do Streamlit */
     #MainMenu, footer, header {visibility: hidden !important;}
     
-    /* Cartão Superior (Apenas o contêiner da imagem do layout oficial) */
+    /* Cartão Superior (Contêiner exclusivo da imagem oficial) */
     .cartao-superior-oficial {
         width: 100%;
         margin-bottom: 25px;
@@ -62,7 +64,6 @@ st.markdown("""
         align-items: center;
     }
     
-    /* Força a imagem do layout oficial a ocupar toda a largura do bloco */
     .imagem-layout-completo {
         width: 100% !important;
         height: auto !important;
@@ -71,11 +72,11 @@ st.markdown("""
         box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
     }
     
-    /* Barra de Status Terracota Completamente Integrada */
+    /* Barra de Status Terracota Perfeitamente Integrada */
     .barra-status-container {
         background-color: #EAB99F; 
         border-radius: 25px;
-        padding: 6px 20px;
+        padding: 6px 12px 6px 20px;
         display: flex;
         justify-content: space-between;
         align-items: center;
@@ -92,6 +93,26 @@ st.markdown("""
         font-family: sans-serif;
     }
     
+    /* Botão Sair integrado na extremidade direita da barra terracota */
+    .btn-sair-link {
+        background-color: #7B3E3C !important; 
+        color: #FFFFFF !important;
+        text-decoration: none !important;
+        border-radius: 20px !important;
+        padding: 8px 24px !important;
+        font-size: 15px !important;
+        font-weight: bold !important;
+        display: inline-block;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
+        font-family: sans-serif;
+        border: none;
+        cursor: pointer;
+    }
+    
+    .btn-sair-link:hover {
+        background-color: #914947 !important;
+    }
+    
     /* Painel do Grid de Botões Estático (Fundo Cinza Escuro) */
     .painel-opcoes-estatico {
         background-color: #555E6B; 
@@ -101,8 +122,15 @@ st.markdown("""
         box-shadow: inset 0 2px 5px rgba(0,0,0,0.2);
     }
     
-    /* Injeção precisa de CSS para estilizar os botões nativos do Streamlit */
-    .painel-opcoes-estatico div.stButton > button {
+    /* Estruturação interna do Grid em HTML Puro */
+    .grid-botoes-html {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+    }
+    
+    /* Estilo Real dos Botões (Manto Profundo + Borda Dourada Espessa) */
+    .btn-grid-custom {
         background-color: #10141A !important;
         color: #FFFFFF !important;
         border: 3.5px solid #A3794E !important;
@@ -111,57 +139,16 @@ st.markdown("""
         font-size: 17px !important;
         font-weight: 700 !important;
         text-align: center !important;
-        width: 100% !important;
+        width: 100%;
         box-shadow: inset 0 1px 3px rgba(255,255,255,0.1) !important;
         font-family: sans-serif;
+        cursor: pointer;
         transition: background-color 0.2s ease;
     }
     
-    .painel-opcoes-estatico div.stButton > button:hover {
+    .btn-grid-custom:hover {
         background-color: #1c232e !important;
         border-color: #b88b5c !important;
-    }
-    
-    /* Injeção precisa de CSS para o botão de Link Externo */
-    .painel-opcoes-estatico div.stLinkButton > a {
-        background-color: #10141A !important;
-        color: #FFFFFF !important;
-        border: 3.5px solid #A3794E !important;
-        border-radius: 30px !important;
-        padding: 14px 10px !important;
-        font-size: 17px !important;
-        font-weight: 700 !important;
-        text-align: center !important;
-        width: 100% !important;
-        display: block !important;
-        box-shadow: inset 0 1px 3px rgba(255,255,255,0.1) !important;
-        font-family: sans-serif;
-        text-decoration: none !important;
-        box-sizing: border-box !important;
-    }
-    
-    .painel-opcoes-estatico div.stLinkButton > a:hover {
-        background-color: #1c232e !important;
-        border-color: #b88b5c !important;
-    }
-    
-    /* Botão Sair Estilizado */
-    div.btn-sair-container div.stButton > button {
-        background-color: #7B3E3C !important; 
-        color: #FFFFFF !important;
-        border: none !important;
-        border-radius: 20px !important;
-        padding: 8px 24px !important;
-        font-size: 15px !important;
-        font-weight: bold !important;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
-        font-family: sans-serif;
-        height: auto !important;
-        width: auto !important;
-    }
-    
-    div.btn-sair-container div.stButton > button:hover {
-        background-color: #914947 !important;
     }
     
     /* Caixa de Instruções Inferior (Tom Azul Lâmina Fria Oficial) */
@@ -278,7 +265,7 @@ def deve_exibir_comentarista_e_leitura2(row):
     return eh_fim_de_semana(dia) or solenidade == 'SIM'
 
 
-# --- RENDERIZAÇÃO DO CABEÇALHO OFICIAL EXPANDIDO ---
+# --- RENDERIZAÇÃO DO CABEÇALHO OFICIAL (SEM TEXTO DUPLICADO) ---
 st.markdown("""
     <div class="cartao-superior-oficial">
         <img class="imagem-layout-completo" src="https://i.ibb.co/j92LZnZJ/novo-logo-oficial.png" />
@@ -327,34 +314,27 @@ if st.session_state.user_profile == "2":
 elif st.session_state.user_profile == "3":
     perfil_texto = "ADM"
 
-# Barra de Status Unificada Terracota com Botão Sair integrado de forma limpa e funcional
-col_status_layout, col_sair_layout = st.columns([4.2, 1.3])
-with col_status_layout:
-    st.markdown(f"""
-        <div class="barra-status-container">
-            <div class="texto-logado">Logado: {st.session_state.user_name} ({perfil_texto})</div>
+# Barra de Status Terracota com Botão Sair incorporado em HTML puro
+st.markdown(f"""
+    <div class="barra-status-container">
+        <div class="texto-logado">Logado: {st.session_state.user_name} ({perfil_texto})</div>
+        <form method="get" style="margin:0;"><input type="hidden" name="action" value="logout"/><button type="submit" class="btn-sair-link">Sair</button></form>
+    </div>
+""", unsafe_allow_html=True)
+
+# Grid de botões estáticos no painel cinza-escuro (completamente travado e funcional)
+st.markdown("""
+    <div class="painel-opcoes-estatico">
+        <div class="grid-botoes-html">
+            <form method="get" style="margin:0;"><input type="hidden" name="nav" value="escala_geral"/><button type="submit" class="btn-grid-custom">Escala Geral</button></form>
+            <form method="get" style="margin:0;"><input type="hidden" name="nav" value="exibir_escala"/><button type="submit" class="btn-grid-custom">Exibir Escala (PDF)</button></form>
+            <form method="get" style="margin:0;"><input type="hidden" name="nav" value="minha_escala"/><button type="submit" class="btn-grid-custom">Minha Escala</button></form>
+            <form method="get" style="margin:0;"><input type="hidden" name="nav" value="aguardando"/><button type="submit" class="btn-grid-custom">Aguardando Leitores</button></form>
+            <a href="https://docs.google.com/forms/d/e/1FAIpQLScgX8RkpDYhb-rMwb8_ZR6dJhp-tKUyowmRGrSK-tbsXveqCw/viewform?usp=sharing" target="_blank" style="text-decoration:none; margin:0; display:block;"><button type="button" class="btn-grid-custom" style="width:100%;">Coletar Intenções</button></a>
+            <form method="get" style="margin:0;"><input type="hidden" name="nav" value="ver_intencoes"/><button type="submit" class="btn-grid-custom">Ver Intenções</button></form>
         </div>
-    """, unsafe_allow_html=True)
-
-with col_sair_layout:
-    st.markdown('<div class="btn-sair-container" style="display:flex; justify-content:center; align-items:center; height:52px;">', unsafe_allow_html=True)
-    st.button("Sair", key="btn_logout_final", on_click=acionar_logout)
-    st.markdown('</div>', unsafe_allow_html=True)
-
-# Grid de botões estáticos no painel cinza-escuro (alinhados com precisão cirúrgica)
-st.markdown('<div class="painel-opcoes-estatico">', unsafe_allow_html=True)
-grid_col1, grid_col2 = st.columns(2)
-
-with grid_col1:
-    st.button("Escala Geral", key="nav_btn_geral", on_click=navegar_para, args=("escala_geral",), use_container_width=True)
-    st.button("Minha Escala", key="nav_btn_minha", on_click=navegar_para, args=("minha_escala",), use_container_width=True)
-    st.link_button("Coletar Intenções", "https://docs.google.com/forms/d/e/1FAIpQLScgX8RkpDYhb-rMwb8_ZR6dJhp-tKUyowmRGrSK-tbsXveqCw/viewform?usp=sharing", use_container_width=True)
-
-with grid_col2:
-    st.button("Exibir Escala (PDF)", key="nav_btn_pdf", on_click=navegar_para, args=("exibir_escala",), use_container_width=True)
-    st.button("Aguardando Leitores", key="nav_btn_vagas", on_click=navegar_para, args=("aguardando",), use_container_width=True)
-    st.button("Ver Intenções", key="nav_btn_intencoes", on_click=navegar_para, args=("ver_intencoes",), use_container_width=True)
-st.markdown('</div>', unsafe_allow_html=True)
+    </div>
+""", unsafe_allow_html=True)
 
 
 # Carregamento seguro dos dados da escala
