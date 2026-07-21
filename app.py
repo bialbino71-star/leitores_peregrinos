@@ -7,10 +7,10 @@ from datetime import datetime, date, timedelta
 from google.oauth2 import service_account
 from fpdf import FPDF
 
-# Configuração da página
+# Configuração da página otimizada para dispositivos móveis
 st.set_page_config(page_title="Leitores Peregrinos", layout="centered")
 
-# --- CONEXÃO COM GOOGLE SHEETS ---
+# --- CONEXÃO SEGURA COM O GOOGLE SHEETS ---
 def get_credentials():
     encoded_json = st.secrets["gcp_service_account"]["base64_json"]
     decoded_json = json.loads(base64.b64decode(encoded_json).decode('utf-8'))
@@ -24,24 +24,25 @@ def get_connection():
     client = gspread.authorize(creds)
     return client.open_by_key("1RnwgFBWytspiM5eh5i0pgW2HXNRrwLXU4dYGXviDHlU")
 
-# --- FUNÇÕES AUXILIARES DE REGRAS ---
+# --- FUNÇÕES DE VALIDAÇÃO E REGRAS DE NEGÓCIO ---
+
 def usuario_ja_escalado_no_dia(escala, data_alvo, nome_usuario):
     for r in escala:
         if str(r.get('DIA', '')).strip() == str(data_alvo).strip():
-            if (str(r.get('COMENTARISTA', '')).strip() == nome_usuario or 
-                str(r.get('LEITURA1', '')).strip() == nome_usuario or 
-                str(r.get('LEITURA2', '')).strip() == nome_usuario):
+            if (str(r.get('COMENTARISTA', '')).strip().upper() == nome_usuario.strip().upper() or 
+                str(r.get('LEITURA1', '')).strip().upper() == nome_usuario.strip().upper() or 
+                str(r.get('LEITURA2', '')).strip().upper() == nome_usuario.strip().upper()):
                 return True
     return False
 
 def contar_servicos_no_mes(escala, nome_usuario):
     count = 0
     for r in escala:
-        if str(r.get('COMENTARISTA', '')).strip() == nome_usuario:
+        if str(r.get('COMENTARISTA', '')).strip().upper() == nome_usuario.strip().upper():
             count += 1
-        if str(r.get('LEITURA1', '')).strip() == nome_usuario:
+        if str(r.get('LEITURA1', '')).strip().upper() == nome_usuario.strip().upper():
             count += 1
-        if str(r.get('LEITURA2', '')).strip() == nome_usuario:
+        if str(r.get('LEITURA2', '')).strip().upper() == nome_usuario.strip().upper():
             count += 1
     return count
 
@@ -70,7 +71,7 @@ def processar_tentativa_cancelamento(sh, nome_usuario, dia_evento):
                         novo_faltas = int(faltas_atual) + 1
                         ws_leitores.update_cell(r_idx, 3, str(novo_faltas))
                         break
-            except Exception as e:
+            except Exception:
                 pass
             return False
     return True
@@ -84,7 +85,7 @@ def deve_exibir_comentarista_e_leitura2(row):
     solenidade = str(row.get('SOLENIDADE', 'NÃO')).strip().upper()
     return eh_fim_de_semana(dia) or solenidade == 'SIM'
 
-# --- CONTROLE DE SESSÃO ---
+# --- GERENCIAMENTO DE ESTADO DA SESSÃO ---
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
     st.session_state.user_name = ""
@@ -94,14 +95,14 @@ if "logged_in" not in st.session_state:
 if "pagina" not in st.session_state:
     st.session_state.pagina = "escala_geral"
 
-# --- CABEÇALHO VISUAL ---
-st.markdown("<h1 style='text-align: center; font-size: 24px;'>Leitores Peregrinos</h1>", unsafe_allow_html=True)
+# --- CABEÇALHO E IDENTIDADE VISUAL ---
+st.markdown("<h1 style='text-align: center; font-size: 22px;'>Leitores Peregrinos</h1>", unsafe_allow_html=True)
 
 col_l, col_img = st.columns([1, 2])
 with col_l:
-    st.image("https://i.ibb.co/HLqFZgZK/logo-igreja.jpg", width=80)
+    st.image("https://i.ibb.co/HLqFZgZK/logo-igreja.jpg", width=70)
 with col_img:
-    st.image("https://i.ibb.co/hJswKtgV/IMG20260522140332.jpg", width=180)
+    st.image("https://i.ibb.co/hJswKtgV/IMG20260522140332.jpg", width=150)
 
 st.markdown("---")
 
@@ -138,8 +139,8 @@ if not st.session_state.logged_in:
                 st.error(f"Erro ao conectar com a base de dados: {e}")
     st.stop()
 
-# --- BARRA DE USUÁRIO LOGADO ---
-col_info, col_logout = st.columns([4, 1])
+# --- BARRA DO USUÁRIO LOGADO ---
+col_info, col_logout = st.columns([3, 1])
 with col_info:
     perfil_texto = "LEITOR"
     if st.session_state.user_profile == "2":
@@ -159,7 +160,7 @@ with col_logout:
 
 st.markdown("---")
 
-# --- MENU PRINCIPAL (Apenas Botões) ---
+# --- MENU DE NAVEGAÇÃO PRINCIPAL (EXCLUSIVAMENTE BOTÕES) ---
 menu_col1, menu_col2 = st.columns(2)
 with menu_col1:
     if st.button("Escala Geral", use_container_width=True):
@@ -185,7 +186,7 @@ with menu_col2:
 
 st.markdown("---")
 
-# Conexão e carregamento de dados da Escala
+# --- CONEXÃO E CARREGAMENTO DA PLANILHA DE ESCALA ---
 sh = get_connection()
 try:
     ws_escala = sh.worksheet("Escala")
@@ -195,7 +196,7 @@ except:
 
 is_adm = (st.session_state.user_profile == "3")
 
-# Função de renderização estruturada dos eventos
+# --- FUNÇÃO CENTRAL DE RENDERIZAÇÃO DOS EVENTOS ---
 def renderizar_evento(idx, row, modo_aguardando=False):
     dia = str(row.get('DIA', ''))
     horario = str(row.get('HORARIO', ''))
@@ -211,98 +212,93 @@ def renderizar_evento(idx, row, modo_aguardando=False):
     if modo_aguardando and not tem_vago:
         return
 
-    # Cabeçalho do Evento: <Dia> <Horário>
+    # Linha 1: <Dia> <Horário>
     header_text = f"📅 **{dia}** — ⏰ **{horario}**"
     if solenidade == 'SIM':
         header_text += " ✨ *(Solenidade)*"
-    
     st.markdown(header_text)
     
-    # 1. COMENTARISTA (se sábado, domingo ou Solenidade == 'SIM')
+    usuario_atual = st.session_state.user_name
+
+    # Bloco 1: COMENTARISTA (se sábado, domingo ou solenidade)
     if mostrar_com_l2:
         val_com = comentarista if comentarista else "Vago"
         c_col1, c_col2 = st.columns([3, 1])
         c_col1.write(f"**COMENTARISTA:** {val_com}")
         
-        is_owner_com = (comentarista == st.session_state.user_name)
-        pode_agir_adm = is_adm and not is_owner_com
-
         if not comentarista:
             if c_col2.button("Servir", key=f"s_com_{idx}"):
                 if st.session_state.user_profile == "1" and not is_adm:
                     st.error("Você não possui o perfil “Comentarista”")
-                elif not is_adm and contar_servicos_no_mes(escala_data, st.session_state.user_name) >= 3:
+                elif not is_adm and contar_servicos_no_mes(escala_data, usuario_atual) >= 3:
                     st.error("Você já serviu três vezes nesse mês")
-                elif not is_adm and usuario_ja_escalado_no_dia(escala_data, dia, st.session_state.user_name):
+                elif not is_adm and usuario_ja_escalado_no_dia(escala_data, dia, usuario_atual):
                     st.error("Você já possui uma função agendada neste dia.")
                 else:
-                    ws_escala.update_cell(idx + 2, 4, st.session_state.user_name)
+                    ws_escala.update_cell(idx + 2, 4, usuario_atual)
                     st.success("Escalado como Comentarista!")
                     st.rerun()
         else:
-            if comentarista == st.session_state.user_name or pode_agir_adm:
+            pode_cancelar = (comentarista.upper() == usuario_atual.upper()) or is_adm
+            if pode_cancelar:
                 if c_col2.button("Cancelar", key=f"c_com_{idx}"):
-                    if comentarista == st.session_state.user_name and not is_adm:
-                        if not processar_tentativa_cancelamento(sh, st.session_state.user_name, dia):
+                    if comentarista.upper() == usuario_atual.upper() and not is_adm:
+                        if not processar_tentativa_cancelamento(sh, usuario_atual, dia):
                             st.rerun()
                             return
                     ws_escala.update_cell(idx + 2, 4, "")
                     st.success("Cancelado com sucesso!")
                     st.rerun()
 
-    # 2. 1ª LEITURA (todos os dias)
+    # Bloco 2: 1ª LEITURA (todos os dias)
     val_l1 = leitura1 if leitura1 else "Vago"
     l1_col1, l1_col2 = st.columns([3, 1])
     l1_col1.write(f"**1ª LEITURA:** {val_l1}")
-    
-    is_owner_l1 = (leitura1 == st.session_state.user_name)
-    pode_agir_l1 = is_adm and not is_owner_l1
 
     if not leitura1:
         if l1_col2.button("Servir", key=f"s_l1_{idx}"):
-            if not is_adm and contar_servicos_no_mes(escala_data, st.session_state.user_name) >= 3:
+            if not is_adm and contar_servicos_no_mes(escala_data, usuario_atual) >= 3:
                 st.error("Você já serviu três vezes nesse mês")
-            elif not is_adm and usuario_ja_escalado_no_dia(escala_data, dia, st.session_state.user_name):
+            elif not is_adm and usuario_ja_escalado_no_dia(escala_data, dia, usuario_atual):
                 st.error("Você já possui uma função agendada neste dia.")
             else:
-                ws_escala.update_cell(idx + 2, 5, st.session_state.user_name)
+                ws_escala.update_cell(idx + 2, 5, usuario_atual)
                 st.success("Escalado na 1ª Leitura!")
                 st.rerun()
     else:
-        if leitura1 == st.session_state.user_name or pode_agir_l1:
+        pode_cancelar_l1 = (leitura1.upper() == usuario_atual.upper()) or is_adm
+        if pode_cancelar_l1:
             if l1_col2.button("Cancelar", key=f"c_l1_{idx}"):
-                if leitura1 == st.session_state.user_name and not is_adm:
-                    if not processar_tentativa_cancelamento(sh, st.session_state.user_name, dia):
+                if leitura1.upper() == usuario_atual.upper() and not is_adm:
+                    if not processar_tentativa_cancelamento(sh, usuario_atual, dia):
                         st.rerun()
                         return
                 ws_escala.update_cell(idx + 2, 5, "")
                 st.success("Cancelado com sucesso!")
                 st.rerun()
 
-    # 3. 2ª LEITURA (se sábado, domingo ou Solenidade == 'SIM')
+    # Bloco 3: 2ª LEITURA (se sábado, domingo ou solenidade)
     if mostrar_com_l2:
         val_l2 = leitura2 if leitura2 else "Vago"
         l2_col1, l2_col2 = st.columns([3, 1])
         l2_col1.write(f"**2ª LEITURA:** {val_l2}")
-        
-        is_owner_l2 = (leitura2 == st.session_state.user_name)
-        pode_agir_l2 = is_adm and not is_owner_l2
 
         if not leitura2:
             if l2_col2.button("Servir", key=f"s_l2_{idx}"):
-                if not is_adm and contar_servicos_no_mes(escala_data, st.session_state.user_name) >= 3:
+                if not is_adm and contar_servicos_no_mes(escala_data, usuario_atual) >= 3:
                     st.error("Você já serviu três vezes nesse mês")
-                elif not is_adm and usuario_ja_escalado_no_dia(escala_data, dia, st.session_state.user_name):
+                elif not is_adm and usuario_ja_escalado_no_dia(escala_data, dia, usuario_atual):
                     st.error("Você já possui uma função agendada neste dia.")
                 else:
-                    ws_escala.update_cell(idx + 2, 6, st.session_state.user_name)
+                    ws_escala.update_cell(idx + 2, 6, usuario_atual)
                     st.success("Escalado na 2ª Leitura!")
                     st.rerun()
         else:
-            if leitura2 == st.session_state.user_name or pode_agir_l2:
+            pode_cancelar_l2 = (leitura2.upper() == usuario_atual.upper()) or is_adm
+            if pode_cancelar_l2:
                 if l2_col2.button("Cancelar", key=f"c_l2_{idx}"):
-                    if leitura2 == st.session_state.user_name and not is_adm:
-                        if not processar_tentativa_cancelamento(sh, st.session_state.user_name, dia):
+                    if leitura2.upper() == usuario_atual.upper() and not is_adm:
+                        if not processar_tentativa_cancelamento(sh, usuario_atual, dia):
                             st.rerun()
                             return
                     ws_escala.update_cell(idx + 2, 6, "")
@@ -311,7 +307,7 @@ def renderizar_evento(idx, row, modo_aguardando=False):
 
     st.markdown("---")
 
-# --- ROTEAMENTO DE PÁGINAS ---
+# --- ROTEAMENTO DAS PÁGINas DO APLICATIVO ---
 
 if st.session_state.pagina == "escala_geral":
     st.subheader("Escala Geral do Mês")
@@ -324,11 +320,12 @@ elif st.session_state.pagina == "minha_escala":
     
     encontrou = False
     for idx, row in enumerate(escala_data):
-        c = str(row.get('COMENTARISTA', '')).strip()
-        l1 = str(row.get('LEITURA1', '')).strip()
-        l2 = str(row.get('LEITURA2', '')).strip()
+        c = str(row.get('COMENTARISTA', '')).strip().upper()
+        l1 = str(row.get('LEITURA1', '')).strip().upper()
+        l2 = str(row.get('LEITURA2', '')).strip().upper()
+        u = st.session_state.user_name.upper()
         
-        if c == st.session_state.user_name or l1 == st.session_state.user_name or l2 == st.session_state.user_name:
+        if c == u or l1 == u or l2 == u:
             encontrou = True
             renderizar_evento(idx, row, modo_aguardando=False)
             
@@ -342,9 +339,8 @@ elif st.session_state.pagina == "coletar":
 
 elif st.session_state.pagina == "exibir_escala":
     st.subheader("Exibir Escala (PDF)")
-    st.write("Clique abaixo para baixar o PDF da Escala Geral:")
+    st.write("Clique abaixo para gerar e baixar o PDF da Escala Geral:")
     
-    # Geração de PDF via FPDF
     class PDF(FPDF):
         def header(self):
             self.set_font('Arial', 'B', 12)
@@ -353,16 +349,24 @@ elif st.session_state.pagina == "exibir_escala":
         def footer(self):
             self.set_y(-15)
             self.set_font('Arial', 'I', 8)
-            self.cell(0, 10, f'Página {self.page_no()}', 0, 0, 'C')
+            self.cell(0, 10, f'Pagina {self.page_no()}', 0, 0, 'C')
 
     pdf = PDF()
     pdf.add_page()
-    pdf.set_font("Arial", size=10)
+    pdf.set_font("Arial", size=9)
     
     for row in escala_data:
-        linha = f"Data: {row.get('DIA')} | Horário: {row.get('HORARIO')} | Solenidade: {row.get('SOLENIDADE')} | Comentarista: {row.get('COMENTARISTA') or 'Vago'} | 1ª Leitura: {row.get('LEITURA1') or 'Vago'} | 2ª Leitura: {row.get('LEITURA2') or 'Vago'}"
-        pdf.multi_cell(0, 8, linha)
+        dia = str(row.get('DIA', ''))
+        horario = str(row.get('HORARIO', ''))
+        solenidade = str(row.get('SOLENIDADE', 'NÃO'))
+        comentarista = str(row.get('COMENTARISTA', '') or 'Vago')
+        l1 = str(row.get('LEITURA1', '') or 'Vago')
+        l2 = str(row.get('LEITURA2', '') or 'Vago')
         
+        linha = f"Data: {dia} | Horario: {horario} | Solenidade: {solenidade} | Comentarista: {comentarista} | 1a Leitura: {l1} | 2a Leitura: {l2}"
+        linha_limpa = linha.encode('latin-1', 'replace').decode('latin-1')
+        pdf.multi_cell(0, 7, linha_limpa)
+    
     pdf_bytes = pdf.output(dest='S').encode('latin1', errors='ignore')
     
     st.download_button(
@@ -404,7 +408,7 @@ elif st.session_state.pagina == "ver_intencoes":
             st.warning("Preencha a data e o horário para realizar a busca.")
         else:
             try:
-                with st.spinner("Buscando dados na planilha..."):
+                with st.spinner("Buscando dados na aba Respostas ao Formulário 2..."):
                     ws_resp = sh.worksheet("Respostas ao Formulário 2")
                     respostas_data = ws_resp.get_all_records()
                     
