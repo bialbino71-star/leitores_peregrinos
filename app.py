@@ -895,12 +895,13 @@ elif st.session_state.pagina == "ver_intencoes":
 
                     class PDFIntencoes(FPDF):
                         def header(self):
-                            self.set_font('Arial', 'B', 14)
-                            self.cell(190, 10, 'Relatorio de Intencoes', 0, 1, 'C')
-                            self.set_font('Arial', '', 11)
-                            titulo_missa = missa_selecionada.encode('latin-1', 'replace').decode('latin-1')
-                            self.cell(190, 8, titulo_missa, 0, 1, 'C')
-                            self.ln(3)
+                            if self.page_no() == 1:
+                                self.set_font('Arial', 'B', 14)
+                                self.cell(190, 10, 'Relatorio de Intencoes', 0, 1, 'C')
+                                self.set_font('Arial', '', 11)
+                                titulo_missa = missa_selecionada.encode('latin-1', 'replace').decode('latin-1')
+                                self.cell(190, 8, titulo_missa, 0, 1, 'C')
+                                self.ln(3)
 
                         def footer(self):
                             self.set_y(-15)
@@ -920,6 +921,7 @@ elif st.session_state.pagina == "ver_intencoes":
                     ]
 
                     for titulo_categoria, coluna in categorias_intencao:
+                        pdf.set_x(10)
                         pdf.set_font("Arial", 'B', 12)
                         pdf.cell(190, 8, titulo_categoria.encode('latin-1', 'replace').decode('latin-1'), 0, 1, 'L')
                         pdf.set_font("Arial", '', 10)
@@ -929,9 +931,14 @@ elif st.session_state.pagina == "ver_intencoes":
                             valor = str(r.get(coluna, '')).strip()
                             if valor:
                                 teve_conteudo = True
-                                pdf.multi_cell(190, 6, valor.encode('latin-1', 'replace').decode('latin-1'))
+                                for linha_texto in valor.splitlines():
+                                    linha_texto = linha_texto.strip()
+                                    if linha_texto:
+                                        pdf.set_x(10)
+                                        pdf.multi_cell(190, 6, linha_texto.encode('latin-1', 'replace').decode('latin-1'), 0, 'L')
 
                         if not teve_conteudo:
+                            pdf.set_x(10)
                             pdf.set_font("Arial", 'I', 10)
                             pdf.cell(190, 6, "(nenhuma intenção informada)".encode('latin-1', 'replace').decode('latin-1'), 0, 1, 'L')
 
