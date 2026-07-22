@@ -18,6 +18,52 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
+# Sobrescreve o ícone usado em "Adicionar à Tela de Início" (iOS e Android),
+# que por padrão usa o manifesto/ícone genérico do Streamlit, não o nosso logo.
+components.html("""
+    <script>
+        try {
+            var doc = window.parent.document;
+            var iconUrl = "https://i.ibb.co/j92LZnZJ/novo-logo-oficial.png";
+
+            // iOS (Safari "Adicionar à Tela de Início")
+            var appleLink = doc.querySelector('link[rel="apple-touch-icon"]');
+            if (!appleLink) {
+                appleLink = doc.createElement('link');
+                appleLink.rel = 'apple-touch-icon';
+                doc.head.appendChild(appleLink);
+            }
+            appleLink.href = iconUrl;
+
+            // Android/Chrome (manifesto PWA)
+            var manifestObj = {
+                name: "Leitores Peregrinos",
+                short_name: "Leitores Peregrinos",
+                start_url: window.parent.location.href,
+                display: "standalone",
+                background_color: "#FEFAE0",
+                theme_color: "#5C3A21",
+                icons: [
+                    { src: iconUrl, sizes: "192x192", type: "image/png" },
+                    { src: iconUrl, sizes: "512x512", type: "image/png" }
+                ]
+            };
+            var blob = new Blob([JSON.stringify(manifestObj)], {type: 'application/json'});
+            var manifestUrl = URL.createObjectURL(blob);
+
+            var manifestLink = doc.querySelector('link[rel="manifest"]');
+            if (!manifestLink) {
+                manifestLink = doc.createElement('link');
+                manifestLink.rel = 'manifest';
+                doc.head.appendChild(manifestLink);
+            }
+            manifestLink.href = manifestUrl;
+        } catch (e) {
+            console.log("[ICON-DEBUG] erro:", e);
+        }
+    </script>
+""", height=0)
+
 # --- GERENCIAMENTO DE ESTADO DA SESSÃO ---
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
