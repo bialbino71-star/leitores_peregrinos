@@ -859,6 +859,14 @@ elif st.session_state.pagina == "ver_intencoes":
         ws_resp = sh_conn.worksheet("Respostas")
         respostas_data = ws_resp.get_all_records()
 
+        # Mapa: versão normalizada do cabeçalho -> nome real da coluna na planilha
+        # (permite achar a coluna certa mesmo com espaço extra, acento diferente ou maiúsculas/minúsculas)
+        colunas_reais = list(respostas_data[0].keys()) if respostas_data else []
+        mapa_colunas = {normalizar_chave(c): c for c in colunas_reais}
+
+        def obter_coluna_real(nome_alvo):
+            return mapa_colunas.get(normalizar_chave(nome_alvo))
+
         opcoes_missas = []
         chaves_vistas = set()
         for r in respostas_data:
@@ -911,13 +919,17 @@ elif st.session_state.pagina == "ver_intencoes":
                     pdf = PDFIntencoes()
                     pdf.add_page()
 
-                    # Categorias de intenção e o nome exato da coluna correspondente na planilha "Respostas"
-                    categorias_intencao = [
+                    # Categorias de intenção: nome de exibição -> nome "alvo" da coluna (resolvido de forma tolerante)
+                    categorias_intencao_alvo = [
                         ("Pelas Almas", "Intenções pelas almas"),
                         ("Sétimo Dia", "Missa de sétimo dia"),
                         ("Aniversário Natalício", "Aniversário Natalício"),
                         ("Bodas", "Bodas"),
                         ("Intenções pela Saúde", "Intenções pela Saúde"),
+                    ]
+                    categorias_intencao = [
+                        (titulo, obter_coluna_real(alvo) or alvo)
+                        for titulo, alvo in categorias_intencao_alvo
                     ]
 
                     for titulo_categoria, coluna in categorias_intencao:
