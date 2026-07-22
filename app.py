@@ -12,7 +12,8 @@ from fpdf import FPDF
 
 # Configuração da página - Centralizado e responsivo
 st.set_page_config(
-    page_title="Leitores Peregrinos", 
+    page_title="Leitores Peregrinos",
+    page_icon="https://i.ibb.co/j92LZnZJ/novo-logo-oficial.png",
     layout="centered",
     initial_sidebar_state="collapsed"
 )
@@ -44,6 +45,13 @@ def efetuar_logout():
 # --- FOLHA DE ESTILO GLOBAL (SEM PARAMETROS DE URL OU LINKS FALSOS) ---
 st.markdown("""
     <style>
+    /* Esconde a barra de ferramentas padrão do Streamlit (menu hambúrguer, rodapé, botão Deploy) */
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    header {visibility: hidden;}
+    div[data-testid="stToolbar"] {visibility: hidden;}
+    div[data-testid="stDecoration"] {visibility: hidden;}
+
     /* Forçar a largura ideal da página */
     .block-container {
         max-width: 700px !important;
@@ -187,6 +195,14 @@ st.markdown("""
     .stApp h1, .stApp h2, .stApp h3, .stApp h4, .stApp h5, .stApp h6,
     .stApp label {
         color: #3D2612 !important;
+    }
+
+    /* ESPAÇAMENTO MAIS COMPACTO ENTRE OS EVENTOS (Escala Geral, Minha Escala, Aguardando Leitores) */
+    .stApp hr {
+        margin: 4px 0 !important;
+    }
+    div[data-testid="stElementContainer"] {
+        margin-bottom: 0.2rem !important;
     }
 
     /* CAMPOS "Nome cadastrado" e "ID (Senha)" na tela de login: rótulo e texto digitado no mesmo tamanho do título */
@@ -462,21 +478,19 @@ if st.session_state.user_profile == "2":
 elif st.session_state.user_profile == "3":
     perfil_texto = "ADM"
 
-# 1. Barra Terracota + Botão Sair, lado a lado na mesma linha
-status_col1, status_col2 = st.columns([4, 1])
+# 1. Barra Terracota (identificação do Servo(a))
+st.markdown(f"""
+    <div class="barra-status-alinhada">
+        <div class="texto-logado-interno">Servo(a): {st.session_state.user_name} ({perfil_texto})</div>
+    </div>
+""", unsafe_allow_html=True)
 
-with status_col1:
-    st.markdown(f"""
-        <div class="barra-status-alinhada">
-            <div class="texto-logado-interno">Servo(a): {st.session_state.user_name} ({perfil_texto})</div>
-        </div>
-    """, unsafe_allow_html=True)
-
-with status_col2:
-    with st.container(key="sair_wrapper"):
-        st.button("Sair", key="btn_logout_definitivo", on_click=efetuar_logout)
+# 2. Instrução, logo abaixo da identificação do Servo(a), só na tela inicial
+if st.session_state.pagina == "home":
+    st.markdown('<div style="background-color: #A9ACB4; color: #10141A; border-radius: 8px; padding: 16px; text-align: center; font-size: 16px; font-weight: 600; margin-top: 10px; margin-bottom: 10px; font-family: sans-serif;">Selecione uma opção no menu abaixo para começar.</div>', unsafe_allow_html=True)
 
 # 3. Menu de Botões Nativo, em coluna única (container com key="menu_grid" gera a classe .st-key-menu_grid usada no CSS acima)
+# O botão "Sair" fica por último, dentro do próprio menu.
 with st.container(key="menu_grid"):
     st.button("Escala Geral", key="menu_geral", on_click=navegar_para, args=("escala_geral",), use_container_width=True)
     st.button("Minha Escala", key="menu_minha", on_click=navegar_para, args=("minha_escala",), use_container_width=True)
@@ -487,6 +501,7 @@ with st.container(key="menu_grid"):
     st.link_button("Liturgia Diária", "https://liturgia.cancaonova.com/pb/", use_container_width=True)
     if st.session_state.user_profile == "3":
         st.button("Roteiro", key="menu_roteiro", on_click=navegar_para, args=("cadastrar_roteiro",), use_container_width=True)
+    st.button("🚪 Sair", key="btn_logout_definitivo", on_click=efetuar_logout, use_container_width=True)
 
 
 # Carregamento seguro dos dados da escala para os blocos abaixo
@@ -758,7 +773,7 @@ else:
         st.session_state.ultima_pagina_rolada = "home"
 
 if st.session_state.pagina == "home":
-    st.markdown('<div style="background-color: #A9ACB4; color: #10141A; border-radius: 8px; padding: 16px; text-align: center; font-size: 16px; font-weight: 600; margin-top: 5px; font-family: sans-serif;">Selecione uma opção no menu acima para começar.</div>', unsafe_allow_html=True)
+    pass
 
 elif st.session_state.pagina == "cadastrar_roteiro":
     st.subheader("Cadastrar Roteiro")
@@ -803,10 +818,26 @@ elif st.session_state.pagina == "cadastrar_roteiro":
 
 elif st.session_state.pagina == "escala_geral":
     st.subheader("Escala Geral do Mês")
-    for idx, row in enumerate(escala_data):
-        if not evento_e_hoje_ou_futuro(row):
-            continue
-        renderizar_evento(idx, row, modo_aguardando=False)
+
+    col_data_ini, col_data_fim = st.columns(2)
+    with col_data_ini:
+        data_filtro_inicio = st.date_input("De:", value=date.today(), format="DD/MM/YYYY", key="escala_geral_data_inicio")
+    with col_data_fim:
+        data_filtro_fim = st.date_input("Até:", value=date.today() + timedelta(days=30), format="DD/MM/YYYY", key="escala_geral_data_fim")
+
+    if data_filtro_fim < data_filtro_inicio:
+        st.error("A data final não pode ser anterior à data inicial.")
+    else:
+        algum_evento = False
+        for idx, row in enumerate(escala_data):
+            data_evento = extrair_data_evento(str(row.get('DIA', '')))
+            if data_evento is not None and not (data_filtro_inicio <= data_evento <= data_filtro_fim):
+                continue
+            algum_evento = True
+            renderizar_evento(idx, row, modo_aguardando=False)
+
+        if not algum_evento:
+            st.info("Nenhum evento encontrado nesse intervalo de datas.")
 
 elif st.session_state.pagina == "minha_escala":
     st.subheader("Minha Escala")
