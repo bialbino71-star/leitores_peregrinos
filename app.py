@@ -388,6 +388,12 @@ def deve_exibir_comentarista_e_leitura2(row):
     solenidade = str(row.get('SOLENIDADE', 'NÃO')).strip().upper()
     return eh_fim_de_semana(dia) or solenidade == 'SIM'
 
+def evento_e_hoje_ou_futuro(row):
+    data_evento = extrair_data_evento(str(row.get('DIA', '')))
+    if data_evento is None:
+        return True  # não foi possível identificar a data no texto; mantém o evento por segurança
+    return data_evento >= date.today()
+
 def data_valida_para_roteiro(data_roteiro, escala):
     if data_roteiro.weekday() in (5, 6):
         return True
@@ -779,6 +785,8 @@ elif st.session_state.pagina == "cadastrar_roteiro":
 elif st.session_state.pagina == "escala_geral":
     st.subheader("Escala Geral do Mês")
     for idx, row in enumerate(escala_data):
+        if not evento_e_hoje_ou_futuro(row):
+            continue
         renderizar_evento(idx, row, modo_aguardando=False)
 
 elif st.session_state.pagina == "minha_escala":
@@ -787,6 +795,8 @@ elif st.session_state.pagina == "minha_escala":
     
     encontrou = False
     for idx, row in enumerate(escala_data):
+        if not evento_e_hoje_ou_futuro(row):
+            continue
         c = str(row.get('COMENTARISTA', '')).strip().upper()
         l1 = str(row.get('LEITURA1', '')).strip().upper()
         l2 = str(row.get('LEITURA2', '')).strip().upper()
@@ -858,6 +868,8 @@ elif st.session_state.pagina == "aguardando":
     st.subheader("Aguardando Leitores (Vagas Pendentes)")
     encontrou_vaga = False
     for idx, row in enumerate(escala_data):
+        if not evento_e_hoje_ou_futuro(row):
+            continue
         mostrar_com_l2 = deve_exibir_comentarista_e_leitura2(row)
         c = str(row.get('COMENTARISTA', '')).strip()
         l1 = str(row.get('LEITURA1', '')).strip()
