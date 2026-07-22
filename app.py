@@ -856,7 +856,7 @@ elif st.session_state.pagina == "ver_intencoes":
 
     try:
         sh_conn = get_connection()
-        ws_resp = sh_conn.worksheet("Respostas ao Formulário 2")
+        ws_resp = sh_conn.worksheet("Respostas")
         respostas_data = ws_resp.get_all_records()
 
         opcoes_missas = []
