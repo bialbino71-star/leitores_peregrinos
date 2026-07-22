@@ -328,6 +328,15 @@ def salvar_roteiro(sh, data_str, link):
             return
     ws_roteiros.append_row([data_str, link])
 
+def excluir_roteiro(sh, data_str):
+    ws_roteiros = sh.worksheet("Roteiros")
+    dados = ws_roteiros.get_all_values()
+    for idx, row in enumerate(dados[1:], start=2):
+        if len(row) > 0 and row[0].strip() == data_str:
+            ws_roteiros.delete_rows(idx)
+            return True
+    return False
+
 # --- FUNÇÕES DE VALIDAÇÃO E REGRAS DE NEGÓCIO ---
 def usuario_ja_escalado_no_dia(escala, data_alvo, nome_usuario):
     for r in escala:
@@ -780,7 +789,17 @@ elif st.session_state.pagina == "cadastrar_roteiro":
             st.info("Nenhum roteiro cadastrado ainda.")
         else:
             for data_str, link in sorted(roteiros_data.items()):
-                st.markdown(f"- **{data_str}**: [{link}]({link})")
+                col_link, col_excluir = st.columns([4, 1])
+                col_link.markdown(f"- **{data_str}**: [{link}]({link})")
+                if col_excluir.button("🗑️ Excluir", key=f"excluir_roteiro_{data_str}"):
+                    sh_conn = get_connection()
+                    if excluir_roteiro(sh_conn, data_str):
+                        st.cache_data.clear()
+                        st.success(f"Roteiro de {data_str} removido!")
+                        time.sleep(2.5)
+                        st.rerun()
+                    else:
+                        st.error("Não foi possível encontrar esse roteiro para remover.")
 
 elif st.session_state.pagina == "escala_geral":
     st.subheader("Escala Geral do Mês")
