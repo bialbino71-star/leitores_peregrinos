@@ -26,6 +26,9 @@ if "logged_in" not in st.session_state:
 if "pagina" not in st.session_state:
     st.session_state.pagina = "home"
 
+if "ultima_pagina_rolada" not in st.session_state:
+    st.session_state.ultima_pagina_rolada = None
+
 # --- FUNÇÕES DE TRANSIÇÃO DE TELA (NATIVAS E RÁPIDAS) ---
 def navegar_para(nome_pagina):
     st.session_state.pagina = nome_pagina
@@ -402,6 +405,7 @@ if not st.session_state.logged_in:
                 
                 if usuario_encontrado:
                     st.success("Login realizado com sucesso!")
+                    time.sleep(2.5)
                     st.rerun()
                 else:
                     st.error("Nome ou ID inválidos. Verifique seus dados.")
@@ -508,6 +512,7 @@ def renderizar_evento(idx, row, modo_aguardando=False):
                     st.cache_data.clear()
                     st.session_state[f"alterando_com_{idx}"] = False
                     st.success("Alterado com sucesso!")
+                    time.sleep(2.5)
                     st.rerun()
         else:
             if not comentarista:
@@ -524,6 +529,7 @@ def renderizar_evento(idx, row, modo_aguardando=False):
                         ws_live.update_cell(idx + 2, 4, usuario_atual)
                         st.cache_data.clear()
                         st.success("Escalado como Comentarista!")
+                        time.sleep(2.5)
                         st.rerun()
             else:
                 if comentarista.upper() == usuario_atual.upper():
@@ -534,6 +540,7 @@ def renderizar_evento(idx, row, modo_aguardando=False):
                             ws_live.update_cell(idx + 2, 4, "")
                             st.cache_data.clear()
                             st.success("Cancelado com sucesso!")
+                            time.sleep(2.5)
                             st.rerun()
 
     # 2. 1ª LEITURA
@@ -556,6 +563,7 @@ def renderizar_evento(idx, row, modo_aguardando=False):
                 st.cache_data.clear()
                 st.session_state[f"alterando_l1_{idx}"] = False
                 st.success("Alterado com sucesso!")
+                time.sleep(2.5)
                 st.rerun()
     else:
         if not leitura1:
@@ -570,6 +578,7 @@ def renderizar_evento(idx, row, modo_aguardando=False):
                     ws_live.update_cell(idx + 2, 5, usuario_atual)
                     st.cache_data.clear()
                     st.success("Escalado na 1ª Leitura!")
+                    time.sleep(2.5)
                     st.rerun()
         else:
             if leitura1.upper() == usuario_atual.upper():
@@ -580,6 +589,7 @@ def renderizar_evento(idx, row, modo_aguardando=False):
                         ws_live.update_cell(idx + 2, 5, "")
                         st.cache_data.clear()
                         st.success("Cancelado com sucesso!")
+                        time.sleep(2.5)
                         st.rerun()
 
     # 3. 2ª LEITURA
@@ -603,6 +613,7 @@ def renderizar_evento(idx, row, modo_aguardando=False):
                     st.cache_data.clear()
                     st.session_state[f"alterando_l2_{idx}"] = False
                     st.success("Alterado com sucesso!")
+                    time.sleep(2.5)
                     st.rerun()
         else:
             if not leitura2:
@@ -617,6 +628,7 @@ def renderizar_evento(idx, row, modo_aguardando=False):
                         ws_live.update_cell(idx + 2, 6, usuario_atual)
                         st.cache_data.clear()
                         st.success("Escalado na 2ª Leitura!")
+                        time.sleep(2.5)
                         st.rerun()
             else:
                 if leitura2.upper() == usuario_atual.upper():
@@ -627,75 +639,82 @@ def renderizar_evento(idx, row, modo_aguardando=False):
                             ws_live.update_cell(idx + 2, 6, "")
                             st.cache_data.clear()
                             st.success("Cancelado com sucesso!")
+                            time.sleep(2.5)
                             st.rerun()
 
     st.markdown("---")
 
 # --- ROTEAMENTO E CONTEÚDOS ---
+pagina_mudou = (st.session_state.pagina != st.session_state.ultima_pagina_rolada)
+
 if st.session_state.pagina != "home":
     st.button("⬅️ Voltar ao Menu Principal", key="btn_voltar_menu", on_click=navegar_para, args=("home",))
     st.markdown('<div id="ancora-conteudo"></div>', unsafe_allow_html=True)
 
-    # Rola automaticamente até o início do conteúdo desta tela
-    # (o comentário com nonce força o navegador a tratar isso como um script novo a cada clique)
-    _nonce_scroll = f"{st.session_state.pagina}-{time.time()}"
-    components.html(f"""
-        <!-- nonce:{_nonce_scroll} -->
-        <script>
-            setTimeout(function() {{
-                try {{
-                    var doc = window.parent.document;
-                    var el = doc.getElementById("ancora-conteudo");
-                    if (!el) {{ return; }}
-                    var contentEl = el;
-                    var scrollable = null;
-                    while (contentEl && contentEl !== doc.body) {{
-                        var style = doc.defaultView.getComputedStyle(contentEl);
-                        if ((style.overflowY === "auto" || style.overflowY === "scroll") && contentEl.scrollHeight > contentEl.clientHeight) {{
-                            scrollable = contentEl;
-                            break;
+    # Rola automaticamente até o início do conteúdo desta tela - SÓ quando a página muda de verdade
+    # (evita perder a posição de rolagem quando o ADM clica em Alterar/Salvar na mesma tela)
+    if pagina_mudou:
+        _nonce_scroll = f"{st.session_state.pagina}-{time.time()}"
+        components.html(f"""
+            <!-- nonce:{_nonce_scroll} -->
+            <script>
+                setTimeout(function() {{
+                    try {{
+                        var doc = window.parent.document;
+                        var el = doc.getElementById("ancora-conteudo");
+                        if (!el) {{ return; }}
+                        var contentEl = el;
+                        var scrollable = null;
+                        while (contentEl && contentEl !== doc.body) {{
+                            var style = doc.defaultView.getComputedStyle(contentEl);
+                            if ((style.overflowY === "auto" || style.overflowY === "scroll") && contentEl.scrollHeight > contentEl.clientHeight) {{
+                                scrollable = contentEl;
+                                break;
+                            }}
+                            contentEl = contentEl.parentElement;
                         }}
-                        contentEl = contentEl.parentElement;
+                        if (scrollable) {{
+                            var elRect = el.getBoundingClientRect();
+                            var scrollableRect = scrollable.getBoundingClientRect();
+                            var alvo = scrollable.scrollTop + (elRect.top - scrollableRect.top);
+                            scrollable.scrollTop = alvo;
+                        }} else {{
+                            el.scrollIntoView({{behavior: "auto", block: "start"}});
+                        }}
+                    }} catch (e) {{
+                        console.log("[SCROLL-DEBUG] ERRO:", e);
                     }}
-                    if (scrollable) {{
-                        var elRect = el.getBoundingClientRect();
-                        var scrollableRect = scrollable.getBoundingClientRect();
-                        var alvo = scrollable.scrollTop + (elRect.top - scrollableRect.top);
-                        scrollable.scrollTop = alvo;
-                    }} else {{
-                        el.scrollIntoView({{behavior: "auto", block: "start"}});
-                    }}
-                }} catch (e) {{
-                    console.log("[SCROLL-DEBUG] ERRO:", e);
-                }}
-            }}, 80);
-        </script>
-    """, height=0)
+                }}, 80);
+            </script>
+        """, height=0)
+        st.session_state.ultima_pagina_rolada = st.session_state.pagina
 else:
-    # De volta ao menu principal: rola instantaneamente para o topo da página
-    _nonce_topo = f"home-{time.time()}"
-    components.html(f"""
-        <!-- nonce:{_nonce_topo} -->
-        <script>
-            setTimeout(function() {{
-                try {{
-                    var doc = window.parent.document;
-                    var candidatos = doc.querySelectorAll('section, div, main');
-                    candidatos.forEach(function(el) {{
-                        var style = doc.defaultView.getComputedStyle(el);
-                        if ((style.overflowY === "auto" || style.overflowY === "scroll") && el.scrollHeight > el.clientHeight) {{
-                            el.scrollTop = 0;
-                        }}
-                    }});
-                    doc.documentElement.scrollTop = 0;
-                    doc.body.scrollTop = 0;
-                    window.parent.scrollTo(0, 0);
-                }} catch (e) {{
-                    console.log("[SCROLL-DEBUG] ERRO ao rolar para o topo:", e);
-                }}
-            }}, 80);
-        </script>
-    """, height=0)
+    # De volta ao menu principal: rola instantaneamente para o topo da página - só na primeira vez que chega no home
+    if pagina_mudou:
+        _nonce_topo = f"home-{time.time()}"
+        components.html(f"""
+            <!-- nonce:{_nonce_topo} -->
+            <script>
+                setTimeout(function() {{
+                    try {{
+                        var doc = window.parent.document;
+                        var candidatos = doc.querySelectorAll('section, div, main');
+                        candidatos.forEach(function(el) {{
+                            var style = doc.defaultView.getComputedStyle(el);
+                            if ((style.overflowY === "auto" || style.overflowY === "scroll") && el.scrollHeight > el.clientHeight) {{
+                                el.scrollTop = 0;
+                            }}
+                        }});
+                        doc.documentElement.scrollTop = 0;
+                        doc.body.scrollTop = 0;
+                        window.parent.scrollTo(0, 0);
+                    }} catch (e) {{
+                        console.log("[SCROLL-DEBUG] ERRO ao rolar para o topo:", e);
+                    }}
+                }}, 80);
+            </script>
+        """, height=0)
+        st.session_state.ultima_pagina_rolada = "home"
 
 if st.session_state.pagina == "home":
     st.markdown('<div style="background-color: #A9ACB4; color: #10141A; border-radius: 8px; padding: 16px; text-align: center; font-size: 16px; font-weight: 600; margin-top: 5px; font-family: sans-serif;">Selecione uma opção no menu acima para começar.</div>', unsafe_allow_html=True)
@@ -720,6 +739,7 @@ elif st.session_state.pagina == "cadastrar_roteiro":
                 salvar_roteiro(sh_conn, data_str, link_roteiro.strip())
                 st.cache_data.clear()
                 st.success(f"Roteiro salvo para {data_str}!")
+                time.sleep(2.5)
                 st.rerun()
 
         st.markdown("---")
