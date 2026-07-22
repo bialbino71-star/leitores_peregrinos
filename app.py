@@ -178,15 +178,25 @@ st.markdown("""
         color: #5C3A21 !important;
         font-family: Georgia, 'Times New Roman', serif !important;
         font-weight: 700 !important;
-        font-size: 26px !important;
+        font-size: 34px !important;
         text-align: center;
-        margin-bottom: 10px;
+        margin-bottom: 14px;
     }
 
     /* LABELS E TÍTULOS PADRÃO DO APP: sempre em tom escuro, mesmo se o celular estiver em modo escuro */
     .stApp h1, .stApp h2, .stApp h3, .stApp h4, .stApp h5, .stApp h6,
     .stApp label {
         color: #3D2612 !important;
+    }
+
+    /* CAMPOS "Nome cadastrado" e "ID (Senha)" na tela de login: rótulo e texto digitado no mesmo tamanho do título */
+    div[data-testid="stForm"] label {
+        font-size: 22px !important;
+        font-weight: 600 !important;
+    }
+    div[data-testid="stForm"] .stTextInput input {
+        font-size: 22px !important;
+        padding: 10px 12px !important;
     }
 
     /* TEXTO DE CONTEÚDO (descrições dos eventos em Escala Geral, Minha Escala, Aguardando Leitores etc.)
@@ -204,10 +214,9 @@ st.markdown("""
         -webkit-text-fill-color: #000000 !important;
     }
 
-    /* BOTÕES PADRÃO DO APP (Entrar, Voltar ao Menu, Alterar, Salvar, Servir, Cancelar etc.) 
+    /* BOTÕES PADRÃO DO APP (Voltar ao Menu, Alterar, Salvar, Servir, Cancelar etc.) 
        Estes não têm key específico, então aplicamos um estilo legível (fundo escuro + texto dourado) */
-    div[data-testid="stButton"] button,
-    div[data-testid="stFormSubmitButton"] button {
+    div[data-testid="stButton"] button {
         background-color: #0D1B2A !important;
         border: 1px solid #3D2612 !important;
         border-radius: 14px !important;
@@ -216,16 +225,34 @@ st.markdown("""
     .stApp.stApp div[data-testid="stButton"] button,
     .stApp.stApp div[data-testid="stButton"] button p,
     .stApp.stApp div[data-testid="stButton"] button div,
-    .stApp.stApp div[data-testid="stButton"] button span,
+    .stApp.stApp div[data-testid="stButton"] button span {
+        color: #FFFFFF !important;
+    }
+    div[data-testid="stButton"] button:hover {
+        background-color: #15273C !important;
+    }
+
+    /* BOTÃO "Entrar" (login): no mesmo padrão visual dos botões do menu (pílula azul-petróleo + contorno bronze) */
+    div[data-testid="stFormSubmitButton"] button {
+        background-color: #0D1B2A !important;
+        border: 3.5px solid #8C6D4F !important;
+        outline: 1.5px solid #423224 !important;
+        border-radius: 24px !important;
+        padding: 12px 10px !important;
+        font-size: 20px !important;
+        font-weight: 700 !important;
+        width: 100% !important;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.35), inset 0 1px 2px rgba(255,255,255,0.1) !important;
+    }
     .stApp.stApp div[data-testid="stFormSubmitButton"] button,
     .stApp.stApp div[data-testid="stFormSubmitButton"] button p,
     .stApp.stApp div[data-testid="stFormSubmitButton"] button div,
     .stApp.stApp div[data-testid="stFormSubmitButton"] button span {
         color: #FFFFFF !important;
     }
-    div[data-testid="stButton"] button:hover,
     div[data-testid="stFormSubmitButton"] button:hover {
         background-color: #15273C !important;
+        border-color: #A38465 !important;
     }
 
     /* O botão Sair e os botões do menu têm estilo próprio mais específico, então continuam intactos abaixo */
@@ -405,8 +432,6 @@ if not st.session_state.logged_in:
                         break
                 
                 if usuario_encontrado:
-                    st.success("Login realizado com sucesso!")
-                    time.sleep(2.5)
                     st.rerun()
                 else:
                     st.error("Nome ou ID inválidos. Verifique seus dados.")
