@@ -5,6 +5,7 @@ import base64
 import json
 import re
 import time
+import unicodedata
 from datetime import datetime, date, timedelta
 from google.oauth2 import service_account
 from fpdf import FPDF
@@ -847,49 +848,89 @@ elif st.session_state.pagina == "aguardando":
 elif st.session_state.pagina == "ver_intencoes":
     st.subheader("Relatório de Intenções Coletadas")
     st.markdown("Selecione abaixo a **Data e o Horário da Missa**:")
-    
+
+    def normalizar_chave(txt):
+        txt = str(txt).strip()
+        txt = unicodedata.normalize('NFKD', txt).encode('ASCII', 'ignore').decode('ASCII')
+        return re.sub(r'\s+', ' ', txt).upper()
+
     try:
         sh_conn = get_connection()
         ws_resp = sh_conn.worksheet("Respostas ao Formulário 2")
         respostas_data = ws_resp.get_all_records()
-        
+
         opcoes_missas = []
+        chaves_vistas = set()
         for r in respostas_data:
             d_val = str(r.get('Data', r.get('DATA', ''))).strip()
             h_val = str(r.get('Horário da Missa', r.get('Horario da Missa', r.get('HORARIO', '')))).strip()
             if d_val and h_val:
-                item = f"{d_val} - {h_val}"
-                if item not in opcoes_missas:
-                    opcoes_missas.append(item)
-                    
+                chave = (normalizar_chave(d_val), normalizar_chave(h_val))
+                if chave not in chaves_vistas:
+                    chaves_vistas.add(chave)
+                    opcoes_missas.append(f"{d_val} - {h_val}")
+
         if not opcoes_missas:
             st.info("Nenhuma intenção encontrada na planilha.")
         else:
-            missa_selecionada = st.selectbox("Selecione a Missa (Ticket):", opcoes_missas)
-            
+            missa_selecionada = st.selectbox("Selecione a Missa (Ticket):", sorted(opcoes_missas))
+
             if st.button("Gerar Relatório Consolidado"):
-                partes = missa_selecionada.split(" - ")
-                f_data = partes[0].strip()
-                f_horario = partes[1].strip()
-                
-                conteudo_mesclado = ""
-                encontrou = False
-                
+                partes = missa_selecionada.split(" - ", 1)
+                f_data = normalizar_chave(partes[0])
+                f_horario = normalizar_chave(partes[1]) if len(partes) > 1 else ""
+
+                registros_encontrados = []
                 for r in respostas_data:
-                    data_resp = str(r.get('Data', r.get('DATA', ''))).strip()
-                    horario_resp = str(r.get('Horário da Missa', r.get('Horario da Missa', r.get('HORARIO', '')))).strip()
-                    
+                    data_resp = normalizar_chave(r.get('Data', r.get('DATA', '')))
+                    horario_resp = normalizar_chave(r.get('Horário da Missa', r.get('Horario da Missa', r.get('HORARIO', ''))))
                     if data_resp == f_data and horario_resp == f_horario:
-                        encontrou = True
-                        conteudo_mesclado += f"\n--- Resposta de: {r.get('Carimbo de data/hora', 'Anônimo')} ---\n"
-                        for k, v in r.items():
-                            conteudo_mesclado += f"{k}: {v}\n"
-                        conteudo_mesclado += "\n" + "-"*40 + "\n"
-                        
-                if not encontrou:
+                        registros_encontrados.append(r)
+
+                if not registros_encontrados:
                     st.info("Nenhum registro encontrado para a missa selecionada.")
                 else:
-                    st.success("Relatórios mesclados com sucesso!")
-                    st.text_area("Relatório Consolidado", conteudo_mesclado, height=300)
+                    st.success(f"{len(registros_encontrados)} envio(s) encontrado(s) e mesclado(s) com sucesso!")
+                    time.sleep(2.5)
+
+                    class PDFIntencoes(FPDF):
+                        def header(self):
+                            self.set_font('Arial', 'B', 14)
+                            self.cell(190, 10, 'Relatorio de Intencoes', 0, 1, 'C')
+                            self.set_font('Arial', '', 11)
+                            titulo_missa = missa_selecionada.encode('latin-1', 'replace').decode('latin-1')
+                            self.cell(190, 8, titulo_missa, 0, 1, 'C')
+                            self.ln(3)
+
+                        def footer(self):
+                            self.set_y(-15)
+                            self.set_font('Arial', 'I', 8)
+                            self.cell(190, 10, f'Pagina {self.page_no()}', 0, 0, 'C')
+
+                    pdf = PDFIntencoes()
+                    pdf.add_page()
+
+                    for i, r in enumerate(registros_encontrados, start=1):
+                        pdf.set_font("Arial", 'B', 11)
+                        pdf.cell(190, 8, f"Envio {i}".encode('latin-1', 'replace').decode('latin-1'), 0, 1, 'L')
+                        pdf.set_font("Arial", '', 10)
+                        for k, v in r.items():
+                            linha = f"  {k}: {v}"
+                            pdf.multi_cell(190, 6, linha.encode('latin-1', 'replace').decode('latin-1'))
+                        pdf.ln(4)
+                        pdf.set_draw_color(200, 200, 200)
+                        pdf.line(10, pdf.get_y(), 200, pdf.get_y())
+                        pdf.ln(4)
+
+                    pdf_bytes = bytes(pdf.output())
+                    b64_pdf = base64.b64encode(pdf_bytes).decode('utf-8')
+                    st.markdown(f"""
+                        <a href="data:application/pdf;base64,{b64_pdf}" target="_blank" rel="noopener noreferrer"
+                           style="display:block; text-align:center; background:#0D1B2A; color:#FFFFFF; border:3.5px solid #8C6D4F;
+                                  border-radius:24px; padding:12px 6px; font-size:18px; font-weight:700; text-decoration:none;
+                                  margin-top:10px; font-family:sans-serif;">
+                            📄 Abrir Relatório de Intenções em PDF no Navegador
+                        </a>
+                    """, unsafe_allow_html=True)
     except Exception as e:
         st.error(f"Erro ao acessar a aba de respostas: {e}")
