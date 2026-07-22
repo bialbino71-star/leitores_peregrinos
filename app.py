@@ -910,14 +910,32 @@ elif st.session_state.pagina == "ver_intencoes":
                     pdf = PDFIntencoes()
                     pdf.add_page()
 
-                    for i, r in enumerate(registros_encontrados, start=1):
-                        pdf.set_font("Arial", 'B', 11)
-                        pdf.cell(190, 8, f"Envio {i}".encode('latin-1', 'replace').decode('latin-1'), 0, 1, 'L')
+                    # Categorias de intenção e o nome exato da coluna correspondente na planilha "Respostas"
+                    categorias_intencao = [
+                        ("Pelas Almas", "Intenções pelas almas"),
+                        ("Sétimo Dia", "Missa de sétimo dia"),
+                        ("Aniversário Natalício", "Aniversário Natalício"),
+                        ("Bodas", "Bodas"),
+                        ("Intenções pela Saúde", "Intenções pela Saúde"),
+                    ]
+
+                    for titulo_categoria, coluna in categorias_intencao:
+                        pdf.set_font("Arial", 'B', 12)
+                        pdf.cell(190, 8, titulo_categoria.encode('latin-1', 'replace').decode('latin-1'), 0, 1, 'L')
                         pdf.set_font("Arial", '', 10)
-                        for k, v in r.items():
-                            linha = f"  {k}: {v}"
-                            pdf.multi_cell(190, 6, linha.encode('latin-1', 'replace').decode('latin-1'))
-                        pdf.ln(4)
+
+                        teve_conteudo = False
+                        for r in registros_encontrados:
+                            valor = str(r.get(coluna, '')).strip()
+                            if valor:
+                                teve_conteudo = True
+                                pdf.multi_cell(190, 6, valor.encode('latin-1', 'replace').decode('latin-1'))
+
+                        if not teve_conteudo:
+                            pdf.set_font("Arial", 'I', 10)
+                            pdf.cell(190, 6, "(nenhuma intenção informada)".encode('latin-1', 'replace').decode('latin-1'), 0, 1, 'L')
+
+                        pdf.ln(3)
                         pdf.set_draw_color(200, 200, 200)
                         pdf.line(10, pdf.get_y(), 200, pdf.get_y())
                         pdf.ln(4)
