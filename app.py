@@ -342,7 +342,7 @@ def get_connection():
     client = gspread.authorize(creds)
     return client.open_by_key("1RnwgFBWytspiM5eh5i0pgW2HXNRrwLXU4dYGXviDHlU")
 
-@st.cache_data(ttl=30)
+@st.cache_data(ttl=60)
 def carregar_dados_escala():
     try:
         sh = get_connection()
@@ -352,6 +352,7 @@ def carregar_dados_escala():
         st.error(f"Erro ao conectar com a base de dados: {e}")
         return []
 
+@st.cache_data(ttl=60)
 def obter_lista_leitores():
     try:
         sh = get_connection()
@@ -365,7 +366,7 @@ def obter_lista_leitores():
     except:
         return []
 
-@st.cache_data(ttl=30)
+@st.cache_data(ttl=60)
 def obter_roteiros():
     try:
         sh = get_connection()
@@ -401,7 +402,7 @@ def excluir_roteiro(sh, data_str):
 
 MENSAGEM_PENALIDADE_PADRAO = "Atenção: você foi advertido(a) por uma falta. Na próxima falta sem aviso prévio, você ficará suspenso(a) por 30 dias."
 
-@st.cache_data(ttl=30)
+@st.cache_data(ttl=60)
 def obter_penalidades():
     try:
         sh = get_connection()
@@ -453,7 +454,7 @@ def consumir_penalidade(sh, leitor):
             return mensagem
     return None
 
-@st.cache_data(ttl=30)
+@st.cache_data(ttl=60)
 def obter_suspensoes():
     try:
         sh = get_connection()
@@ -463,26 +464,28 @@ def obter_suspensoes():
         for r in dados:
             leitor = str(r.get('LEITOR', '')).strip()
             data_inicio_str = str(r.get('DATA_INICIO', '')).strip()
+            motivo = str(r.get('MOTIVO', '')).strip()
             if leitor and data_inicio_str:
                 try:
                     data_inicio = datetime.strptime(data_inicio_str, "%d/%m/%Y").date()
                     data_fim = data_inicio + timedelta(days=30)
-                    suspensoes[leitor.upper()] = data_fim
+                    suspensoes[leitor.upper()] = {"data_fim": data_fim, "motivo": motivo}
                 except ValueError:
                     pass
         return suspensoes
     except Exception:
         return {}
 
-def registrar_suspensao(sh, leitor):
+def registrar_suspensao(sh, leitor, motivo=""):
     ws_sus = sh.worksheet("Suspensoes")
     dados = ws_sus.get_all_values()
     hoje_str = date.today().strftime("%d/%m/%Y")
     for idx, row in enumerate(dados[1:], start=2):
         if len(row) > 0 and row[0].strip().upper() == leitor.strip().upper():
             ws_sus.update_cell(idx, 2, hoje_str)
+            ws_sus.update_cell(idx, 3, motivo)
             return
-    ws_sus.append_row([leitor, hoje_str])
+    ws_sus.append_row([leitor, hoje_str, motivo])
 
 def remover_suspensao(sh, leitor):
     ws_sus = sh.worksheet("Suspensoes")
@@ -494,9 +497,10 @@ def remover_suspensao(sh, leitor):
     return False
 
 def leitor_esta_suspenso(nome, suspensoes_data):
-    data_fim = suspensoes_data.get(nome.strip().upper())
-    if data_fim and date.today() <= data_fim:
-        return data_fim
+    """Retorna um dict {'data_fim': date, 'motivo': str} se o leitor estiver suspenso, ou None."""
+    info = suspensoes_data.get(nome.strip().upper())
+    if info and date.today() <= info["data_fim"]:
+        return info
     return None
 
 # --- FUNÇÕES DE VALIDAÇÃO E REGRAS DE NEGÓCIO ---
@@ -742,9 +746,12 @@ def renderizar_evento(idx, row, modo_aguardando=False):
         else:
             if not comentarista:
                 if c_col2.button("Servir", key=f"s_com_{idx}"):
-                    data_suspensao_fim = leitor_esta_suspenso(usuario_atual, suspensoes_data)
-                    if data_suspensao_fim:
-                        st.error(f"Você está suspenso(a) até {data_suspensao_fim.strftime('%d/%m/%Y')} e não pode se escalar.")
+                    info_suspensao = leitor_esta_suspenso(usuario_atual, suspensoes_data)
+                    if info_suspensao:
+                        msg_susp = f"Você está suspenso(a) até {info_suspensao['data_fim'].strftime('%d/%m/%Y')} e não pode se escalar."
+                        if info_suspensao["motivo"]:
+                            msg_susp += f" Motivo: {info_suspensao['motivo']}"
+                        st.error(msg_susp)
                     elif st.session_state.user_profile == "1":
                         st.error("Você não possui o perfil “Comentarista”")
                     elif contar_servicos_no_mes(escala_data, usuario_atual, data_evento_atual) >= 3:
@@ -799,9 +806,12 @@ def renderizar_evento(idx, row, modo_aguardando=False):
     else:
         if not leitura1:
             if l1_col2.button("Servir", key=f"s_l1_{idx}"):
-                data_suspensao_fim = leitor_esta_suspenso(usuario_atual, suspensoes_data)
-                if data_suspensao_fim:
-                    st.error(f"Você está suspenso(a) até {data_suspensao_fim.strftime('%d/%m/%Y')} e não pode se escalar.")
+                info_suspensao = leitor_esta_suspenso(usuario_atual, suspensoes_data)
+                if info_suspensao:
+                    msg_susp = f"Você está suspenso(a) até {info_suspensao['data_fim'].strftime('%d/%m/%Y')} e não pode se escalar."
+                    if info_suspensao["motivo"]:
+                        msg_susp += f" Motivo: {info_suspensao['motivo']}"
+                    st.error(msg_susp)
                 elif contar_servicos_no_mes(escala_data, usuario_atual, data_evento_atual) >= 3:
                     st.error("Você já serviu três vezes nesse mês")
                 elif usuario_ja_escalado_no_dia(escala_data, dia, usuario_atual):
@@ -855,9 +865,12 @@ def renderizar_evento(idx, row, modo_aguardando=False):
         else:
             if not leitura2:
                 if l2_col2.button("Servir", key=f"s_l2_{idx}"):
-                    data_suspensao_fim = leitor_esta_suspenso(usuario_atual, suspensoes_data)
-                    if data_suspensao_fim:
-                        st.error(f"Você está suspenso(a) até {data_suspensao_fim.strftime('%d/%m/%Y')} e não pode se escalar.")
+                    info_suspensao = leitor_esta_suspenso(usuario_atual, suspensoes_data)
+                    if info_suspensao:
+                        msg_susp = f"Você está suspenso(a) até {info_suspensao['data_fim'].strftime('%d/%m/%Y')} e não pode se escalar."
+                        if info_suspensao["motivo"]:
+                            msg_susp += f" Motivo: {info_suspensao['motivo']}"
+                        st.error(msg_susp)
                     elif contar_servicos_no_mes(escala_data, usuario_atual, data_evento_atual) >= 3:
                         st.error("Você já serviu três vezes nesse mês")
                     elif usuario_ja_escalado_no_dia(escala_data, dia, usuario_atual):
@@ -1042,10 +1055,11 @@ elif st.session_state.pagina == "suspender_leitor":
             st.info("Nenhum leitor cadastrado encontrado.")
         else:
             leitor_suspender = st.selectbox("Selecione o Leitor:", lista_todos_leitores, key="sel_suspender")
+            motivo_suspensao = st.text_area("Motivo da suspensão (será exibido ao leitor):", key="motivo_suspender", placeholder="Ex: Ausências recorrentes sem aviso prévio nos últimos meses.")
 
             if st.button("Suspender por 30 dias"):
                 sh_conn = get_connection()
-                registrar_suspensao(sh_conn, leitor_suspender)
+                registrar_suspensao(sh_conn, leitor_suspender, motivo_suspensao.strip())
                 st.cache_data.clear()
                 data_fim_prevista = date.today() + timedelta(days=30)
                 st.success(f"{leitor_suspender} suspenso(a) até {data_fim_prevista.strftime('%d/%m/%Y')}.")
@@ -1054,13 +1068,16 @@ elif st.session_state.pagina == "suspender_leitor":
 
             st.markdown("---")
             st.write("**Leitores atualmente suspensos:**")
-            suspensos_ativos = {nome: fim for nome, fim in suspensoes_data.items() if fim >= date.today()}
+            suspensos_ativos = {nome: info for nome, info in suspensoes_data.items() if info["data_fim"] >= date.today()}
             if not suspensos_ativos:
                 st.info("Nenhum leitor suspenso no momento.")
             else:
-                for nome_susp, data_fim_susp in sorted(suspensos_ativos.items()):
+                for nome_susp, info_susp in sorted(suspensos_ativos.items()):
                     col_nome, col_remover = st.columns([4, 1])
-                    col_nome.markdown(f"- **{nome_susp}** — suspenso(a) até {data_fim_susp.strftime('%d/%m/%Y')}")
+                    texto_susp = f"- **{nome_susp}** — suspenso(a) até {info_susp['data_fim'].strftime('%d/%m/%Y')}"
+                    if info_susp["motivo"]:
+                        texto_susp += f" — *{info_susp['motivo']}*"
+                    col_nome.markdown(texto_susp)
                     if col_remover.button("Remover", key=f"remover_susp_{nome_susp}"):
                         sh_conn = get_connection()
                         if remover_suspensao(sh_conn, nome_susp):
