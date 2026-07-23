@@ -445,7 +445,7 @@ def consumir_penalidade(sh, leitor):
                         novo_faltas = int(faltas_atual) + 1
                         ws_leitores.update_cell(r_idx, 3, str(novo_faltas))
                         timestamp_aviso = datetime.now().strftime("%d/%m/%Y %H:%M")
-                        ws_leitores.update_cell(r_idx, 4, timestamp_aviso)
+                        ws_leitores.update_cell(r_idx, 5, timestamp_aviso)
                         break
             except Exception:
                 pass
@@ -617,11 +617,11 @@ if not st.session_state.logged_in:
                 
                 usuario_encontrado = False
                 for idx, row in enumerate(leitores_data[1:], start=2):
-                    if len(row) > 4 and row[0].strip().upper() == input_nome.strip().upper() and row[1].strip() == input_senha.strip():
+                    if len(row) > 5 and row[0].strip().upper() == input_nome.strip().upper() and row[1].strip() == input_senha.strip():
                         st.session_state.logged_in = True
                         st.session_state.user_name = row[0].strip()
                         st.session_state.user_id = row[1].strip()
-                        st.session_state.user_profile = row[4].strip()
+                        st.session_state.user_profile = row[5].strip()
                         usuario_encontrado = True
                         break
                 
