@@ -445,7 +445,7 @@ def consumir_penalidade(sh, leitor):
                         novo_faltas = int(faltas_atual) + 1
                         ws_leitores.update_cell(r_idx, 3, str(novo_faltas))
                         timestamp_aviso = datetime.now().strftime("%d/%m/%Y %H:%M")
-                        ws_leitores.update_cell(r_idx, 5, timestamp_aviso)
+                        ws_leitores.update_cell(r_idx, 4, timestamp_aviso)
                         break
             except Exception:
                 pass
