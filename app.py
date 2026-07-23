@@ -399,6 +399,106 @@ def excluir_roteiro(sh, data_str):
             return True
     return False
 
+MENSAGEM_PENALIDADE_PADRAO = "Atenção: você foi advertido(a) por uma falta. Na próxima falta sem aviso prévio, você ficará suspenso(a) por 30 dias."
+
+@st.cache_data(ttl=30)
+def obter_penalidades():
+    try:
+        sh = get_connection()
+        ws_pen = sh.worksheet("Penalidades")
+        dados = ws_pen.get_all_records()
+        penalidades = {}
+        for r in dados:
+            leitor = str(r.get('LEITOR', '')).strip()
+            mensagem = str(r.get('MENSAGEM', '')).strip()
+            if leitor:
+                penalidades[leitor.upper()] = mensagem or MENSAGEM_PENALIDADE_PADRAO
+        return penalidades
+    except Exception:
+        return {}
+
+def registrar_penalidade(sh, leitor):
+    ws_pen = sh.worksheet("Penalidades")
+    dados = ws_pen.get_all_values()
+    for row in dados[1:]:
+        if len(row) > 0 and row[0].strip().upper() == leitor.strip().upper():
+            return  # já existe uma penalidade pendente para esse leitor
+    ws_pen.append_row([leitor, MENSAGEM_PENALIDADE_PADRAO])
+
+def consumir_penalidade(sh, leitor):
+    """Remove a penalidade após ser exibida uma vez ao leitor; incrementa o Contador de Faltas
+    e registra o timestamp do aviso na coluna Data-aviso, na aba 'Nomes dos Leitores'.
+    Retorna a mensagem, se havia alguma."""
+    ws_pen = sh.worksheet("Penalidades")
+    dados = ws_pen.get_all_values()
+    for idx, row in enumerate(dados[1:], start=2):
+        if len(row) > 0 and row[0].strip().upper() == leitor.strip().upper():
+            mensagem = row[1].strip() if len(row) > 1 and row[1].strip() else MENSAGEM_PENALIDADE_PADRAO
+            ws_pen.delete_rows(idx)
+
+            try:
+                ws_leitores = sh.worksheet("Nomes dos Leitores")
+                leitores_rows = ws_leitores.get_all_values()
+                for r_idx, l_row in enumerate(leitores_rows[1:], start=2):
+                    if len(l_row) > 0 and l_row[0].strip().upper() == leitor.strip().upper():
+                        faltas_atual = l_row[2].strip() if len(l_row) > 2 and l_row[2].strip().isdigit() else "0"
+                        novo_faltas = int(faltas_atual) + 1
+                        ws_leitores.update_cell(r_idx, 3, str(novo_faltas))
+                        timestamp_aviso = datetime.now().strftime("%d/%m/%Y %H:%M")
+                        ws_leitores.update_cell(r_idx, 5, timestamp_aviso)
+                        break
+            except Exception:
+                pass
+
+            return mensagem
+    return None
+
+@st.cache_data(ttl=30)
+def obter_suspensoes():
+    try:
+        sh = get_connection()
+        ws_sus = sh.worksheet("Suspensoes")
+        dados = ws_sus.get_all_records()
+        suspensoes = {}
+        for r in dados:
+            leitor = str(r.get('LEITOR', '')).strip()
+            data_inicio_str = str(r.get('DATA_INICIO', '')).strip()
+            if leitor and data_inicio_str:
+                try:
+                    data_inicio = datetime.strptime(data_inicio_str, "%d/%m/%Y").date()
+                    data_fim = data_inicio + timedelta(days=30)
+                    suspensoes[leitor.upper()] = data_fim
+                except ValueError:
+                    pass
+        return suspensoes
+    except Exception:
+        return {}
+
+def registrar_suspensao(sh, leitor):
+    ws_sus = sh.worksheet("Suspensoes")
+    dados = ws_sus.get_all_values()
+    hoje_str = date.today().strftime("%d/%m/%Y")
+    for idx, row in enumerate(dados[1:], start=2):
+        if len(row) > 0 and row[0].strip().upper() == leitor.strip().upper():
+            ws_sus.update_cell(idx, 2, hoje_str)
+            return
+    ws_sus.append_row([leitor, hoje_str])
+
+def remover_suspensao(sh, leitor):
+    ws_sus = sh.worksheet("Suspensoes")
+    dados = ws_sus.get_all_values()
+    for idx, row in enumerate(dados[1:], start=2):
+        if len(row) > 0 and row[0].strip().upper() == leitor.strip().upper():
+            ws_sus.delete_rows(idx)
+            return True
+    return False
+
+def leitor_esta_suspenso(nome, suspensoes_data):
+    data_fim = suspensoes_data.get(nome.strip().upper())
+    if data_fim and date.today() <= data_fim:
+        return data_fim
+    return None
+
 # --- FUNÇÕES DE VALIDAÇÃO E REGRAS DE NEGÓCIO ---
 def usuario_ja_escalado_no_dia(escala, data_alvo, nome_usuario):
     for r in escala:
@@ -409,9 +509,15 @@ def usuario_ja_escalado_no_dia(escala, data_alvo, nome_usuario):
                 return True
     return False
 
-def contar_servicos_no_mes(escala, nome_usuario):
+def contar_servicos_no_mes(escala, nome_usuario, data_referencia):
+    """Conta quantas vezes nome_usuario já está escalado no MESMO MÊS/ANO de data_referencia."""
     count = 0
     for r in escala:
+        data_evento = extrair_data_evento(str(r.get('DIA', '')))
+        if data_evento is None or data_referencia is None:
+            continue
+        if data_evento.month != data_referencia.month or data_evento.year != data_referencia.year:
+            continue
         if str(r.get('COMENTARISTA', '')).strip().upper() == nome_usuario.strip().upper():
             count += 1
         if str(r.get('LEITURA1', '')).strip().upper() == nome_usuario.strip().upper():
@@ -454,7 +560,18 @@ def eh_fim_de_semana(dia_str):
     d = dia_str.lower()
     return "sábado" in d or "sabado" in d or "domingo" in d
 
-def deve_exibir_comentarista_e_leitura2(row):
+def eh_dia_4(dia_str):
+    d = extrair_data_evento(dia_str)
+    return d is not None and d.day == 4
+
+def deve_exibir_comentarista(row):
+    """Comentarista abre em fins de semana, solenidades, e todo dia 4 do mês (mesmo em dia de semana)."""
+    dia = str(row.get('DIA', ''))
+    solenidade = str(row.get('SOLENIDADE', 'NÃO')).strip().upper()
+    return eh_fim_de_semana(dia) or solenidade == 'SIM' or eh_dia_4(dia)
+
+def deve_exibir_leitura2(row):
+    """2ª Leitura abre só em fins de semana e solenidades (dia 4 em dia de semana NÃO abre a 2ª Leitura)."""
     dia = str(row.get('DIA', ''))
     solenidade = str(row.get('SOLENIDADE', 'NÃO')).strip().upper()
     return eh_fim_de_semana(dia) or solenidade == 'SIM'
@@ -547,12 +664,16 @@ with st.container(key="menu_grid"):
     st.link_button("Liturgia Diária", "https://liturgia.cancaonova.com/pb/", use_container_width=True)
     if st.session_state.user_profile == "3":
         st.button("Roteiro", key="menu_roteiro", on_click=navegar_para, args=("cadastrar_roteiro",), use_container_width=True)
+        st.button("Inserir Mensagem", key="menu_penalidade", on_click=navegar_para, args=("penalidade_leitor",), use_container_width=True)
+        st.button("Suspensão de Leitor", key="menu_suspensao", on_click=navegar_para, args=("suspender_leitor",), use_container_width=True)
     st.button("🚪 Sair", key="btn_logout_definitivo", on_click=efetuar_logout, use_container_width=True)
 
 
 # Carregamento seguro dos dados da escala para os blocos abaixo
 escala_data = carregar_dados_escala()
 roteiros_data = obter_roteiros()
+penalidades_data = obter_penalidades()
+suspensoes_data = obter_suspensoes()
 is_adm = (st.session_state.user_profile == "3")
 lista_todos_leitores = obter_lista_leitores() if is_adm else []
 
@@ -562,14 +683,16 @@ def renderizar_evento(idx, row, modo_aguardando=False):
     dia = str(row.get('DIA', ''))
     horario = str(row.get('HORARIO', ''))
     solenidade = str(row.get('SOLENIDADE', 'NÃO')).strip().upper()
+    data_evento_atual = extrair_data_evento(dia)
     
     comentarista = str(row.get('COMENTARISTA', '')).strip()
     leitura1 = str(row.get('LEITURA1', '')).strip()
     leitura2 = str(row.get('LEITURA2', '')).strip()
     
-    mostrar_com_l2 = deve_exibir_comentarista_e_leitura2(row)
+    mostrar_comentarista = deve_exibir_comentarista(row)
+    mostrar_l2 = deve_exibir_leitura2(row)
     
-    tem_vago = (not leitura1) or (mostrar_com_l2 and (not comentarista or not leitura2))
+    tem_vago = (not leitura1) or (mostrar_comentarista and not comentarista) or (mostrar_l2 and not leitura2)
     if modo_aguardando and not tem_vago:
         return
 
@@ -594,7 +717,7 @@ def renderizar_evento(idx, row, modo_aguardando=False):
         st.session_state[f"alterando_l2_{idx}"] = False
 
     # 1. COMENTARISTA
-    if mostrar_com_l2:
+    if mostrar_comentarista:
         val_com = comentarista if comentarista else "Vago"
         c_col1, c_col2 = st.columns([3, 1.5])
         c_col1.write(f"**COMENTARISTA:** {val_com}")
@@ -619,9 +742,12 @@ def renderizar_evento(idx, row, modo_aguardando=False):
         else:
             if not comentarista:
                 if c_col2.button("Servir", key=f"s_com_{idx}"):
-                    if st.session_state.user_profile == "1":
+                    data_suspensao_fim = leitor_esta_suspenso(usuario_atual, suspensoes_data)
+                    if data_suspensao_fim:
+                        st.error(f"Você está suspenso(a) até {data_suspensao_fim.strftime('%d/%m/%Y')} e não pode se escalar.")
+                    elif st.session_state.user_profile == "1":
                         st.error("Você não possui o perfil “Comentarista”")
-                    elif contar_servicos_no_mes(escala_data, usuario_atual) >= 3:
+                    elif contar_servicos_no_mes(escala_data, usuario_atual, data_evento_atual) >= 3:
                         st.error("Você já serviu três vezes nesse mês")
                     elif usuario_ja_escalado_no_dia(escala_data, dia, usuario_atual):
                         st.error("Você já possui uma função agendada neste dia.")
@@ -630,7 +756,10 @@ def renderizar_evento(idx, row, modo_aguardando=False):
                         ws_live = sh_conn.worksheet("Escala")
                         ws_live.update_cell(idx + 2, 4, usuario_atual)
                         st.cache_data.clear()
+                        mensagem_penalidade = consumir_penalidade(sh_conn, usuario_atual)
                         st.success("Escalado como Comentarista!")
+                        if mensagem_penalidade:
+                            st.warning(mensagem_penalidade)
                         time.sleep(2.5)
                         st.rerun()
             else:
@@ -670,7 +799,10 @@ def renderizar_evento(idx, row, modo_aguardando=False):
     else:
         if not leitura1:
             if l1_col2.button("Servir", key=f"s_l1_{idx}"):
-                if contar_servicos_no_mes(escala_data, usuario_atual) >= 3:
+                data_suspensao_fim = leitor_esta_suspenso(usuario_atual, suspensoes_data)
+                if data_suspensao_fim:
+                    st.error(f"Você está suspenso(a) até {data_suspensao_fim.strftime('%d/%m/%Y')} e não pode se escalar.")
+                elif contar_servicos_no_mes(escala_data, usuario_atual, data_evento_atual) >= 3:
                     st.error("Você já serviu três vezes nesse mês")
                 elif usuario_ja_escalado_no_dia(escala_data, dia, usuario_atual):
                     st.error("Você já possui uma função agendada neste dia.")
@@ -679,7 +811,10 @@ def renderizar_evento(idx, row, modo_aguardando=False):
                     ws_live = sh_conn.worksheet("Escala")
                     ws_live.update_cell(idx + 2, 5, usuario_atual)
                     st.cache_data.clear()
+                    mensagem_penalidade = consumir_penalidade(sh_conn, usuario_atual)
                     st.success("Escalado na 1ª Leitura!")
+                    if mensagem_penalidade:
+                        st.warning(mensagem_penalidade)
                     time.sleep(2.5)
                     st.rerun()
         else:
@@ -695,7 +830,7 @@ def renderizar_evento(idx, row, modo_aguardando=False):
                         st.rerun()
 
     # 3. 2ª LEITURA
-    if mostrar_com_l2:
+    if mostrar_l2:
         val_l2 = leitura2 if leitura2 else "Vago"
         l2_col1, l2_col2 = st.columns([3, 1.5])
         l2_col1.write(f"**2ª LEITURA:** {val_l2}")
@@ -720,7 +855,10 @@ def renderizar_evento(idx, row, modo_aguardando=False):
         else:
             if not leitura2:
                 if l2_col2.button("Servir", key=f"s_l2_{idx}"):
-                    if contar_servicos_no_mes(escala_data, usuario_atual) >= 3:
+                    data_suspensao_fim = leitor_esta_suspenso(usuario_atual, suspensoes_data)
+                    if data_suspensao_fim:
+                        st.error(f"Você está suspenso(a) até {data_suspensao_fim.strftime('%d/%m/%Y')} e não pode se escalar.")
+                    elif contar_servicos_no_mes(escala_data, usuario_atual, data_evento_atual) >= 3:
                         st.error("Você já serviu três vezes nesse mês")
                     elif usuario_ja_escalado_no_dia(escala_data, dia, usuario_atual):
                         st.error("Você já possui uma função agendada neste dia.")
@@ -729,7 +867,10 @@ def renderizar_evento(idx, row, modo_aguardando=False):
                         ws_live = sh_conn.worksheet("Escala")
                         ws_live.update_cell(idx + 2, 6, usuario_atual)
                         st.cache_data.clear()
+                        mensagem_penalidade = consumir_penalidade(sh_conn, usuario_atual)
                         st.success("Escalado na 2ª Leitura!")
+                        if mensagem_penalidade:
+                            st.warning(mensagem_penalidade)
                         time.sleep(2.5)
                         st.rerun()
             else:
@@ -862,6 +1003,72 @@ elif st.session_state.pagina == "cadastrar_roteiro":
                     else:
                         st.error("Não foi possível encontrar esse roteiro para remover.")
 
+elif st.session_state.pagina == "penalidade_leitor":
+    st.subheader("Inserir Mensagem de Penalidade")
+    if st.session_state.user_profile != "3":
+        st.error("Apenas o ADM pode acessar esta tela.")
+    else:
+        st.write("Selecione o leitor que teve uma falta. Na próxima vez que ele(a) se escalar, receberá o aviso de que a próxima falta sem avisar resultará em suspensão de 30 dias.")
+
+        if not lista_todos_leitores:
+            st.info("Nenhum leitor cadastrado encontrado.")
+        else:
+            leitor_penalidade = st.selectbox("Selecione o Leitor:", lista_todos_leitores, key="sel_penalidade")
+
+            if st.button("Registrar Penalidade"):
+                sh_conn = get_connection()
+                registrar_penalidade(sh_conn, leitor_penalidade)
+                st.cache_data.clear()
+                st.success(f"Penalidade registrada para {leitor_penalidade}.")
+                time.sleep(2.5)
+                st.rerun()
+
+            st.markdown("---")
+            st.write("**Penalidades pendentes (ainda não exibidas ao leitor):**")
+            if not penalidades_data:
+                st.info("Nenhuma penalidade pendente no momento.")
+            else:
+                for leitor_nome in sorted(penalidades_data.keys()):
+                    st.markdown(f"- **{leitor_nome}**")
+
+elif st.session_state.pagina == "suspender_leitor":
+    st.subheader("Suspensão de Leitor")
+    if st.session_state.user_profile != "3":
+        st.error("Apenas o ADM pode acessar esta tela.")
+    else:
+        st.write("Selecione o leitor a ser suspenso. A suspensão dura 30 dias corridos, contados a partir de hoje.")
+
+        if not lista_todos_leitores:
+            st.info("Nenhum leitor cadastrado encontrado.")
+        else:
+            leitor_suspender = st.selectbox("Selecione o Leitor:", lista_todos_leitores, key="sel_suspender")
+
+            if st.button("Suspender por 30 dias"):
+                sh_conn = get_connection()
+                registrar_suspensao(sh_conn, leitor_suspender)
+                st.cache_data.clear()
+                data_fim_prevista = date.today() + timedelta(days=30)
+                st.success(f"{leitor_suspender} suspenso(a) até {data_fim_prevista.strftime('%d/%m/%Y')}.")
+                time.sleep(2.5)
+                st.rerun()
+
+            st.markdown("---")
+            st.write("**Leitores atualmente suspensos:**")
+            suspensos_ativos = {nome: fim for nome, fim in suspensoes_data.items() if fim >= date.today()}
+            if not suspensos_ativos:
+                st.info("Nenhum leitor suspenso no momento.")
+            else:
+                for nome_susp, data_fim_susp in sorted(suspensos_ativos.items()):
+                    col_nome, col_remover = st.columns([4, 1])
+                    col_nome.markdown(f"- **{nome_susp}** — suspenso(a) até {data_fim_susp.strftime('%d/%m/%Y')}")
+                    if col_remover.button("Remover", key=f"remover_susp_{nome_susp}"):
+                        sh_conn = get_connection()
+                        if remover_suspensao(sh_conn, nome_susp):
+                            st.cache_data.clear()
+                            st.success(f"Suspensão de {nome_susp} removida.")
+                            time.sleep(2.5)
+                            st.rerun()
+
 elif st.session_state.pagina == "escala_geral":
     st.subheader("Escala Geral do Mês")
 
@@ -930,7 +1137,8 @@ elif st.session_state.pagina == "exibir_escala":
         l1 = str(row.get('LEITURA1', '')).strip() or 'Vago'
         l2 = str(row.get('LEITURA2', '')).strip() or 'Vago'
         
-        mostrar_com_l2 = deve_exibir_comentarista_e_leitura2(row)
+        mostrar_comentarista = deve_exibir_comentarista(row)
+        mostrar_l2 = deve_exibir_leitura2(row)
         
         texto_cabecalho = f"Data: {dia} - Horario: {horario}"
         if solenidade == 'SIM':
@@ -940,10 +1148,10 @@ elif st.session_state.pagina == "exibir_escala":
         pdf.cell(190, 7, texto_cabecalho.encode('latin-1', 'replace').decode('latin-1'), 0, 1, 'L')
         
         pdf.set_font("Arial", '', 10)
-        if mostrar_com_l2:
+        if mostrar_comentarista:
             pdf.cell(190, 6, f"  - COMENTARISTA: {comentarista}".encode('latin-1', 'replace').decode('latin-1'), 0, 1, 'L')
         pdf.cell(190, 6, f"  - 1a LEITURA: {l1}".encode('latin-1', 'replace').decode('latin-1'), 0, 1, 'L')
-        if mostrar_com_l2:
+        if mostrar_l2:
             pdf.cell(190, 6, f"  - 2a LEITURA: {l2}".encode('latin-1', 'replace').decode('latin-1'), 0, 1, 'L')
         
         pdf.ln(4)
@@ -966,12 +1174,13 @@ elif st.session_state.pagina == "aguardando":
     for idx, row in enumerate(escala_data):
         if not evento_e_hoje_ou_futuro(row):
             continue
-        mostrar_com_l2 = deve_exibir_comentarista_e_leitura2(row)
+        mostrar_comentarista = deve_exibir_comentarista(row)
+        mostrar_l2 = deve_exibir_leitura2(row)
         c = str(row.get('COMENTARISTA', '')).strip()
         l1 = str(row.get('LEITURA1', '')).strip()
         l2 = str(row.get('LEITURA2', '')).strip()
         
-        if (not l1) or (mostrar_com_l2 and (not c or not l2)):
+        if (not l1) or (mostrar_comentarista and not c) or (mostrar_l2 and not l2):
             encontrou_vaga = True
             renderizar_evento(idx, row, modo_aguardando=True)
             
