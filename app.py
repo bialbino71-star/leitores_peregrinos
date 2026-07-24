@@ -712,7 +712,7 @@ def renderizar_evento(idx, row, modo_aguardando=False):
     if eh_dia_4(dia):
         st.markdown(
             '<img src="https://i.ibb.co/5XT3ZnxX/Whats-App-Image-2026-07-23-at-09-57-56.jpg" '
-            'style="height:28px; width:auto; vertical-align:middle; margin:-8px 0 4px 0;">',
+            'style="height:31px; width:auto; vertical-align:middle; margin:-8px 0 4px 0;">',
             unsafe_allow_html=True
         )
 
@@ -1296,7 +1296,7 @@ elif st.session_state.pagina == "ver_intencoes":
                         def header(self):
                             if self.page_no() == 1:
                                 self.set_font('Arial', 'B', 14)
-                                self.cell(190, 10, 'Intencoes da Santa Missa', 0, 1, 'C')
+                                self.cell(190, 10, 'Intenções da Santa Missa'.encode('latin-1', 'replace').decode('latin-1'), 0, 1, 'C')
                                 self.set_font('Arial', '', 11)
                                 titulo_missa = missa_selecionada.encode('latin-1', 'replace').decode('latin-1')
                                 self.cell(190, 8, titulo_missa, 0, 1, 'C')
@@ -1353,7 +1353,7 @@ elif st.session_state.pagina == "ver_intencoes":
                     pdf_bytes = bytes(pdf.output())
                     b64_pdf = base64.b64encode(pdf_bytes).decode('utf-8')
                     st.markdown(f"""
-                        <a href="data:application/pdf;base64,{b64_pdf}" target="_blank" rel="noopener noreferrer" download="intencoes_santa_missa.pdf"
+                        <a href="data:application/pdf;base64,{b64_pdf}" target="_blank" rel="noopener noreferrer" download="Intenções_da_Santa_Missa.pdf"
                            style="display:block; text-align:center; background:#0D1B2A; color:#FFFFFF; border:3.5px solid #8C6D4F;
                                   border-radius:24px; padding:12px 6px; font-size:18px; font-weight:700; text-decoration:none;
                                   margin-top:10px; font-family:sans-serif;">
