@@ -187,8 +187,8 @@ st.markdown("""
     }
     
     /* RESOLUÇÃO VISUAL DOS BOTÕES INTERNOS (AZUL PETRÓLEO + DUPLO CONTORNO CHANFRADO BRONZE) */
-    .st-key-menu_grid button,
-    .st-key-menu_grid div.stLinkButton a {
+    .stApp.stApp .st-key-menu_grid button,
+    .stApp.stApp .st-key-menu_grid div.stLinkButton a {
         background: #0D1B2A !important;
         border: 3.5px solid #8C6D4F !important;
         outline: 1.5px solid #423224 !important;
@@ -221,8 +221,8 @@ st.markdown("""
         color: #FFFFFF !important;
     }
     
-    .st-key-menu_grid button:hover,
-    .st-key-menu_grid div.stLinkButton a:hover {
+    .stApp.stApp .st-key-menu_grid button:hover,
+    .stApp.stApp .st-key-menu_grid div.stLinkButton a:hover {
         background: #15273C !important;
         border-color: #A38465 !important;
     }
@@ -589,6 +589,8 @@ def evento_e_hoje_ou_futuro(row):
 def data_valida_para_roteiro(data_roteiro, escala):
     if data_roteiro.weekday() in (5, 6):
         return True
+    if data_roteiro.day == 4:
+        return True
     for r in escala:
         dia_evento = extrair_data_evento(str(r.get('DIA', '')))
         solenidade = str(r.get('SOLENIDADE', 'NÃO')).strip().upper()
@@ -703,7 +705,16 @@ def renderizar_evento(idx, row, modo_aguardando=False):
     header_text = f"📅 **{dia}** — ⏰ **{horario}**"
     if solenidade == 'SIM':
         header_text += " ✨ *(Solenidade)*"
+    if eh_dia_4(dia):
+        header_text += " *(Missa da Saúde)*"
     st.markdown(header_text)
+
+    if eh_dia_4(dia):
+        st.markdown(
+            '<img src="https://i.ibb.co/5XT3ZnxX/Whats-App-Image-2026-07-23-at-09-57-56.jpg" '
+            'style="height:28px; width:auto; vertical-align:middle; margin:-8px 0 4px 0;">',
+            unsafe_allow_html=True
+        )
 
     data_evento = extrair_data_evento(dia)
     if data_evento:
@@ -738,7 +749,7 @@ def renderizar_evento(idx, row, modo_aguardando=False):
                     sh_conn = get_connection()
                     ws_live = sh_conn.worksheet("Escala")
                     ws_live.update_cell(idx + 2, 4, val_salvar)
-                    st.cache_data.clear()
+                    carregar_dados_escala.clear()
                     st.session_state[f"alterando_com_{idx}"] = False
                     st.success("Alterado com sucesso!")
                     time.sleep(2.5)
@@ -762,7 +773,7 @@ def renderizar_evento(idx, row, modo_aguardando=False):
                         sh_conn = get_connection()
                         ws_live = sh_conn.worksheet("Escala")
                         ws_live.update_cell(idx + 2, 4, usuario_atual)
-                        st.cache_data.clear()
+                        carregar_dados_escala.clear()
                         mensagem_penalidade = consumir_penalidade(sh_conn, usuario_atual)
                         st.success("Escalado como Comentarista!")
                         if mensagem_penalidade:
@@ -776,7 +787,7 @@ def renderizar_evento(idx, row, modo_aguardando=False):
                         if processar_tentativa_cancelamento(sh_conn, usuario_atual, dia):
                             ws_live = sh_conn.worksheet("Escala")
                             ws_live.update_cell(idx + 2, 4, "")
-                            st.cache_data.clear()
+                            carregar_dados_escala.clear()
                             st.success("Cancelado com sucesso!")
                             time.sleep(2.5)
                             st.rerun()
@@ -798,7 +809,7 @@ def renderizar_evento(idx, row, modo_aguardando=False):
                 sh_conn = get_connection()
                 ws_live = sh_conn.worksheet("Escala")
                 ws_live.update_cell(idx + 2, 5, val_salvar)
-                st.cache_data.clear()
+                carregar_dados_escala.clear()
                 st.session_state[f"alterando_l1_{idx}"] = False
                 st.success("Alterado com sucesso!")
                 time.sleep(2.5)
@@ -820,7 +831,7 @@ def renderizar_evento(idx, row, modo_aguardando=False):
                     sh_conn = get_connection()
                     ws_live = sh_conn.worksheet("Escala")
                     ws_live.update_cell(idx + 2, 5, usuario_atual)
-                    st.cache_data.clear()
+                    carregar_dados_escala.clear()
                     mensagem_penalidade = consumir_penalidade(sh_conn, usuario_atual)
                     st.success("Escalado na 1ª Leitura!")
                     if mensagem_penalidade:
@@ -834,7 +845,7 @@ def renderizar_evento(idx, row, modo_aguardando=False):
                     if processar_tentativa_cancelamento(sh_conn, usuario_atual, dia):
                         ws_live = sh_conn.worksheet("Escala")
                         ws_live.update_cell(idx + 2, 5, "")
-                        st.cache_data.clear()
+                        carregar_dados_escala.clear()
                         st.success("Cancelado com sucesso!")
                         time.sleep(2.5)
                         st.rerun()
@@ -857,7 +868,7 @@ def renderizar_evento(idx, row, modo_aguardando=False):
                     sh_conn = get_connection()
                     ws_live = sh_conn.worksheet("Escala")
                     ws_live.update_cell(idx + 2, 6, val_salvar)
-                    st.cache_data.clear()
+                    carregar_dados_escala.clear()
                     st.session_state[f"alterando_l2_{idx}"] = False
                     st.success("Alterado com sucesso!")
                     time.sleep(2.5)
@@ -879,7 +890,7 @@ def renderizar_evento(idx, row, modo_aguardando=False):
                         sh_conn = get_connection()
                         ws_live = sh_conn.worksheet("Escala")
                         ws_live.update_cell(idx + 2, 6, usuario_atual)
-                        st.cache_data.clear()
+                        carregar_dados_escala.clear()
                         mensagem_penalidade = consumir_penalidade(sh_conn, usuario_atual)
                         st.success("Escalado na 2ª Leitura!")
                         if mensagem_penalidade:
@@ -893,7 +904,7 @@ def renderizar_evento(idx, row, modo_aguardando=False):
                         if processar_tentativa_cancelamento(sh_conn, usuario_atual, dia):
                             ws_live = sh_conn.worksheet("Escala")
                             ws_live.update_cell(idx + 2, 6, "")
-                            st.cache_data.clear()
+                            carregar_dados_escala.clear()
                             st.success("Cancelado com sucesso!")
                             time.sleep(2.5)
                             st.rerun()
@@ -940,7 +951,7 @@ if st.session_state.pagina != "home":
                     }} catch (e) {{
                         console.log("[SCROLL-DEBUG] ERRO:", e);
                     }}
-                }}, 80);
+                }}, 20);
             </script>
         """, height=0)
         st.session_state.ultima_pagina_rolada = st.session_state.pagina
@@ -967,7 +978,7 @@ else:
                     }} catch (e) {{
                         console.log("[SCROLL-DEBUG] ERRO ao rolar para o topo:", e);
                     }}
-                }}, 80);
+                }}, 20);
             </script>
         """, height=0)
         st.session_state.ultima_pagina_rolada = "home"
@@ -986,14 +997,14 @@ elif st.session_state.pagina == "cadastrar_roteiro":
 
         if st.button("Salvar Roteiro"):
             if not data_valida_para_roteiro(data_roteiro, escala_data):
-                st.error("A data deve ser um sábado, domingo, ou um dia marcado como Solenidade na Escala Geral.")
+                st.error("A data deve ser um sábado, domingo, dia 4 do mês, ou um dia marcado como Solenidade na Escala Geral.")
             elif not link_roteiro.strip():
                 st.error("Informe o link do arquivo de roteiro.")
             else:
                 sh_conn = get_connection()
                 data_str = data_roteiro.strftime("%d/%m/%Y")
                 salvar_roteiro(sh_conn, data_str, link_roteiro.strip())
-                st.cache_data.clear()
+                obter_roteiros.clear()
                 st.success(f"Roteiro salvo para {data_str}!")
                 time.sleep(2.5)
                 st.rerun()
@@ -1009,7 +1020,7 @@ elif st.session_state.pagina == "cadastrar_roteiro":
                 if col_excluir.button("🗑️ Excluir", key=f"excluir_roteiro_{data_str}"):
                     sh_conn = get_connection()
                     if excluir_roteiro(sh_conn, data_str):
-                        st.cache_data.clear()
+                        obter_roteiros.clear()
                         st.success(f"Roteiro de {data_str} removido!")
                         time.sleep(2.5)
                         st.rerun()
@@ -1031,7 +1042,7 @@ elif st.session_state.pagina == "penalidade_leitor":
             if st.button("Registrar Penalidade"):
                 sh_conn = get_connection()
                 registrar_penalidade(sh_conn, leitor_penalidade)
-                st.cache_data.clear()
+                obter_penalidades.clear()
                 st.success(f"Penalidade registrada para {leitor_penalidade}.")
                 time.sleep(2.5)
                 st.rerun()
@@ -1060,7 +1071,7 @@ elif st.session_state.pagina == "suspender_leitor":
             if st.button("Suspender por 30 dias"):
                 sh_conn = get_connection()
                 registrar_suspensao(sh_conn, leitor_suspender, motivo_suspensao.strip())
-                st.cache_data.clear()
+                obter_suspensoes.clear()
                 data_fim_prevista = date.today() + timedelta(days=30)
                 st.success(f"{leitor_suspender} suspenso(a) até {data_fim_prevista.strftime('%d/%m/%Y')}.")
                 time.sleep(2.5)
@@ -1081,7 +1092,7 @@ elif st.session_state.pagina == "suspender_leitor":
                     if col_remover.button("Remover", key=f"remover_susp_{nome_susp}"):
                         sh_conn = get_connection()
                         if remover_suspensao(sh_conn, nome_susp):
-                            st.cache_data.clear()
+                            obter_suspensoes.clear()
                             st.success(f"Suspensão de {nome_susp} removida.")
                             time.sleep(2.5)
                             st.rerun()
@@ -1131,59 +1142,80 @@ elif st.session_state.pagina == "minha_escala":
 
 elif st.session_state.pagina == "exibir_escala":
     st.subheader("Exibir Escala (PDF)")
-    st.write("Gerando PDF estruturado:")
-    
-    class PDF(FPDF):
-        def header(self):
-            self.set_font('Arial', 'B', 14)
-            self.cell(190, 10, 'Escala Geral do Mes', 0, 1, 'C')
-            self.ln(5)
-        def footer(self):
-            self.set_y(-15)
-            self.set_font('Arial', 'I', 8)
-            self.cell(190, 10, f'Pagina {self.page_no()}', 0, 0, 'C')
 
-    pdf = PDF()
-    pdf.add_page()
-    
-    for row in escala_data:
-        dia = str(row.get('DIA', ''))
-        horario = str(row.get('HORARIO', ''))
-        solenidade = str(row.get('SOLENIDADE', 'NÃO')).strip().upper()
-        comentarista = str(row.get('COMENTARISTA', '')).strip() or 'Vago'
-        l1 = str(row.get('LEITURA1', '')).strip() or 'Vago'
-        l2 = str(row.get('LEITURA2', '')).strip() or 'Vago'
-        
-        mostrar_comentarista = deve_exibir_comentarista(row)
-        mostrar_l2 = deve_exibir_leitura2(row)
-        
-        texto_cabecalho = f"Data: {dia} - Horario: {horario}"
-        if solenidade == 'SIM':
-            texto_cabecalho += " (Solenidade)"
-            
-        pdf.set_font("Arial", 'B', 10)
-        pdf.cell(190, 7, texto_cabecalho.encode('latin-1', 'replace').decode('latin-1'), 0, 1, 'L')
-        
-        pdf.set_font("Arial", '', 10)
-        if mostrar_comentarista:
-            pdf.cell(190, 6, f"  - COMENTARISTA: {comentarista}".encode('latin-1', 'replace').decode('latin-1'), 0, 1, 'L')
-        pdf.cell(190, 6, f"  - 1a LEITURA: {l1}".encode('latin-1', 'replace').decode('latin-1'), 0, 1, 'L')
-        if mostrar_l2:
-            pdf.cell(190, 6, f"  - 2a LEITURA: {l2}".encode('latin-1', 'replace').decode('latin-1'), 0, 1, 'L')
-        
-        pdf.ln(4)
-    
-    pdf_bytes = bytes(pdf.output())
+    col_pdf_ini, col_pdf_fim = st.columns(2)
+    with col_pdf_ini:
+        pdf_data_inicio = st.date_input("De:", value=date.today(), format="DD/MM/YYYY", key="pdf_escala_data_inicio")
+    with col_pdf_fim:
+        pdf_data_fim = st.date_input("Até:", value=date.today() + timedelta(days=30), format="DD/MM/YYYY", key="pdf_escala_data_fim")
 
-    b64_pdf = base64.b64encode(pdf_bytes).decode('utf-8')
-    st.markdown(f"""
-        <a href="data:application/pdf;base64,{b64_pdf}" target="_blank" rel="noopener noreferrer"
-           style="display:block; text-align:center; background:#0D1B2A; color:#E0E2E5; border:3.5px solid #8C6D4F;
-                  border-radius:24px; padding:12px 6px; font-size:18px; font-weight:700; text-decoration:none;
-                  margin-top:10px; font-family:sans-serif;">
-            📄 Abrir Escala em PDF no Navegador
-        </a>
-    """, unsafe_allow_html=True)
+    if pdf_data_fim < pdf_data_inicio:
+        st.error("A data final não pode ser anterior à data inicial.")
+    else:
+        st.write("Gerando PDF estruturado:")
+
+        class PDF(FPDF):
+            def header(self):
+                self.set_font('Arial', 'B', 14)
+                self.cell(190, 10, 'Escala Geral do Mes', 0, 1, 'C')
+                self.ln(5)
+            def footer(self):
+                self.set_y(-15)
+                self.set_font('Arial', 'I', 8)
+                self.cell(190, 10, f'Pagina {self.page_no()}', 0, 0, 'C')
+
+        pdf = PDF()
+        pdf.add_page()
+
+        algum_evento_pdf = False
+        for row in escala_data:
+            dia = str(row.get('DIA', ''))
+            horario = str(row.get('HORARIO', ''))
+            solenidade = str(row.get('SOLENIDADE', 'NÃO')).strip().upper()
+            comentarista = str(row.get('COMENTARISTA', '')).strip() or 'Vago'
+            l1 = str(row.get('LEITURA1', '')).strip() or 'Vago'
+            l2 = str(row.get('LEITURA2', '')).strip() or 'Vago'
+
+            data_evento_pdf = extrair_data_evento(dia)
+            if data_evento_pdf is not None and not (pdf_data_inicio <= data_evento_pdf <= pdf_data_fim):
+                continue
+            algum_evento_pdf = True
+
+            mostrar_comentarista = deve_exibir_comentarista(row)
+            mostrar_l2 = deve_exibir_leitura2(row)
+
+            texto_cabecalho = f"Data: {dia} - Horario: {horario}"
+            if solenidade == 'SIM':
+                texto_cabecalho += " (Solenidade)"
+            if eh_dia_4(dia):
+                texto_cabecalho += " (Missa da Saude)"
+
+            pdf.set_font("Arial", 'B', 10)
+            pdf.cell(190, 7, texto_cabecalho.encode('latin-1', 'replace').decode('latin-1'), 0, 1, 'L')
+
+            pdf.set_font("Arial", '', 10)
+            if mostrar_comentarista:
+                pdf.cell(190, 6, f"  - COMENTARISTA: {comentarista}".encode('latin-1', 'replace').decode('latin-1'), 0, 1, 'L')
+            pdf.cell(190, 6, f"  - 1a LEITURA: {l1}".encode('latin-1', 'replace').decode('latin-1'), 0, 1, 'L')
+            if mostrar_l2:
+                pdf.cell(190, 6, f"  - 2a LEITURA: {l2}".encode('latin-1', 'replace').decode('latin-1'), 0, 1, 'L')
+
+            pdf.ln(4)
+
+        if not algum_evento_pdf:
+            st.info("Nenhum evento encontrado nesse intervalo de datas.")
+        else:
+            pdf_bytes = bytes(pdf.output())
+            b64_pdf = base64.b64encode(pdf_bytes).decode('utf-8')
+            st.markdown(f"""
+                <a href="data:application/pdf;base64,{b64_pdf}" target="_blank" rel="noopener noreferrer" download="escala_leitores.pdf"
+                   style="display:block; text-align:center; background:#0D1B2A; color:#E0E2E5; border:3.5px solid #8C6D4F;
+                          border-radius:24px; padding:12px 6px; font-size:18px; font-weight:700; text-decoration:none;
+                          margin-top:10px; font-family:sans-serif;">
+                    📄 Abrir / Baixar / Compartilhar Escala em PDF
+                </a>
+            """, unsafe_allow_html=True)
+            st.caption("Toque no link para abrir o PDF. A partir da tela de visualização do seu celular, use as opções de baixar, imprimir ou compartilhar.")
 
 elif st.session_state.pagina == "aguardando":
     st.subheader("Aguardando Leitores (Vagas Pendentes)")
@@ -1205,7 +1237,7 @@ elif st.session_state.pagina == "aguardando":
         st.success("Parabéns! Não há vagas pendentes no momento.")
 
 elif st.session_state.pagina == "ver_intencoes":
-    st.subheader("Relatório de Intenções Coletadas")
+    st.subheader("Intenções da Santa Missa")
     st.markdown("Selecione abaixo a **Data e o Horário da Missa**:")
 
     def normalizar_chave(txt):
@@ -1264,7 +1296,7 @@ elif st.session_state.pagina == "ver_intencoes":
                         def header(self):
                             if self.page_no() == 1:
                                 self.set_font('Arial', 'B', 14)
-                                self.cell(190, 10, 'Relatorio de Intencoes', 0, 1, 'C')
+                                self.cell(190, 10, 'Intencoes da Santa Missa', 0, 1, 'C')
                                 self.set_font('Arial', '', 11)
                                 titulo_missa = missa_selecionada.encode('latin-1', 'replace').decode('latin-1')
                                 self.cell(190, 8, titulo_missa, 0, 1, 'C')
@@ -1321,12 +1353,13 @@ elif st.session_state.pagina == "ver_intencoes":
                     pdf_bytes = bytes(pdf.output())
                     b64_pdf = base64.b64encode(pdf_bytes).decode('utf-8')
                     st.markdown(f"""
-                        <a href="data:application/pdf;base64,{b64_pdf}" target="_blank" rel="noopener noreferrer"
+                        <a href="data:application/pdf;base64,{b64_pdf}" target="_blank" rel="noopener noreferrer" download="intencoes_santa_missa.pdf"
                            style="display:block; text-align:center; background:#0D1B2A; color:#FFFFFF; border:3.5px solid #8C6D4F;
                                   border-radius:24px; padding:12px 6px; font-size:18px; font-weight:700; text-decoration:none;
                                   margin-top:10px; font-family:sans-serif;">
-                            📄 Abrir Relatório de Intenções em PDF no Navegador
+                            📄 Abrir / Baixar / Compartilhar Intenções em PDF
                         </a>
                     """, unsafe_allow_html=True)
+                    st.caption("Toque no link para abrir o PDF. A partir da tela de visualização do seu celular, use as opções de baixar, imprimir ou compartilhar.")
     except Exception as e:
         st.error(f"Erro ao acessar a aba de respostas: {e}")
