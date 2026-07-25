@@ -646,6 +646,8 @@ if st.session_state.user_profile == "2":
     perfil_texto = "LEITOR & COMENTARISTA"
 elif st.session_state.user_profile == "3":
     perfil_texto = "ADM"
+elif st.session_state.user_profile == "5":
+    perfil_texto = "ACOLHIDA"
 
 # 1. Barra Terracota (identificação do Servo(a))
 st.markdown(f"""
@@ -660,19 +662,29 @@ if st.session_state.pagina == "home":
 
 # 3. Menu de Botões Nativo, em coluna única (container com key="menu_grid" gera a classe .st-key-menu_grid usada no CSS acima)
 # O botão "Sair" fica por último, dentro do próprio menu.
+# Perfil "5" (Acolhida) só tem acesso a Coletar Intenções e Ver Intenções.
 with st.container(key="menu_grid"):
-    st.button("Escala Geral", key="menu_geral", on_click=navegar_para, args=("escala_geral",), use_container_width=True)
-    st.button("Minha Escala", key="menu_minha", on_click=navegar_para, args=("minha_escala",), use_container_width=True)
-    st.button("Exibir Escala (PDF)", key="menu_pdf", on_click=navegar_para, args=("exibir_escala",), use_container_width=True)
-    st.button("Aguardando Leitores", key="menu_vagas", on_click=navegar_para, args=("aguardando",), use_container_width=True)
-    st.link_button("Coletar Intenções", "https://docs.google.com/forms/d/e/1FAIpQLScgX8RkpDYhb-rMwb8_ZR6dJhp-tKUyowmRGrSK-tbsXveqCw/viewform?usp=sharing", use_container_width=True)
-    st.button("Ver Intenções", key="menu_intencoes", on_click=navegar_para, args=("ver_intencoes",), use_container_width=True)
-    st.link_button("Liturgia Diária", "https://liturgia.cancaonova.com/pb/", use_container_width=True)
-    if st.session_state.user_profile == "3":
-        st.button("Roteiro", key="menu_roteiro", on_click=navegar_para, args=("cadastrar_roteiro",), use_container_width=True)
-        st.button("Inserir Mensagem", key="menu_penalidade", on_click=navegar_para, args=("penalidade_leitor",), use_container_width=True)
-        st.button("Suspensão de Leitor", key="menu_suspensao", on_click=navegar_para, args=("suspender_leitor",), use_container_width=True)
+    if st.session_state.user_profile == "5":
+        st.link_button("Coletar Intenções", "https://docs.google.com/forms/d/e/1FAIpQLScgX8RkpDYhb-rMwb8_ZR6dJhp-tKUyowmRGrSK-tbsXveqCw/viewform?usp=sharing", use_container_width=True)
+        st.button("Ver Intenções", key="menu_intencoes", on_click=navegar_para, args=("ver_intencoes",), use_container_width=True)
+    else:
+        st.button("Escala Geral", key="menu_geral", on_click=navegar_para, args=("escala_geral",), use_container_width=True)
+        st.button("Minha Escala", key="menu_minha", on_click=navegar_para, args=("minha_escala",), use_container_width=True)
+        st.button("Exibir Escala (PDF)", key="menu_pdf", on_click=navegar_para, args=("exibir_escala",), use_container_width=True)
+        st.button("Aguardando Leitores", key="menu_vagas", on_click=navegar_para, args=("aguardando",), use_container_width=True)
+        st.link_button("Coletar Intenções", "https://docs.google.com/forms/d/e/1FAIpQLScgX8RkpDYhb-rMwb8_ZR6dJhp-tKUyowmRGrSK-tbsXveqCw/viewform?usp=sharing", use_container_width=True)
+        st.button("Ver Intenções", key="menu_intencoes", on_click=navegar_para, args=("ver_intencoes",), use_container_width=True)
+        st.link_button("Liturgia Diária", "https://liturgia.cancaonova.com/pb/", use_container_width=True)
+        if st.session_state.user_profile == "3":
+            st.button("Roteiro", key="menu_roteiro", on_click=navegar_para, args=("cadastrar_roteiro",), use_container_width=True)
+            st.button("Inserir Mensagem", key="menu_penalidade", on_click=navegar_para, args=("penalidade_leitor",), use_container_width=True)
+            st.button("Suspensão de Leitor", key="menu_suspensao", on_click=navegar_para, args=("suspender_leitor",), use_container_width=True)
     st.button("🚪 Sair", key="btn_logout_definitivo", on_click=efetuar_logout, use_container_width=True)
+
+# Proteção extra: se por algum motivo o perfil 5 (Acolhida) estiver numa página que não é permitida
+# para ele (ex: sessão antiga), volta para o menu principal.
+if st.session_state.user_profile == "5" and st.session_state.pagina not in ("home", "ver_intencoes"):
+    st.session_state.pagina = "home"
 
 
 # Carregamento seguro dos dados da escala para os blocos abaixo
