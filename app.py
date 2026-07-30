@@ -744,6 +744,7 @@ with st.container(key="menu_grid"):
             st.button("Roteiro", key="menu_roteiro", on_click=navegar_para, args=("cadastrar_roteiro",), use_container_width=True)
             st.button("Inserir Mensagem", key="menu_penalidade", on_click=navegar_para, args=("penalidade_leitor",), use_container_width=True)
             st.button("Suspensão de Leitor", key="menu_suspensao", on_click=navegar_para, args=("suspender_leitor",), use_container_width=True)
+            st.button("Quem Não Serviu", key="menu_sem_escala", on_click=navegar_para, args=("quem_nao_serviu",), use_container_width=True)
     st.button("🚪 Sair", key="btn_logout_definitivo", on_click=efetuar_logout, use_container_width=True)
 
 # Proteção extra: se por algum motivo o perfil 5 (Acolhida) estiver numa página que não é permitida
@@ -1182,6 +1183,38 @@ elif st.session_state.pagina == "suspender_leitor":
                             st.success(f"Suspensão de {nome_susp} removida.")
                             time.sleep(2.5)
                             st.rerun()
+
+elif st.session_state.pagina == "quem_nao_serviu":
+    st.subheader("Leitores que Ainda Não Serviram")
+    if st.session_state.user_profile != "3":
+        st.error("Apenas o ADM pode acessar esta tela.")
+    else:
+        col_sem_ini, col_sem_fim = st.columns(2)
+        with col_sem_ini:
+            data_sem_inicio = st.date_input("De:", value=date.today().replace(day=1), format="DD/MM/YYYY", key="sem_escala_data_inicio")
+        with col_sem_fim:
+            data_sem_fim = st.date_input("Até:", value=date.today() + timedelta(days=30), format="DD/MM/YYYY", key="sem_escala_data_fim")
+
+        if data_sem_fim < data_sem_inicio:
+            st.error("A data final não pode ser anterior à data inicial.")
+        else:
+            leitores_que_serviram = set()
+            for r in escala_data:
+                data_evento_r = extrair_data_evento(str(r.get('DIA', '')))
+                if data_evento_r is not None and data_sem_inicio <= data_evento_r <= data_sem_fim:
+                    for campo in ('COMENTARISTA', 'LEITURA1', 'LEITURA2'):
+                        nome_campo = str(r.get(campo, '')).strip()
+                        if nome_campo:
+                            leitores_que_serviram.add(nome_campo.strip().upper())
+
+            leitores_sem_escala = [nome for nome in lista_todos_leitores if nome.strip().upper() not in leitores_que_serviram]
+
+            if not leitores_sem_escala:
+                st.success("Todos os leitores cadastrados já serviram nesse período!")
+            else:
+                st.write(f"**{len(leitores_sem_escala)} leitor(es) ainda não serviram entre {data_sem_inicio.strftime('%d/%m/%Y')} e {data_sem_fim.strftime('%d/%m/%Y')}:**")
+                for nome_sem_escala in leitores_sem_escala:
+                    st.markdown(f"- {nome_sem_escala}")
 
 elif st.session_state.pagina == "escala_geral":
     st.subheader("Escala Geral do Mês")
