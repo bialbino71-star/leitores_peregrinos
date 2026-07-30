@@ -366,6 +366,35 @@ def obter_lista_leitores():
     except:
         return []
 
+def normalizar_horario(txt):
+    """Normaliza formatos de horário (10h, 10h00, 10:00, 10 horas...) para 'HH:MM'."""
+    txt = str(txt).strip().lower().replace('horas', '').replace('h', ':').strip()
+    txt = txt.rstrip(':').strip()
+    if not txt:
+        return ""
+    partes = txt.split(':')
+    try:
+        h = int(partes[0].strip())
+        m = int(partes[1].strip()) if len(partes) > 1 and partes[1].strip() != '' else 0
+        return f"{h:02d}:{m:02d}"
+    except (ValueError, IndexError):
+        return txt
+
+def horarios_sugeridos_para_data(data_selecionada):
+    """Retorna a lista de horários de missa esperados para a data, conforme o dia da semana:
+    - Dia 4 do mês em dia de semana: 10h, 15h e 19h
+    - Dia 4 do mês em sábado/domingo: 10h, 15h e 18h
+    - Domingo (que não seja dia 4): 10h e 18h
+    - Demais dias: nenhum horário pré-definido (o ADM digita manualmente)"""
+    dia_semana = data_selecionada.weekday()  # Segunda=0 ... Domingo=6
+    eh_fds = dia_semana in (5, 6)
+    if data_selecionada.day == 4:
+        return ["10:00", "15:00", "18:00"] if eh_fds else ["10:00", "15:00", "19:00"]
+    elif dia_semana == 6:
+        return ["10:00", "18:00"]
+    else:
+        return []
+
 @st.cache_data(ttl=60)
 def obter_roteiros():
     try:
@@ -375,27 +404,30 @@ def obter_roteiros():
         roteiros = {}
         for r in dados:
             data_str = str(r.get('DIA', '')).strip()
+            horario_str = normalizar_horario(r.get('HORARIO', ''))
             link = str(r.get('LINK', '')).strip()
             if data_str and link:
-                roteiros[data_str] = link
+                roteiros[(data_str, horario_str)] = link
         return roteiros
     except Exception:
         return {}
 
-def salvar_roteiro(sh, data_str, link):
+def salvar_roteiro(sh, data_str, horario_str, link):
     ws_roteiros = sh.worksheet("Roteiros")
     dados = ws_roteiros.get_all_values()
+    horario_norm = normalizar_horario(horario_str)
     for idx, row in enumerate(dados[1:], start=2):
-        if len(row) > 0 and row[0].strip() == data_str:
-            ws_roteiros.update_cell(idx, 2, link)
+        if len(row) > 1 and row[0].strip() == data_str and normalizar_horario(row[1]) == horario_norm:
+            ws_roteiros.update_cell(idx, 3, link)
             return
-    ws_roteiros.append_row([data_str, link])
+    ws_roteiros.append_row([data_str, horario_str, link])
 
-def excluir_roteiro(sh, data_str):
+def excluir_roteiro(sh, data_str, horario_str):
     ws_roteiros = sh.worksheet("Roteiros")
     dados = ws_roteiros.get_all_values()
+    horario_norm = normalizar_horario(horario_str)
     for idx, row in enumerate(dados[1:], start=2):
-        if len(row) > 0 and row[0].strip() == data_str:
+        if len(row) > 1 and row[0].strip() == data_str and normalizar_horario(row[1]) == horario_norm:
             ws_roteiros.delete_rows(idx)
             return True
     return False
@@ -731,8 +763,9 @@ def renderizar_evento(idx, row, modo_aguardando=False):
     data_evento = extrair_data_evento(dia)
     if data_evento:
         data_evento_fmt = data_evento.strftime("%d/%m/%Y")
-        if data_evento_fmt in roteiros_data:
-            st.markdown(f"📄 [Roteiro desta missa]({roteiros_data[data_evento_fmt]})")
+        chave_roteiro = (data_evento_fmt, normalizar_horario(horario))
+        if chave_roteiro in roteiros_data:
+            st.markdown(f"📄 [Roteiro desta missa]({roteiros_data[chave_roteiro]})")
     
     usuario_atual = st.session_state.user_name
 
@@ -1003,21 +1036,35 @@ elif st.session_state.pagina == "cadastrar_roteiro":
     if st.session_state.user_profile != "3":
         st.error("Apenas o ADM pode acessar esta tela.")
     else:
-        st.write("Selecione a data da missa (sábado, domingo, ou dia marcado como Solenidade na Escala) e informe o link do arquivo de roteiro.")
-        data_roteiro = st.date_input("Data da missa:", format="DD/MM/YYYY")
+        st.write("Selecione a data da missa (sábado, domingo, dia 4 do mês, ou dia marcado como Solenidade na Escala).")
+        data_roteiro = st.date_input("Data da missa:", format="DD/MM/YYYY", key="data_roteiro_input")
+
+        horarios_sugeridos = horarios_sugeridos_para_data(data_roteiro)
+        opcoes_horario = horarios_sugeridos + ["Outro horário"]
+        horario_escolhido = st.selectbox("Horário da missa:", opcoes_horario, key="horario_roteiro_select")
+        if horario_escolhido == "Outro horário":
+            horario_roteiro = st.text_input("Digite o horário (ex: 19:00):", key="horario_roteiro_manual")
+        else:
+            horario_roteiro = horario_escolhido
+
+        if not horarios_sugeridos:
+            st.caption("Essa data não está entre domingos ou dias 4 do mês — digite o horário manualmente acima.")
+
         link_roteiro = st.text_input("Link do arquivo de roteiro:")
 
         if st.button("Salvar Roteiro"):
             if not data_valida_para_roteiro(data_roteiro, escala_data):
                 st.error("A data deve ser um sábado, domingo, dia 4 do mês, ou um dia marcado como Solenidade na Escala Geral.")
+            elif not horario_roteiro.strip():
+                st.error("Informe o horário da missa.")
             elif not link_roteiro.strip():
                 st.error("Informe o link do arquivo de roteiro.")
             else:
                 sh_conn = get_connection()
                 data_str = data_roteiro.strftime("%d/%m/%Y")
-                salvar_roteiro(sh_conn, data_str, link_roteiro.strip())
+                salvar_roteiro(sh_conn, data_str, horario_roteiro.strip(), link_roteiro.strip())
                 obter_roteiros.clear()
-                st.success(f"Roteiro salvo para {data_str}!")
+                st.success(f"Roteiro salvo para {data_str} às {normalizar_horario(horario_roteiro)}!")
                 time.sleep(2.5)
                 st.rerun()
 
@@ -1026,14 +1073,14 @@ elif st.session_state.pagina == "cadastrar_roteiro":
         if not roteiros_data:
             st.info("Nenhum roteiro cadastrado ainda.")
         else:
-            for data_str, link in sorted(roteiros_data.items()):
+            for (data_str, horario_str), link in sorted(roteiros_data.items()):
                 col_link, col_excluir = st.columns([4, 1])
-                col_link.markdown(f"- **{data_str}**: [{link}]({link})")
-                if col_excluir.button("🗑️ Excluir", key=f"excluir_roteiro_{data_str}"):
+                col_link.markdown(f"- **{data_str} às {horario_str}**: [{link}]({link})")
+                if col_excluir.button("🗑️ Excluir", key=f"excluir_roteiro_{data_str}_{horario_str}"):
                     sh_conn = get_connection()
-                    if excluir_roteiro(sh_conn, data_str):
+                    if excluir_roteiro(sh_conn, data_str, horario_str):
                         obter_roteiros.clear()
-                        st.success(f"Roteiro de {data_str} removido!")
+                        st.success(f"Roteiro de {data_str} às {horario_str} removido!")
                         time.sleep(2.5)
                         st.rerun()
                     else:
