@@ -380,20 +380,53 @@ def normalizar_horario(txt):
     except (ValueError, IndexError):
         return txt
 
-def horarios_sugeridos_para_data(data_selecionada):
-    """Retorna a lista de horários de missa esperados para a data, conforme o dia da semana:
-    - Dia 4 do mês em dia de semana: 10h, 15h e 19h
-    - Dia 4 do mês em sábado/domingo: 10h, 15h e 18h
-    - Domingo (que não seja dia 4): 10h e 18h
-    - Demais dias: nenhum horário pré-definido (o ADM digita manualmente)"""
+@st.cache_data(ttl=60)
+def obter_horarios_padrao():
+    """Lê a aba 'Horarios_Padrao' (TIPO_DIA | HORARIO) e agrupa os horários por tipo de dia."""
+    try:
+        sh = get_connection()
+        ws_hp = sh.worksheet("Horarios_Padrao")
+        dados = ws_hp.get_all_records()
+        horarios_por_tipo = {}
+        for r in dados:
+            tipo = str(r.get('TIPO_DIA', '')).strip().upper()
+            horario = normalizar_horario(r.get('HORARIO', ''))
+            if tipo and horario:
+                horarios_por_tipo.setdefault(tipo, []).append(horario)
+        for tipo in horarios_por_tipo:
+            horarios_por_tipo[tipo] = sorted(set(horarios_por_tipo[tipo]))
+        return horarios_por_tipo
+    except Exception:
+        return {}
+
+def horarios_disponiveis_para_data(data_selecionada, escala, horarios_padrao_data):
+    """Lista fechada de horários possíveis para a data (sem digitação livre):
+    1) Tenta pela tabela Horarios_Padrao (DOMINGO, SABADO, DIA_SEMANA, DIA4_SEMANA, DIA4_FDS);
+    2) Se não achar, usa os horários já cadastrados na Escala para essa mesma data (ex: Solenidade)."""
     dia_semana = data_selecionada.weekday()  # Segunda=0 ... Domingo=6
     eh_fds = dia_semana in (5, 6)
+
     if data_selecionada.day == 4:
-        return ["10:00", "15:00", "18:00"] if eh_fds else ["10:00", "15:00", "19:00"]
+        tipo = "DIA4_FDS" if eh_fds else "DIA4_SEMANA"
     elif dia_semana == 6:
-        return ["10:00", "18:00"]
+        tipo = "DOMINGO"
+    elif dia_semana == 5:
+        tipo = "SABADO"
     else:
-        return []
+        tipo = "DIA_SEMANA"
+
+    lista = horarios_padrao_data.get(tipo, [])
+    if lista:
+        return lista
+
+    horarios_reais = set()
+    for r in escala:
+        d = extrair_data_evento(str(r.get('DIA', '')))
+        if d == data_selecionada:
+            h = normalizar_horario(r.get('HORARIO', ''))
+            if h:
+                horarios_reais.add(h)
+    return sorted(horarios_reais)
 
 @st.cache_data(ttl=60)
 def obter_roteiros():
@@ -1039,34 +1072,28 @@ elif st.session_state.pagina == "cadastrar_roteiro":
         st.write("Selecione a data da missa (sábado, domingo, dia 4 do mês, ou dia marcado como Solenidade na Escala).")
         data_roteiro = st.date_input("Data da missa:", format="DD/MM/YYYY", key="data_roteiro_input")
 
-        horarios_sugeridos = horarios_sugeridos_para_data(data_roteiro)
-        opcoes_horario = horarios_sugeridos + ["Outro horário"]
-        horario_escolhido = st.selectbox("Horário da missa:", opcoes_horario, key="horario_roteiro_select")
-        if horario_escolhido == "Outro horário":
-            horario_roteiro = st.text_input("Digite o horário (ex: 19:00):", key="horario_roteiro_manual")
+        horarios_padrao_data = obter_horarios_padrao()
+        opcoes_horario = horarios_disponiveis_para_data(data_roteiro, escala_data, horarios_padrao_data)
+
+        if not opcoes_horario:
+            st.warning("Não há horário de missa cadastrado para essa data (nem na tabela de horários padrão, nem na Escala Geral). Cadastre o horário na aba 'Horarios_Padrao' ou na 'Escala' antes de continuar.")
         else:
-            horario_roteiro = horario_escolhido
+            horario_roteiro = st.selectbox("Horário da missa:", opcoes_horario, key="horario_roteiro_select")
+            link_roteiro = st.text_input("Link do arquivo de roteiro:")
 
-        if not horarios_sugeridos:
-            st.caption("Essa data não está entre domingos ou dias 4 do mês — digite o horário manualmente acima.")
-
-        link_roteiro = st.text_input("Link do arquivo de roteiro:")
-
-        if st.button("Salvar Roteiro"):
-            if not data_valida_para_roteiro(data_roteiro, escala_data):
-                st.error("A data deve ser um sábado, domingo, dia 4 do mês, ou um dia marcado como Solenidade na Escala Geral.")
-            elif not horario_roteiro.strip():
-                st.error("Informe o horário da missa.")
-            elif not link_roteiro.strip():
-                st.error("Informe o link do arquivo de roteiro.")
-            else:
-                sh_conn = get_connection()
-                data_str = data_roteiro.strftime("%d/%m/%Y")
-                salvar_roteiro(sh_conn, data_str, horario_roteiro.strip(), link_roteiro.strip())
-                obter_roteiros.clear()
-                st.success(f"Roteiro salvo para {data_str} às {normalizar_horario(horario_roteiro)}!")
-                time.sleep(2.5)
-                st.rerun()
+            if st.button("Salvar Roteiro"):
+                if not data_valida_para_roteiro(data_roteiro, escala_data):
+                    st.error("A data deve ser um sábado, domingo, dia 4 do mês, ou um dia marcado como Solenidade na Escala Geral.")
+                elif not link_roteiro.strip():
+                    st.error("Informe o link do arquivo de roteiro.")
+                else:
+                    sh_conn = get_connection()
+                    data_str = data_roteiro.strftime("%d/%m/%Y")
+                    salvar_roteiro(sh_conn, data_str, horario_roteiro, link_roteiro.strip())
+                    obter_roteiros.clear()
+                    st.success(f"Roteiro salvo para {data_str} às {horario_roteiro}!")
+                    time.sleep(2.5)
+                    st.rerun()
 
         st.markdown("---")
         st.write("**Roteiros já cadastrados:**")
