@@ -1564,6 +1564,32 @@ elif st.session_state.pagina == "ver_intencoes":
                         "Bodas",
                         "Intenções pela Saúde",
                     ]
+                    MAX_LINHAS_POR_SLIDE = 12  # estimativa segura para caber na caixa de corpo do slide
+
+                    def criar_slide_categoria(titulo, linhas_bloco):
+                        slide = prs.slides.add_slide(layout_em_branco)
+                        slide.background.fill.solid()
+                        slide.background.fill.fore_color.rgb = COR_FUNDO
+
+                        caixa_titulo = slide.shapes.add_textbox(Inches(0.6), Inches(0.4), Inches(12.1), Inches(1.2))
+                        tf_titulo = caixa_titulo.text_frame
+                        tf_titulo.text = titulo
+                        tf_titulo.paragraphs[0].font.size = Pt(40)
+                        tf_titulo.paragraphs[0].font.bold = True
+                        tf_titulo.paragraphs[0].font.color.rgb = COR_TITULO
+
+                        caixa_corpo = slide.shapes.add_textbox(Inches(0.8), Inches(1.8), Inches(11.7), Inches(5.2))
+                        tf_corpo = caixa_corpo.text_frame
+                        tf_corpo.word_wrap = True
+
+                        tf_corpo.text = linhas_bloco[0]
+                        tf_corpo.paragraphs[0].font.size = Pt(24)
+                        tf_corpo.paragraphs[0].font.color.rgb = COR_TEXTO
+                        for linha_texto in linhas_bloco[1:]:
+                            p_linha = tf_corpo.add_paragraph()
+                            p_linha.text = linha_texto
+                            p_linha.font.size = Pt(24)
+                            p_linha.font.color.rgb = COR_TEXTO
 
                     for titulo_categoria in ordem_slides_pptx:
                         coluna = mapa_categorias.get(titulo_categoria, titulo_categoria)
@@ -1580,35 +1606,10 @@ elif st.session_state.pagina == "ver_intencoes":
                         if not linhas_categoria:
                             continue
 
-                        slide = prs.slides.add_slide(layout_em_branco)
-                        slide.background.fill.solid()
-                        slide.background.fill.fore_color.rgb = COR_FUNDO
-
-                        caixa_titulo = slide.shapes.add_textbox(Inches(0.6), Inches(0.4), Inches(12.1), Inches(1.2))
-                        tf_titulo = caixa_titulo.text_frame
-                        tf_titulo.text = titulo_categoria
-                        tf_titulo.paragraphs[0].font.size = Pt(40)
-                        tf_titulo.paragraphs[0].font.bold = True
-                        tf_titulo.paragraphs[0].font.color.rgb = COR_TITULO
-
-                        caixa_corpo = slide.shapes.add_textbox(Inches(0.8), Inches(1.8), Inches(11.7), Inches(5.2))
-                        tf_corpo = caixa_corpo.text_frame
-                        tf_corpo.word_wrap = True
-
-                        if not linhas_categoria:
-                            tf_corpo.text = "(nenhuma intenção informada)"
-                            tf_corpo.paragraphs[0].font.italic = True
-                            tf_corpo.paragraphs[0].font.size = Pt(24)
-                            tf_corpo.paragraphs[0].font.color.rgb = COR_TEXTO
-                        else:
-                            tf_corpo.text = linhas_categoria[0]
-                            tf_corpo.paragraphs[0].font.size = Pt(24)
-                            tf_corpo.paragraphs[0].font.color.rgb = COR_TEXTO
-                            for linha_texto in linhas_categoria[1:]:
-                                p_linha = tf_corpo.add_paragraph()
-                                p_linha.text = linha_texto
-                                p_linha.font.size = Pt(24)
-                                p_linha.font.color.rgb = COR_TEXTO
+                        blocos = [linhas_categoria[i:i + MAX_LINHAS_POR_SLIDE] for i in range(0, len(linhas_categoria), MAX_LINHAS_POR_SLIDE)]
+                        for indice_bloco, bloco in enumerate(blocos):
+                            titulo_slide = titulo_categoria if indice_bloco == 0 else f"{titulo_categoria} (continuação)"
+                            criar_slide_categoria(titulo_slide, bloco)
 
                     pptx_buffer = io.BytesIO()
                     prs.save(pptx_buffer)
