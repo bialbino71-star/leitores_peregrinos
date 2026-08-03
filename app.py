@@ -1436,6 +1436,7 @@ elif st.session_state.pagina == "ver_intencoes":
                         ("Pelas Almas", "Intenções pelas almas"),
                         ("Sétimo Dia", "Missa de sétimo dia"),
                         ("Aniversário Natalício", "Aniversário Natalício"),
+                        ("Falecido(a) Hoje", "Falecido(a) Hoje"),
                         ("Bodas", "Bodas"),
                         ("Intenções pela Saúde", "Intenções pela Saúde"),
                     ]
@@ -1443,33 +1444,82 @@ elif st.session_state.pagina == "ver_intencoes":
                         (titulo, obter_coluna_real(alvo) or alvo)
                         for titulo, alvo in categorias_intencao_alvo
                     ]
+                    mapa_categorias = dict(categorias_intencao)
 
-                    for titulo_categoria, coluna in categorias_intencao:
-                        pdf.set_x(10)
-                        pdf.set_font("Arial", 'B', 12)
-                        pdf.cell(190, 8, titulo_categoria.encode('latin-1', 'replace').decode('latin-1'), 0, 1, 'L')
-                        pdf.set_font("Arial", '', 10)
-
-                        teve_conteudo = False
+                    def coletar_linhas(coluna):
+                        linhas = []
                         for r in registros_encontrados:
                             valor = str(r.get(coluna, '')).strip()
                             if valor:
-                                teve_conteudo = True
                                 for linha_texto in valor.splitlines():
                                     linha_texto = linha_texto.strip()
                                     if linha_texto:
-                                        pdf.set_x(10)
-                                        pdf.multi_cell(190, 6, linha_texto.encode('latin-1', 'replace').decode('latin-1'), 0, 'L')
+                                        linhas.append(linha_texto)
+                        return linhas
 
-                        if not teve_conteudo:
-                            pdf.set_x(10)
-                            pdf.set_font("Arial", 'I', 10)
-                            pdf.cell(190, 6, "(nenhuma intenção informada)".encode('latin-1', 'replace').decode('latin-1'), 0, 1, 'L')
+                    def preencher_caixa(x, y_topo, y_fundo, largura, titulo, linhas, repetir_titulo=True):
+                        """Escreve um título + lista de linhas dentro de uma caixa (x, y_topo)-(x+largura, y_fundo).
+                        Para quando o espaço acaba e devolve as linhas que não couberam."""
+                        pdf.set_xy(x, y_topo)
+                        if repetir_titulo:
+                            pdf.set_font("Arial", 'B', 11)
+                            pdf.set_x(x)
+                            pdf.cell(largura, 6, titulo.encode('latin-1', 'replace').decode('latin-1'), 0, 2, 'L')
 
-                        pdf.ln(3)
-                        pdf.set_draw_color(200, 200, 200)
-                        pdf.line(10, pdf.get_y(), 200, pdf.get_y())
-                        pdf.ln(4)
+                        if not linhas:
+                            pdf.set_font("Arial", 'I', 9)
+                            pdf.set_x(x)
+                            pdf.multi_cell(largura, 5, "(nenhuma intenção informada)".encode('latin-1', 'replace').decode('latin-1'))
+                            return []
+
+                        pdf.set_font("Arial", '', 9)
+                        for i, linha_texto in enumerate(linhas):
+                            if pdf.get_y() + 5 > y_fundo:
+                                return linhas[i:]
+                            pdf.set_x(x)
+                            pdf.multi_cell(largura, 5, linha_texto.encode('latin-1', 'replace').decode('latin-1'))
+                        return []
+
+                    # --- Layout da página 1: duas colunas ---
+                    Y0 = pdf.get_y()
+                    ALTURA_TOTAL = 250.0
+                    X_ESQ, LARG_ESQ = 10, 90
+                    X_DIR, LARG_DIR = 105, 95
+
+                    y_esq_almas_fim = Y0 + ALTURA_TOTAL * 0.80
+                    y_esq_aniversario_fim = Y0 + ALTURA_TOTAL * 1.00
+
+                    y_dir_almas_cont_fim = Y0 + ALTURA_TOTAL * 0.70
+                    y_dir_falecido_fim = y_dir_almas_cont_fim + ALTURA_TOTAL * 0.10
+                    y_dir_setimo_fim = y_dir_falecido_fim + ALTURA_TOTAL * 0.10
+                    y_dir_bodas_fim = y_dir_setimo_fim + ALTURA_TOTAL * 0.10
+
+                    linhas_almas = coletar_linhas(mapa_categorias["Pelas Almas"])
+                    sobra_almas = preencher_caixa(X_ESQ, Y0, y_esq_almas_fim, LARG_ESQ, "Intenções pelas Almas", linhas_almas)
+
+                    linhas_aniversario = coletar_linhas(mapa_categorias["Aniversário Natalício"])
+                    preencher_caixa(X_ESQ, y_esq_almas_fim, y_esq_aniversario_fim, LARG_ESQ, "Aniversário Natalício", linhas_aniversario)
+
+                    if sobra_almas:
+                        preencher_caixa(X_DIR, Y0, y_dir_almas_cont_fim, LARG_DIR, "Intenções pelas Almas (continuação)", sobra_almas)
+
+                    linhas_falecido = coletar_linhas(mapa_categorias["Falecido(a) Hoje"])
+                    preencher_caixa(X_DIR, y_dir_almas_cont_fim, y_dir_falecido_fim, LARG_DIR, "Falecido(a) Hoje", linhas_falecido)
+
+                    linhas_setimo = coletar_linhas(mapa_categorias["Sétimo Dia"])
+                    preencher_caixa(X_DIR, y_dir_falecido_fim, y_dir_setimo_fim, LARG_DIR, "Missa de Sétimo Dia", linhas_setimo)
+
+                    linhas_bodas = coletar_linhas(mapa_categorias["Bodas"])
+                    preencher_caixa(X_DIR, y_dir_setimo_fim, y_dir_bodas_fim, LARG_DIR, "Bodas", linhas_bodas)
+
+                    # --- Página 2: Intenções pela Saúde ---
+                    pdf.add_page()
+                    linhas_saude = coletar_linhas(mapa_categorias["Intenções pela Saúde"])
+                    pdf.set_font("Arial", 'B', 14)
+                    pdf.set_xy(10, pdf.get_y())
+                    pdf.cell(190, 8, "Intenções pela Saúde".encode('latin-1', 'replace').decode('latin-1'), 0, 2, 'C')
+                    pdf.ln(2)
+                    preencher_caixa(10, pdf.get_y(), 280, 190, "", linhas_saude, repetir_titulo=False)
 
                     pdf_bytes = bytes(pdf.output())
                     b64_pdf = base64.b64encode(pdf_bytes).decode('utf-8')
