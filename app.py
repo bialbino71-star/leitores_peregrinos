@@ -1489,19 +1489,27 @@ elif st.session_state.pagina == "ver_intencoes":
                     y_esq_almas_fim = Y0 + ALTURA_TOTAL * 0.80
                     y_esq_aniversario_fim = Y0 + ALTURA_TOTAL * 1.00
 
-                    y_dir_almas_cont_fim = Y0 + ALTURA_TOTAL * 0.70
-                    y_dir_falecido_fim = y_dir_almas_cont_fim + ALTURA_TOTAL * 0.10
-                    y_dir_setimo_fim = y_dir_falecido_fim + ALTURA_TOTAL * 0.10
-                    y_dir_bodas_fim = y_dir_setimo_fim + ALTURA_TOTAL * 0.10
-
                     linhas_almas = coletar_linhas(mapa_categorias["Pelas Almas"])
                     sobra_almas = preencher_caixa(X_ESQ, Y0, y_esq_almas_fim, LARG_ESQ, "Intenções pelas Almas", linhas_almas)
 
                     linhas_aniversario = coletar_linhas(mapa_categorias["Aniversário Natalício"])
                     preencher_caixa(X_ESQ, y_esq_almas_fim, y_esq_aniversario_fim, LARG_ESQ, "Aniversário Natalício", linhas_aniversario)
 
+                    # O espaço de continuação (70%) só é reservado se realmente sobrou conteúdo de "Pelas Almas".
+                    # Caso contrário, esse espaço é liberado e dividido entre "Falecido(a) Hoje" e "Missa de Sétimo Dia".
                     if sobra_almas:
+                        y_dir_almas_cont_fim = Y0 + ALTURA_TOTAL * 0.70
+                        altura_falecido = ALTURA_TOTAL * 0.10
+                        altura_setimo = ALTURA_TOTAL * 0.10
                         preencher_caixa(X_DIR, Y0, y_dir_almas_cont_fim, LARG_DIR, "Intenções pelas Almas (continuação)", sobra_almas)
+                    else:
+                        y_dir_almas_cont_fim = Y0
+                        altura_falecido = ALTURA_TOTAL * 0.45
+                        altura_setimo = ALTURA_TOTAL * 0.45
+
+                    y_dir_falecido_fim = y_dir_almas_cont_fim + altura_falecido
+                    y_dir_setimo_fim = y_dir_falecido_fim + altura_setimo
+                    y_dir_bodas_fim = y_dir_setimo_fim + ALTURA_TOTAL * 0.10
 
                     linhas_falecido = coletar_linhas(mapa_categorias["Falecido(a) Hoje"])
                     preencher_caixa(X_DIR, y_dir_almas_cont_fim, y_dir_falecido_fim, LARG_DIR, "Falecido(a) Hoje", linhas_falecido)
