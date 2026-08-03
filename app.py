@@ -1395,6 +1395,8 @@ elif st.session_state.pagina == "ver_intencoes":
 
             if st.button("Gerar Relatório Consolidado"):
                 partes = missa_selecionada.split(" - ", 1)
+                dia_raw = partes[0].strip()
+                horario_raw = partes[1].strip() if len(partes) > 1 else ""
                 f_data = normalizar_chave(partes[0])
                 f_horario = normalizar_chave(partes[1]) if len(partes) > 1 else ""
 
@@ -1480,5 +1482,76 @@ elif st.session_state.pagina == "ver_intencoes":
                         </a>
                     """, unsafe_allow_html=True)
                     st.caption("Toque no link para abrir o PDF. A partir da tela de visualização do seu celular, use as opções de baixar, imprimir ou compartilhar.")
+
+                    # --- Exportação para apresentação (.pptx), um slide por categoria ---
+                    from pptx import Presentation
+                    from pptx.util import Inches, Pt
+                    from pptx.dml.color import RGBColor
+                    import io
+
+                    prs = Presentation()
+                    prs.slide_width = Inches(13.333)
+                    prs.slide_height = Inches(7.5)
+                    layout_em_branco = prs.slide_layouts[6]
+
+                    COR_FUNDO = RGBColor(0xFE, 0xFA, 0xE0)
+                    COR_TITULO = RGBColor(0x5C, 0x3A, 0x21)
+                    COR_TEXTO = RGBColor(0x3D, 0x26, 0x12)
+
+                    for titulo_categoria, coluna in categorias_intencao:
+                        slide = prs.slides.add_slide(layout_em_branco)
+                        slide.background.fill.solid()
+                        slide.background.fill.fore_color.rgb = COR_FUNDO
+
+                        caixa_titulo = slide.shapes.add_textbox(Inches(0.6), Inches(0.4), Inches(12.1), Inches(1.2))
+                        tf_titulo = caixa_titulo.text_frame
+                        tf_titulo.text = titulo_categoria
+                        tf_titulo.paragraphs[0].font.size = Pt(40)
+                        tf_titulo.paragraphs[0].font.bold = True
+                        tf_titulo.paragraphs[0].font.color.rgb = COR_TITULO
+
+                        linhas_categoria = []
+                        for r in registros_encontrados:
+                            valor = str(r.get(coluna, '')).strip()
+                            if valor:
+                                for linha_texto in valor.splitlines():
+                                    linha_texto = linha_texto.strip()
+                                    if linha_texto:
+                                        linhas_categoria.append(linha_texto)
+
+                        caixa_corpo = slide.shapes.add_textbox(Inches(0.8), Inches(1.8), Inches(11.7), Inches(5.2))
+                        tf_corpo = caixa_corpo.text_frame
+                        tf_corpo.word_wrap = True
+
+                        if not linhas_categoria:
+                            tf_corpo.text = "(nenhuma intenção informada)"
+                            tf_corpo.paragraphs[0].font.italic = True
+                            tf_corpo.paragraphs[0].font.size = Pt(24)
+                            tf_corpo.paragraphs[0].font.color.rgb = COR_TEXTO
+                        else:
+                            tf_corpo.text = linhas_categoria[0]
+                            tf_corpo.paragraphs[0].font.size = Pt(24)
+                            tf_corpo.paragraphs[0].font.color.rgb = COR_TEXTO
+                            for linha_texto in linhas_categoria[1:]:
+                                p_linha = tf_corpo.add_paragraph()
+                                p_linha.text = linha_texto
+                                p_linha.font.size = Pt(24)
+                                p_linha.font.color.rgb = COR_TEXTO
+
+                    pptx_buffer = io.BytesIO()
+                    prs.save(pptx_buffer)
+                    b64_pptx = base64.b64encode(pptx_buffer.getvalue()).decode('utf-8')
+
+                    nome_arquivo_pptx = f"intenções_missa{dia_raw.replace('/', '')}_{horario_raw.replace(':', 'h')}.pptx"
+
+                    st.markdown(f"""
+                        <a href="data:application/vnd.openxmlformats-officedocument.presentationml.presentation;base64,{b64_pptx}" download="{nome_arquivo_pptx}"
+                           style="display:block; text-align:center; background:#0D1B2A; color:#FFFFFF; border:3.5px solid #8C6D4F;
+                                  border-radius:24px; padding:12px 6px; font-size:18px; font-weight:700; text-decoration:none;
+                                  margin-top:10px; font-family:sans-serif;">
+                            🖥️ Baixar Apresentação (PPTX)
+                        </a>
+                    """, unsafe_allow_html=True)
+                    st.caption("Um slide por categoria de intenção, já mesclando todos os envios encontrados.")
     except Exception as e:
         st.error(f"Erro ao acessar a aba de respostas: {e}")
