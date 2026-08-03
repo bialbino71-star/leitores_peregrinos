@@ -1556,7 +1556,30 @@ elif st.session_state.pagina == "ver_intencoes":
                     COR_TITULO = RGBColor(0x5C, 0x3A, 0x21)
                     COR_TEXTO = RGBColor(0x3D, 0x26, 0x12)
 
-                    for titulo_categoria, coluna in categorias_intencao:
+                    ordem_slides_pptx = [
+                        "Pelas Almas",
+                        "Falecido(a) Hoje",
+                        "Sétimo Dia",
+                        "Aniversário Natalício",
+                        "Bodas",
+                        "Intenções pela Saúde",
+                    ]
+
+                    for titulo_categoria in ordem_slides_pptx:
+                        coluna = mapa_categorias.get(titulo_categoria, titulo_categoria)
+
+                        linhas_categoria = []
+                        for r in registros_encontrados:
+                            valor = str(r.get(coluna, '')).strip()
+                            if valor:
+                                for linha_texto in valor.splitlines():
+                                    linha_texto = linha_texto.strip()
+                                    if linha_texto:
+                                        linhas_categoria.append(linha_texto)
+
+                        if not linhas_categoria:
+                            continue
+
                         slide = prs.slides.add_slide(layout_em_branco)
                         slide.background.fill.solid()
                         slide.background.fill.fore_color.rgb = COR_FUNDO
@@ -1567,15 +1590,6 @@ elif st.session_state.pagina == "ver_intencoes":
                         tf_titulo.paragraphs[0].font.size = Pt(40)
                         tf_titulo.paragraphs[0].font.bold = True
                         tf_titulo.paragraphs[0].font.color.rgb = COR_TITULO
-
-                        linhas_categoria = []
-                        for r in registros_encontrados:
-                            valor = str(r.get(coluna, '')).strip()
-                            if valor:
-                                for linha_texto in valor.splitlines():
-                                    linha_texto = linha_texto.strip()
-                                    if linha_texto:
-                                        linhas_categoria.append(linha_texto)
 
                         caixa_corpo = slide.shapes.add_textbox(Inches(0.8), Inches(1.8), Inches(11.7), Inches(5.2))
                         tf_corpo = caixa_corpo.text_frame
