@@ -1608,7 +1608,7 @@ elif st.session_state.pagina == "ver_intencoes":
 
                         blocos = [linhas_categoria[i:i + MAX_LINHAS_POR_SLIDE] for i in range(0, len(linhas_categoria), MAX_LINHAS_POR_SLIDE)]
                         for indice_bloco, bloco in enumerate(blocos):
-                            titulo_slide = titulo_categoria if indice_bloco == 0 else f"{titulo_categoria} (continuação)"
+                            titulo_slide = titulo_categoria
                             criar_slide_categoria(titulo_slide, bloco)
 
                     pptx_buffer = io.BytesIO()
