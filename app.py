@@ -5,6 +5,8 @@ import base64
 import json
 import re
 import time
+import io
+import urllib.request
 import unicodedata
 from datetime import datetime, date, timedelta
 from google.oauth2 import service_account
@@ -568,6 +570,34 @@ def leitor_esta_suspenso(nome, suspensoes_data):
         return info
     return None
 
+@st.cache_data(ttl=60)
+def obter_bloqueados():
+    """Retorna o conjunto de IDs bloqueados (impedidos de logar)."""
+    try:
+        sh = get_connection()
+        ws_bloq = sh.worksheet("Usuarios_Bloqueados")
+        dados = ws_bloq.get_all_records()
+        return {str(r.get('ID', '')).strip() for r in dados if str(r.get('ID', '')).strip()}
+    except Exception:
+        return set()
+
+def bloquear_usuario(sh, id_usuario):
+    ws_bloq = sh.worksheet("Usuarios_Bloqueados")
+    dados = ws_bloq.get_all_values()
+    for row in dados[1:]:
+        if len(row) > 0 and row[0].strip() == id_usuario.strip():
+            return  # já está bloqueado
+    ws_bloq.append_row([id_usuario.strip(), date.today().strftime("%d/%m/%Y")])
+
+def desbloquear_usuario(sh, id_usuario):
+    ws_bloq = sh.worksheet("Usuarios_Bloqueados")
+    dados = ws_bloq.get_all_values()
+    for idx, row in enumerate(dados[1:], start=2):
+        if len(row) > 0 and row[0].strip() == id_usuario.strip():
+            ws_bloq.delete_rows(idx)
+            return True
+    return False
+
 # --- FUNÇÕES DE VALIDAÇÃO E REGRAS DE NEGÓCIO ---
 def usuario_ja_escalado_no_dia(escala, data_alvo, nome_usuario):
     for r in escala:
@@ -687,8 +717,12 @@ if not st.session_state.logged_in:
                 leitores_data = ws_leitores.get_all_values()
                 
                 usuario_encontrado = False
+                usuario_bloqueado = False
                 for idx, row in enumerate(leitores_data[1:], start=2):
                     if len(row) > 5 and row[0].strip().upper() == input_nome.strip().upper() and row[1].strip() == input_senha.strip():
+                        if row[1].strip() in obter_bloqueados():
+                            usuario_bloqueado = True
+                            break
                         st.session_state.logged_in = True
                         st.session_state.user_name = row[0].strip()
                         st.session_state.user_id = row[1].strip()
@@ -698,6 +732,8 @@ if not st.session_state.logged_in:
                 
                 if usuario_encontrado:
                     st.rerun()
+                elif usuario_bloqueado:
+                    st.error("Este usuário está bloqueado. Procure o administrador.")
                 else:
                     st.error("Nome ou ID inválidos. Verifique seus dados.")
             except Exception as e:
@@ -745,6 +781,7 @@ with st.container(key="menu_grid"):
             st.button("Inserir Mensagem", key="menu_penalidade", on_click=navegar_para, args=("penalidade_leitor",), use_container_width=True)
             st.button("Suspensão de Leitor", key="menu_suspensao", on_click=navegar_para, args=("suspender_leitor",), use_container_width=True)
             st.button("Quem Não Serviu", key="menu_sem_escala", on_click=navegar_para, args=("quem_nao_serviu",), use_container_width=True)
+            st.button("Gestão de Usuários", key="menu_gestao_usuarios", on_click=navegar_para, args=("gestao_usuarios",), use_container_width=True)
     st.button("🚪 Sair", key="btn_logout_definitivo", on_click=efetuar_logout, use_container_width=True)
 
 # Proteção extra: se por algum motivo o perfil 5 (Acolhida) estiver numa página que não é permitida
@@ -758,6 +795,7 @@ escala_data = carregar_dados_escala()
 roteiros_data = obter_roteiros()
 penalidades_data = obter_penalidades()
 suspensoes_data = obter_suspensoes()
+bloqueados_data = obter_bloqueados()
 is_adm = (st.session_state.user_profile == "3")
 lista_todos_leitores = obter_lista_leitores() if is_adm else []
 
@@ -1216,6 +1254,48 @@ elif st.session_state.pagina == "quem_nao_serviu":
                 for nome_sem_escala in leitores_sem_escala:
                     st.markdown(f"- {nome_sem_escala}")
 
+elif st.session_state.pagina == "gestao_usuarios":
+    st.subheader("Gestão de Usuários")
+    if st.session_state.user_profile != "3":
+        st.error("Apenas o ADM pode acessar esta tela.")
+    else:
+        st.write("Bloqueie ou desbloqueie o acesso de um usuário pelo ID (Senha). Um usuário bloqueado não consegue fazer login.")
+        id_gestao = st.text_input("ID do usuário:", key="id_gestao_usuario")
+
+        col_bloq, col_desbloq = st.columns(2)
+        with col_bloq:
+            if st.button("🔒 Bloquear", key="btn_bloquear_usuario", use_container_width=True):
+                if not id_gestao.strip():
+                    st.error("Informe o ID do usuário.")
+                else:
+                    sh_conn = get_connection()
+                    bloquear_usuario(sh_conn, id_gestao.strip())
+                    obter_bloqueados.clear()
+                    st.success(f"ID {id_gestao.strip()} bloqueado!")
+                    time.sleep(2.5)
+                    st.rerun()
+        with col_desbloq:
+            if st.button("🔓 Desbloquear", key="btn_desbloquear_usuario", use_container_width=True):
+                if not id_gestao.strip():
+                    st.error("Informe o ID do usuário.")
+                else:
+                    sh_conn = get_connection()
+                    if desbloquear_usuario(sh_conn, id_gestao.strip()):
+                        obter_bloqueados.clear()
+                        st.success(f"ID {id_gestao.strip()} desbloqueado!")
+                        time.sleep(2.5)
+                        st.rerun()
+                    else:
+                        st.error("Esse ID não estava bloqueado.")
+
+        st.markdown("---")
+        st.write("**IDs atualmente bloqueados:**")
+        if not bloqueados_data:
+            st.info("Nenhum usuário bloqueado no momento.")
+        else:
+            for id_bloqueado in sorted(bloqueados_data):
+                st.markdown(f"- {id_bloqueado}")
+
 elif st.session_state.pagina == "escala_geral":
     st.subheader("Escala Geral do Mês")
 
@@ -1413,9 +1493,28 @@ elif st.session_state.pagina == "ver_intencoes":
                     st.success(f"{len(registros_encontrados)} envio(s) encontrado(s) e mesclado(s) com sucesso!")
                     time.sleep(2.5)
 
+                    URL_IMAGEM_CABECALHO_INTENCOES = "https://i.ibb.co/HLqFZgZK/logo-igreja.jpg"
+
+                    def obter_imagem_cabecalho():
+                        try:
+                            req = urllib.request.Request(URL_IMAGEM_CABECALHO_INTENCOES, headers={'User-Agent': 'Mozilla/5.0'})
+                            with urllib.request.urlopen(req, timeout=6) as resp:
+                                return io.BytesIO(resp.read())
+                        except Exception:
+                            return None
+
                     class PDFIntencoes(FPDF):
                         def header(self):
                             if self.page_no() == 1:
+                                imagem_cabecalho = obter_imagem_cabecalho()
+                                if imagem_cabecalho:
+                                    largura_img = 35
+                                    x_img = (210 - largura_img) / 2
+                                    try:
+                                        self.image(imagem_cabecalho, x=x_img, y=8, w=largura_img)
+                                        self.set_y(8 + largura_img + 4)
+                                    except Exception:
+                                        pass
                                 self.set_font('Arial', 'B', 14)
                                 self.cell(190, 10, 'Intenções da Santa Missa'.encode('latin-1', 'replace').decode('latin-1'), 0, 1, 'C')
                                 self.set_font('Arial', '', 11)
@@ -1467,22 +1566,22 @@ elif st.session_state.pagina == "ver_intencoes":
                             pdf.cell(largura, 6, titulo.encode('latin-1', 'replace').decode('latin-1'), 0, 2, 'L')
 
                         if not linhas:
-                            pdf.set_font("Arial", 'I', 9)
+                            pdf.set_font("Arial", 'I', 12)
                             pdf.set_x(x)
-                            pdf.multi_cell(largura, 5, "(nenhuma intenção informada)".encode('latin-1', 'replace').decode('latin-1'))
+                            pdf.multi_cell(largura, 6, "(nenhuma intenção informada)".encode('latin-1', 'replace').decode('latin-1'))
                             return []
 
-                        pdf.set_font("Arial", '', 9)
+                        pdf.set_font("Arial", '', 12)
                         for i, linha_texto in enumerate(linhas):
-                            if pdf.get_y() + 5 > y_fundo:
+                            if pdf.get_y() + 6 > y_fundo:
                                 return linhas[i:]
                             pdf.set_x(x)
-                            pdf.multi_cell(largura, 5, linha_texto.encode('latin-1', 'replace').decode('latin-1'))
+                            pdf.multi_cell(largura, 6, linha_texto.encode('latin-1', 'replace').decode('latin-1'))
                         return []
 
                     # --- Layout da página 1: duas colunas ---
                     Y0 = pdf.get_y()
-                    ALTURA_TOTAL = 250.0
+                    ALTURA_TOTAL = 280.0 - Y0  # respeita o rodapé, considerando o espaço já usado pelo cabeçalho (com ou sem imagem)
                     X_ESQ, LARG_ESQ = 10, 90
                     X_DIR, LARG_DIR = 105, 95
 
