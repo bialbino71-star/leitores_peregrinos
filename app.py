@@ -11,6 +11,7 @@ import unicodedata
 from datetime import datetime, date, timedelta
 from google.oauth2 import service_account
 from fpdf import FPDF
+from PIL import Image as PILImage
 
 # Configuração da página - Centralizado e responsivo
 st.set_page_config(
@@ -778,7 +779,6 @@ with st.container(key="menu_grid"):
         st.link_button("Liturgia Diária", "https://liturgia.cancaonova.com/pb/", use_container_width=True)
         if st.session_state.user_profile == "3":
             st.button("Roteiro", key="menu_roteiro", on_click=navegar_para, args=("cadastrar_roteiro",), use_container_width=True)
-            st.button("Quem Não Serviu", key="menu_sem_escala", on_click=navegar_para, args=("quem_nao_serviu",), use_container_width=True)
             st.button("Gestão de Usuários", key="menu_gestao_usuarios", on_click=navegar_para, args=("gestao_usuarios",), use_container_width=True)
     st.button("🚪 Sair", key="btn_logout_definitivo", on_click=efetuar_logout, use_container_width=True)
 
@@ -1150,44 +1150,12 @@ elif st.session_state.pagina == "cadastrar_roteiro":
                     else:
                         st.error("Não foi possível encontrar esse roteiro para remover.")
 
-elif st.session_state.pagina == "quem_nao_serviu":
-    st.subheader("Leitores que Ainda Não Serviram")
-    if st.session_state.user_profile != "3":
-        st.error("Apenas o ADM pode acessar esta tela.")
-    else:
-        col_sem_ini, col_sem_fim = st.columns(2)
-        with col_sem_ini:
-            data_sem_inicio = st.date_input("De:", value=date.today().replace(day=1), format="DD/MM/YYYY", key="sem_escala_data_inicio")
-        with col_sem_fim:
-            data_sem_fim = st.date_input("Até:", value=date.today() + timedelta(days=30), format="DD/MM/YYYY", key="sem_escala_data_fim")
-
-        if data_sem_fim < data_sem_inicio:
-            st.error("A data final não pode ser anterior à data inicial.")
-        else:
-            leitores_que_serviram = set()
-            for r in escala_data:
-                data_evento_r = extrair_data_evento(str(r.get('DIA', '')))
-                if data_evento_r is not None and data_sem_inicio <= data_evento_r <= data_sem_fim:
-                    for campo in ('COMENTARISTA', 'LEITURA1', 'LEITURA2'):
-                        nome_campo = str(r.get(campo, '')).strip()
-                        if nome_campo:
-                            leitores_que_serviram.add(nome_campo.strip().upper())
-
-            leitores_sem_escala = [nome for nome in lista_todos_leitores if nome.strip().upper() not in leitores_que_serviram]
-
-            if not leitores_sem_escala:
-                st.success("Todos os leitores cadastrados já serviram nesse período!")
-            else:
-                st.write(f"**{len(leitores_sem_escala)} leitor(es) ainda não serviram entre {data_sem_inicio.strftime('%d/%m/%Y')} e {data_sem_fim.strftime('%d/%m/%Y')}:**")
-                for nome_sem_escala in leitores_sem_escala:
-                    st.markdown(f"- {nome_sem_escala}")
-
 elif st.session_state.pagina == "gestao_usuarios":
     st.subheader("Gestão de Usuários")
     if st.session_state.user_profile != "3":
         st.error("Apenas o ADM pode acessar esta tela.")
     else:
-        aba_bloqueio, aba_mensagem, aba_suspensao = st.tabs(["Bloquear/Desbloquear", "Inserir Mensagem", "Suspensão de Leitor"])
+        aba_bloqueio, aba_mensagem, aba_suspensao, aba_sem_escala = st.tabs(["Bloquear/Desbloquear", "Inserir Mensagem", "Suspensão de Leitor", "Quem Não Serviu"])
 
         with aba_bloqueio:
             st.write("Bloqueie ou desbloqueie o acesso de um usuário pelo ID (Senha). Um usuário bloqueado não consegue fazer login.")
@@ -1288,6 +1256,34 @@ elif st.session_state.pagina == "gestao_usuarios":
                                 st.success(f"Suspensão de {nome_susp} removida.")
                                 time.sleep(2.5)
                                 st.rerun()
+
+        with aba_sem_escala:
+            col_sem_ini, col_sem_fim = st.columns(2)
+            with col_sem_ini:
+                data_sem_inicio = st.date_input("De:", value=date.today().replace(day=1), format="DD/MM/YYYY", key="sem_escala_data_inicio")
+            with col_sem_fim:
+                data_sem_fim = st.date_input("Até:", value=date.today() + timedelta(days=30), format="DD/MM/YYYY", key="sem_escala_data_fim")
+
+            if data_sem_fim < data_sem_inicio:
+                st.error("A data final não pode ser anterior à data inicial.")
+            else:
+                leitores_que_serviram = set()
+                for r in escala_data:
+                    data_evento_r = extrair_data_evento(str(r.get('DIA', '')))
+                    if data_evento_r is not None and data_sem_inicio <= data_evento_r <= data_sem_fim:
+                        for campo in ('COMENTARISTA', 'LEITURA1', 'LEITURA2'):
+                            nome_campo = str(r.get(campo, '')).strip()
+                            if nome_campo:
+                                leitores_que_serviram.add(nome_campo.strip().upper())
+
+                leitores_sem_escala = [nome for nome in lista_todos_leitores if nome.strip().upper() not in leitores_que_serviram]
+
+                if not leitores_sem_escala:
+                    st.success("Todos os leitores cadastrados já serviram nesse período!")
+                else:
+                    st.write(f"**{len(leitores_sem_escala)} leitor(es) ainda não serviram entre {data_sem_inicio.strftime('%d/%m/%Y')} e {data_sem_fim.strftime('%d/%m/%Y')}:**")
+                    for nome_sem_escala in leitores_sem_escala:
+                        st.markdown(f"- {nome_sem_escala}")
 
 elif st.session_state.pagina == "escala_geral":
     st.subheader("Escala Geral do Mês")
@@ -1504,8 +1500,13 @@ elif st.session_state.pagina == "ver_intencoes":
                                     largura_img = 35
                                     x_img = (210 - largura_img) / 2
                                     try:
+                                        imagem_cabecalho.seek(0)
+                                        with PILImage.open(imagem_cabecalho) as img_pil:
+                                            largura_px, altura_px = img_pil.size
+                                        altura_img = largura_img * (altura_px / largura_px)
+                                        imagem_cabecalho.seek(0)
                                         self.image(imagem_cabecalho, x=x_img, y=8, w=largura_img)
-                                        self.set_y(8 + largura_img + 4)
+                                        self.set_y(8 + altura_img + 10)  # 1 cm de espaço até o título
                                     except Exception:
                                         pass
                                 self.set_font('Arial', 'B', 14)
