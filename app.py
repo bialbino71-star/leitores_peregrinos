@@ -626,13 +626,16 @@ def contar_servicos_no_mes(escala, nome_usuario, data_referencia):
             count += 1
     return count
 
-LIMITE_SERVICOS_NO_MES = 2
+LIMITE_SERVICOS_NO_MES_PADRAO = 2
+LIMITE_SERVICOS_NO_MES_COMENTARISTA = 4
 
 def limite_mensal_atingido(escala, nome_usuario, data_referencia):
-    """O ADM (perfil 3) não tem limite mensal de serviços."""
+    """O ADM (perfil 3) não tem limite mensal de serviços.
+    O perfil 2 (Leitor & Comentarista) tem limite de 4; os demais, 2."""
     if st.session_state.user_profile == "3":
         return False
-    return contar_servicos_no_mes(escala, nome_usuario, data_referencia) >= LIMITE_SERVICOS_NO_MES
+    limite = LIMITE_SERVICOS_NO_MES_COMENTARISTA if st.session_state.user_profile == "2" else LIMITE_SERVICOS_NO_MES_PADRAO
+    return contar_servicos_no_mes(escala, nome_usuario, data_referencia) >= limite
 
 def extrair_data_evento(dia_str):
     match = re.search(r'(\d{2}/\d{2}/\d{4})', str(dia_str))
@@ -889,7 +892,7 @@ def renderizar_evento(idx, row, modo_aguardando=False):
                     elif st.session_state.user_profile == "1":
                         st.error("Você não possui o perfil “Comentarista”")
                     elif limite_mensal_atingido(escala_data, usuario_atual, data_evento_atual):
-                        st.error("Você já atingiu o limite de 2 serviços neste mês")
+                        st.error(f"Você já atingiu o limite de {LIMITE_SERVICOS_NO_MES_COMENTARISTA if st.session_state.user_profile == '2' else LIMITE_SERVICOS_NO_MES_PADRAO} serviços neste mês")
                     elif usuario_ja_escalado_no_dia(escala_data, dia, usuario_atual):
                         st.error("Você já possui uma função agendada neste dia.")
                     else:
@@ -947,7 +950,7 @@ def renderizar_evento(idx, row, modo_aguardando=False):
                         msg_susp += f" Motivo: {info_suspensao['motivo']}"
                     st.error(msg_susp)
                 elif limite_mensal_atingido(escala_data, usuario_atual, data_evento_atual):
-                    st.error("Você já atingiu o limite de 2 serviços neste mês")
+                    st.error(f"Você já atingiu o limite de {LIMITE_SERVICOS_NO_MES_COMENTARISTA if st.session_state.user_profile == '2' else LIMITE_SERVICOS_NO_MES_PADRAO} serviços neste mês")
                 elif usuario_ja_escalado_no_dia(escala_data, dia, usuario_atual):
                     st.error("Você já possui uma função agendada neste dia.")
                 else:
@@ -1006,7 +1009,7 @@ def renderizar_evento(idx, row, modo_aguardando=False):
                             msg_susp += f" Motivo: {info_suspensao['motivo']}"
                         st.error(msg_susp)
                     elif limite_mensal_atingido(escala_data, usuario_atual, data_evento_atual):
-                        st.error("Você já atingiu o limite de 2 serviços neste mês")
+                        st.error(f"Você já atingiu o limite de {LIMITE_SERVICOS_NO_MES_COMENTARISTA if st.session_state.user_profile == '2' else LIMITE_SERVICOS_NO_MES_PADRAO} serviços neste mês")
                     elif usuario_ja_escalado_no_dia(escala_data, dia, usuario_atual):
                         st.error("Você já possui uma função agendada neste dia.")
                     else:
