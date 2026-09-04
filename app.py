@@ -1561,20 +1561,19 @@ elif st.session_state.pagina == "ver_intencoes":
                                         linhas.append(linha_texto)
                         return linhas
 
-                    def preencher_caixa(x, y_topo, y_fundo, largura, titulo, linhas, repetir_titulo=True):
+                    def preencher_caixa(x, y_topo, y_fundo, largura, titulo, linhas, repetir_titulo=True, cor_texto=(0, 0, 0)):
                         """Escreve um título + lista de linhas dentro de uma caixa (x, y_topo)-(x+largura, y_fundo).
-                        Para quando o espaço acaba e devolve as linhas que não couberam."""
+                        Se não houver nenhuma linha, não escreve nada (nem título). Para quando o espaço acaba
+                        e devolve as linhas que não couberam."""
+                        if not linhas:
+                            return []
+
                         pdf.set_xy(x, y_topo)
+                        pdf.set_text_color(*cor_texto)
                         if repetir_titulo:
                             pdf.set_font("Arial", 'B', 11)
                             pdf.set_x(x)
                             pdf.cell(largura, 6, titulo.encode('latin-1', 'replace').decode('latin-1'), 0, 2, 'L')
-
-                        if not linhas:
-                            pdf.set_font("Arial", 'I', 12)
-                            pdf.set_x(x)
-                            pdf.multi_cell(largura, 6, "(nenhuma intenção informada)".encode('latin-1', 'replace').decode('latin-1'))
-                            return []
 
                         pdf.set_font("Arial", '', 12)
                         for i, linha_texto in enumerate(linhas):
@@ -1583,6 +1582,14 @@ elif st.session_state.pagina == "ver_intencoes":
                             pdf.set_x(x)
                             pdf.multi_cell(largura, 6, linha_texto.encode('latin-1', 'replace').decode('latin-1'))
                         return []
+
+                    # Cores por categoria, otimizadas para boa leitura impressa (tons escuros/saturados, não neon)
+                    COR_ALMAS = (0, 0, 0)          # preto
+                    COR_SETIMO_DIA = (95, 45, 130)  # roxo escuro
+                    COR_FALECIDO = (165, 30, 30)    # vermelho escuro
+                    COR_ANIVERSARIO = (25, 60, 130)  # azul escuro
+                    COR_BODAS = (170, 90, 10)       # laranja escuro
+                    COR_SAUDE = (30, 95, 45)        # verde escuro
 
                     # --- Layout da página 1: duas colunas ---
                     Y0 = pdf.get_y()
@@ -1594,10 +1601,10 @@ elif st.session_state.pagina == "ver_intencoes":
                     y_esq_aniversario_fim = Y0 + ALTURA_TOTAL * 1.00
 
                     linhas_almas = coletar_linhas(mapa_categorias["Pelas Almas"])
-                    sobra_almas = preencher_caixa(X_ESQ, Y0, y_esq_almas_fim, LARG_ESQ, "Intenções pelas Almas", linhas_almas)
+                    sobra_almas = preencher_caixa(X_ESQ, Y0, y_esq_almas_fim, LARG_ESQ, "Intenções pelas Almas", linhas_almas, cor_texto=COR_ALMAS)
 
                     linhas_aniversario = coletar_linhas(mapa_categorias["Aniversário Natalício"])
-                    preencher_caixa(X_ESQ, y_esq_almas_fim, y_esq_aniversario_fim, LARG_ESQ, "Aniversário Natalício", linhas_aniversario)
+                    preencher_caixa(X_ESQ, y_esq_almas_fim, y_esq_aniversario_fim, LARG_ESQ, "Aniversário Natalício", linhas_aniversario, cor_texto=COR_ANIVERSARIO)
 
                     # O espaço de continuação (70%) só é reservado se realmente sobrou conteúdo de "Pelas Almas".
                     # Caso contrário, esse espaço é liberado e dividido entre "Falecido(a) Hoje" e "Missa de Sétimo Dia".
@@ -1605,7 +1612,7 @@ elif st.session_state.pagina == "ver_intencoes":
                         y_dir_almas_cont_fim = Y0 + ALTURA_TOTAL * 0.70
                         altura_falecido = ALTURA_TOTAL * 0.10
                         altura_setimo = ALTURA_TOTAL * 0.10
-                        preencher_caixa(X_DIR, Y0, y_dir_almas_cont_fim, LARG_DIR, "Intenções pelas Almas (continuação)", sobra_almas)
+                        preencher_caixa(X_DIR, Y0, y_dir_almas_cont_fim, LARG_DIR, "Intenções pelas Almas (continuação)", sobra_almas, cor_texto=COR_ALMAS)
                     else:
                         y_dir_almas_cont_fim = Y0
                         altura_falecido = ALTURA_TOTAL * 0.45
@@ -1616,23 +1623,26 @@ elif st.session_state.pagina == "ver_intencoes":
                     y_dir_bodas_fim = y_dir_setimo_fim + ALTURA_TOTAL * 0.10
 
                     linhas_falecido = coletar_linhas(mapa_categorias["Falecido(a) Hoje"])
-                    preencher_caixa(X_DIR, y_dir_almas_cont_fim, y_dir_falecido_fim, LARG_DIR, "Falecido(a) Hoje", linhas_falecido)
+                    preencher_caixa(X_DIR, y_dir_almas_cont_fim, y_dir_falecido_fim, LARG_DIR, "Falecido(a) Hoje", linhas_falecido, cor_texto=COR_FALECIDO)
 
                     linhas_setimo = coletar_linhas(mapa_categorias["Sétimo Dia"])
-                    preencher_caixa(X_DIR, y_dir_falecido_fim, y_dir_setimo_fim, LARG_DIR, "Missa de Sétimo Dia", linhas_setimo)
+                    preencher_caixa(X_DIR, y_dir_falecido_fim, y_dir_setimo_fim, LARG_DIR, "Missa de Sétimo Dia", linhas_setimo, cor_texto=COR_SETIMO_DIA)
 
                     linhas_bodas = coletar_linhas(mapa_categorias["Bodas"])
-                    preencher_caixa(X_DIR, y_dir_setimo_fim, y_dir_bodas_fim, LARG_DIR, "Bodas", linhas_bodas)
+                    preencher_caixa(X_DIR, y_dir_setimo_fim, y_dir_bodas_fim, LARG_DIR, "Bodas", linhas_bodas, cor_texto=COR_BODAS)
 
-                    # --- Página 2: Intenções pela Saúde ---
-                    pdf.add_page()
+                    # --- Página 2: Intenções pela Saúde (só é criada se houver conteúdo) ---
                     linhas_saude = coletar_linhas(mapa_categorias["Intenções pela Saúde"])
-                    pdf.set_font("Arial", 'B', 14)
-                    pdf.set_xy(10, pdf.get_y())
-                    pdf.cell(190, 8, "Intenções pela Saúde".encode('latin-1', 'replace').decode('latin-1'), 0, 2, 'C')
-                    pdf.ln(2)
-                    preencher_caixa(10, pdf.get_y(), 280, 190, "", linhas_saude, repetir_titulo=False)
+                    if linhas_saude:
+                        pdf.add_page()
+                        pdf.set_text_color(*COR_SAUDE)
+                        pdf.set_font("Arial", 'B', 14)
+                        pdf.set_xy(10, pdf.get_y())
+                        pdf.cell(190, 8, "Intenções pela Saúde".encode('latin-1', 'replace').decode('latin-1'), 0, 2, 'C')
+                        pdf.ln(2)
+                        preencher_caixa(10, pdf.get_y(), 280, 190, "", linhas_saude, repetir_titulo=False, cor_texto=COR_SAUDE)
 
+                    pdf.set_text_color(0, 0, 0)
                     pdf_bytes = bytes(pdf.output())
                     b64_pdf = base64.b64encode(pdf_bytes).decode('utf-8')
                     st.markdown(f"""
