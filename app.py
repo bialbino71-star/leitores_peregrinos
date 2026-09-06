@@ -676,13 +676,14 @@ def eh_dia_4(dia_str):
     return d is not None and d.day == 4
 
 def deve_exibir_comentarista(row):
-    """Comentarista abre em fins de semana, solenidades, e todo dia 4 do mês (mesmo em dia de semana)."""
+    """Comentarista abre em fins de semana, solenidades, todo dia 4 do mês, e em dias marcados como NOVENA (mesmo em dia de semana)."""
     dia = str(row.get('DIA', ''))
     solenidade = str(row.get('SOLENIDADE', 'NÃO')).strip().upper()
-    return eh_fim_de_semana(dia) or solenidade == 'SIM' or eh_dia_4(dia)
+    novena = str(row.get('NOVENA', 'NÃO')).strip().upper()
+    return eh_fim_de_semana(dia) or solenidade == 'SIM' or eh_dia_4(dia) or novena == 'SIM'
 
 def deve_exibir_leitura2(row):
-    """2ª Leitura abre só em fins de semana e solenidades (dia 4 em dia de semana NÃO abre a 2ª Leitura)."""
+    """2ª Leitura abre só em fins de semana e solenidades (dia 4 e NOVENA em dia de semana NÃO abrem a 2ª Leitura)."""
     dia = str(row.get('DIA', ''))
     solenidade = str(row.get('SOLENIDADE', 'NÃO')).strip().upper()
     return eh_fim_de_semana(dia) or solenidade == 'SIM'
