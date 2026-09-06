@@ -628,14 +628,23 @@ def contar_servicos_no_mes(escala, nome_usuario, data_referencia):
 
 LIMITE_SERVICOS_NO_MES_PADRAO = 2
 LIMITE_SERVICOS_NO_MES_COMENTARISTA = 4
+LIMITE_SERVICOS_NO_MES_COMENTARISTA_TEMPORARIO = 8
+DATA_FIM_LIMITE_TEMPORARIO = date(2026, 9, 30)
+
+def limite_mensal_do_perfil():
+    """Retorna o limite mensal de serviços válido AGORA para o perfil logado.
+    Perfil 2 (Comentarista) tem limite temporário de 8 até 30/09/2026; depois volta a 4."""
+    if st.session_state.user_profile == "2":
+        if date.today() <= DATA_FIM_LIMITE_TEMPORARIO:
+            return LIMITE_SERVICOS_NO_MES_COMENTARISTA_TEMPORARIO
+        return LIMITE_SERVICOS_NO_MES_COMENTARISTA
+    return LIMITE_SERVICOS_NO_MES_PADRAO
 
 def limite_mensal_atingido(escala, nome_usuario, data_referencia):
-    """O ADM (perfil 3) não tem limite mensal de serviços.
-    O perfil 2 (Leitor & Comentarista) tem limite de 4; os demais, 2."""
+    """O ADM (perfil 3) não tem limite mensal de serviços."""
     if st.session_state.user_profile == "3":
         return False
-    limite = LIMITE_SERVICOS_NO_MES_COMENTARISTA if st.session_state.user_profile == "2" else LIMITE_SERVICOS_NO_MES_PADRAO
-    return contar_servicos_no_mes(escala, nome_usuario, data_referencia) >= limite
+    return contar_servicos_no_mes(escala, nome_usuario, data_referencia) >= limite_mensal_do_perfil()
 
 def extrair_data_evento(dia_str):
     match = re.search(r'(\d{2}/\d{2}/\d{4})', str(dia_str))
@@ -693,18 +702,6 @@ def evento_e_hoje_ou_futuro(row):
     if data_evento is None:
         return True  # não foi possível identificar a data no texto; mantém o evento por segurança
     return data_evento >= date.today()
-
-def data_valida_para_roteiro(data_roteiro, escala):
-    if data_roteiro.weekday() in (5, 6):
-        return True
-    if data_roteiro.day == 4:
-        return True
-    for r in escala:
-        dia_evento = extrair_data_evento(str(r.get('DIA', '')))
-        solenidade = str(r.get('SOLENIDADE', 'NÃO')).strip().upper()
-        if dia_evento == data_roteiro and solenidade == 'SIM':
-            return True
-    return False
 
 
 # --- RENDERIZAÇÃO DO CABEÇALHO OFICIAL IMUTÁVEL ---
@@ -847,7 +844,7 @@ def renderizar_evento(idx, row, modo_aguardando=False):
         data_evento_fmt = data_evento.strftime("%d/%m/%Y")
         chave_roteiro = (data_evento_fmt, normalizar_horario(horario))
         if chave_roteiro in roteiros_data:
-            st.markdown(f"📄 [Roteiro desta missa]({roteiros_data[chave_roteiro]})")
+            st.markdown(f"📄 [Roteiro dessa missa]({roteiros_data[chave_roteiro]})")
     
     usuario_atual = st.session_state.user_name
 
@@ -893,7 +890,7 @@ def renderizar_evento(idx, row, modo_aguardando=False):
                     elif st.session_state.user_profile == "1":
                         st.error("Você não possui o perfil “Comentarista”")
                     elif limite_mensal_atingido(escala_data, usuario_atual, data_evento_atual):
-                        st.error(f"Você já atingiu o limite de {LIMITE_SERVICOS_NO_MES_COMENTARISTA if st.session_state.user_profile == '2' else LIMITE_SERVICOS_NO_MES_PADRAO} serviços neste mês")
+                        st.error(f"Você já atingiu o limite de {limite_mensal_do_perfil()} serviços neste mês")
                     elif usuario_ja_escalado_no_dia(escala_data, dia, usuario_atual):
                         st.error("Você já possui uma função agendada neste dia.")
                     else:
@@ -951,7 +948,7 @@ def renderizar_evento(idx, row, modo_aguardando=False):
                         msg_susp += f" Motivo: {info_suspensao['motivo']}"
                     st.error(msg_susp)
                 elif limite_mensal_atingido(escala_data, usuario_atual, data_evento_atual):
-                    st.error(f"Você já atingiu o limite de {LIMITE_SERVICOS_NO_MES_COMENTARISTA if st.session_state.user_profile == '2' else LIMITE_SERVICOS_NO_MES_PADRAO} serviços neste mês")
+                    st.error(f"Você já atingiu o limite de {limite_mensal_do_perfil()} serviços neste mês")
                 elif usuario_ja_escalado_no_dia(escala_data, dia, usuario_atual):
                     st.error("Você já possui uma função agendada neste dia.")
                 else:
@@ -1010,7 +1007,7 @@ def renderizar_evento(idx, row, modo_aguardando=False):
                             msg_susp += f" Motivo: {info_suspensao['motivo']}"
                         st.error(msg_susp)
                     elif limite_mensal_atingido(escala_data, usuario_atual, data_evento_atual):
-                        st.error(f"Você já atingiu o limite de {LIMITE_SERVICOS_NO_MES_COMENTARISTA if st.session_state.user_profile == '2' else LIMITE_SERVICOS_NO_MES_PADRAO} serviços neste mês")
+                        st.error(f"Você já atingiu o limite de {limite_mensal_do_perfil()} serviços neste mês")
                     elif usuario_ja_escalado_no_dia(escala_data, dia, usuario_atual):
                         st.error("Você já possui uma função agendada neste dia.")
                     else:
@@ -1118,7 +1115,7 @@ elif st.session_state.pagina == "cadastrar_roteiro":
     if st.session_state.user_profile != "3":
         st.error("Apenas o ADM pode acessar esta tela.")
     else:
-        st.write("Selecione a data da missa (sábado, domingo, dia 4 do mês, ou dia marcado como Solenidade na Escala).")
+        st.write("Selecione a data da missa.")
         data_roteiro = st.date_input("Data da missa:", format="DD/MM/YYYY", key="data_roteiro_input")
 
         horarios_padrao_data = obter_horarios_padrao()
@@ -1131,9 +1128,7 @@ elif st.session_state.pagina == "cadastrar_roteiro":
             link_roteiro = st.text_input("Link do arquivo de roteiro:")
 
             if st.button("Salvar Roteiro"):
-                if not data_valida_para_roteiro(data_roteiro, escala_data):
-                    st.error("A data deve ser um sábado, domingo, dia 4 do mês, ou um dia marcado como Solenidade na Escala Geral.")
-                elif not link_roteiro.strip():
+                if not link_roteiro.strip():
                     st.error("Informe o link do arquivo de roteiro.")
                 else:
                     sh_conn = get_connection()
