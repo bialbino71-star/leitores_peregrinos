@@ -872,7 +872,7 @@ def renderizar_evento(idx, row, modo_aguardando=False):
                     val_salvar = "" if novo_nome_com == "(Vago)" else novo_nome_com
                     sh_conn = get_connection()
                     ws_live = sh_conn.worksheet("Escala")
-                    ws_live.update_cell(idx + 2, 4, val_salvar)
+                    ws_live.update_cell(idx + 2, 5, val_salvar)
                     carregar_dados_escala.clear()
                     st.session_state[f"alterando_com_{idx}"] = False
                     st.success("Alterado com sucesso!")
@@ -896,7 +896,7 @@ def renderizar_evento(idx, row, modo_aguardando=False):
                     else:
                         sh_conn = get_connection()
                         ws_live = sh_conn.worksheet("Escala")
-                        ws_live.update_cell(idx + 2, 4, usuario_atual)
+                        ws_live.update_cell(idx + 2, 5, usuario_atual)
                         carregar_dados_escala.clear()
                         mensagem_penalidade = consumir_penalidade(sh_conn, usuario_atual)
                         st.success("Escalado como Comentarista!")
@@ -910,7 +910,7 @@ def renderizar_evento(idx, row, modo_aguardando=False):
                         sh_conn = get_connection()
                         if processar_tentativa_cancelamento(sh_conn, usuario_atual, dia):
                             ws_live = sh_conn.worksheet("Escala")
-                            ws_live.update_cell(idx + 2, 4, "")
+                            ws_live.update_cell(idx + 2, 5, "")
                             carregar_dados_escala.clear()
                             st.success("Cancelado com sucesso!")
                             time.sleep(2.5)
@@ -932,7 +932,7 @@ def renderizar_evento(idx, row, modo_aguardando=False):
                 val_salvar = "" if novo_nome_l1 == "(Vago)" else novo_nome_l1
                 sh_conn = get_connection()
                 ws_live = sh_conn.worksheet("Escala")
-                ws_live.update_cell(idx + 2, 5, val_salvar)
+                ws_live.update_cell(idx + 2, 6, val_salvar)
                 carregar_dados_escala.clear()
                 st.session_state[f"alterando_l1_{idx}"] = False
                 st.success("Alterado com sucesso!")
@@ -954,7 +954,7 @@ def renderizar_evento(idx, row, modo_aguardando=False):
                 else:
                     sh_conn = get_connection()
                     ws_live = sh_conn.worksheet("Escala")
-                    ws_live.update_cell(idx + 2, 5, usuario_atual)
+                    ws_live.update_cell(idx + 2, 6, usuario_atual)
                     carregar_dados_escala.clear()
                     mensagem_penalidade = consumir_penalidade(sh_conn, usuario_atual)
                     st.success("Escalado na 1ª Leitura!")
@@ -968,7 +968,7 @@ def renderizar_evento(idx, row, modo_aguardando=False):
                     sh_conn = get_connection()
                     if processar_tentativa_cancelamento(sh_conn, usuario_atual, dia):
                         ws_live = sh_conn.worksheet("Escala")
-                        ws_live.update_cell(idx + 2, 5, "")
+                        ws_live.update_cell(idx + 2, 6, "")
                         carregar_dados_escala.clear()
                         st.success("Cancelado com sucesso!")
                         time.sleep(2.5)
@@ -991,7 +991,7 @@ def renderizar_evento(idx, row, modo_aguardando=False):
                     val_salvar = "" if novo_nome_l2 == "(Vago)" else novo_nome_l2
                     sh_conn = get_connection()
                     ws_live = sh_conn.worksheet("Escala")
-                    ws_live.update_cell(idx + 2, 6, val_salvar)
+                    ws_live.update_cell(idx + 2, 7, val_salvar)
                     carregar_dados_escala.clear()
                     st.session_state[f"alterando_l2_{idx}"] = False
                     st.success("Alterado com sucesso!")
@@ -1013,7 +1013,7 @@ def renderizar_evento(idx, row, modo_aguardando=False):
                     else:
                         sh_conn = get_connection()
                         ws_live = sh_conn.worksheet("Escala")
-                        ws_live.update_cell(idx + 2, 6, usuario_atual)
+                        ws_live.update_cell(idx + 2, 7, usuario_atual)
                         carregar_dados_escala.clear()
                         mensagem_penalidade = consumir_penalidade(sh_conn, usuario_atual)
                         st.success("Escalado na 2ª Leitura!")
@@ -1027,7 +1027,7 @@ def renderizar_evento(idx, row, modo_aguardando=False):
                         sh_conn = get_connection()
                         if processar_tentativa_cancelamento(sh_conn, usuario_atual, dia):
                             ws_live = sh_conn.worksheet("Escala")
-                            ws_live.update_cell(idx + 2, 6, "")
+                            ws_live.update_cell(idx + 2, 7, "")
                             carregar_dados_escala.clear()
                             st.success("Cancelado com sucesso!")
                             time.sleep(2.5)
