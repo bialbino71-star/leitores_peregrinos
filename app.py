@@ -73,6 +73,7 @@ if "logged_in" not in st.session_state:
     st.session_state.user_name = ""
     st.session_state.user_profile = ""
     st.session_state.user_id = ""
+    st.session_state.user_grupo = ""
 
 if "pagina" not in st.session_state:
     st.session_state.pagina = "home"
@@ -89,6 +90,7 @@ def efetuar_logout():
     st.session_state.user_name = ""
     st.session_state.user_profile = ""
     st.session_state.user_id = ""
+    st.session_state.user_grupo = ""
     st.session_state.pagina = "home"
 
 # --- FOLHA DE ESTILO GLOBAL (SEM PARAMETROS DE URL OU LINKS FALSOS) ---
@@ -356,6 +358,32 @@ def carregar_dados_escala():
         return []
 
 @st.cache_data(ttl=60)
+def obter_colunas_escala():
+    """Lê o cabeçalho real da aba 'Escala' e devolve um dicionário
+    {NOME_DA_COLUNA: índice da coluna (1-based, para uso com update_cell)}.
+    Assim, o código nunca depende de qual posição cada coluna ocupa na planilha."""
+    try:
+        sh = get_connection()
+        ws_escala = sh.worksheet("Escala")
+        cabecalho = ws_escala.row_values(1)
+        return {nome.strip().upper(): idx + 1 for idx, nome in enumerate(cabecalho) if nome.strip()}
+    except Exception:
+        return {}
+
+@st.cache_data(ttl=60)
+def obter_colunas_leitores():
+    """Lê o cabeçalho real da aba 'Nomes dos Leitores' e devolve um dicionário
+    {NOME_DA_COLUNA: índice da coluna (1-based)}. Protege o código contra
+    mudanças de posição das colunas nessa aba."""
+    try:
+        sh = get_connection()
+        ws_leitores = sh.worksheet("Nomes dos Leitores")
+        cabecalho = ws_leitores.row_values(1)
+        return {nome.strip().upper(): idx + 1 for idx, nome in enumerate(cabecalho) if nome.strip()}
+    except Exception:
+        return {}
+
+@st.cache_data(ttl=60)
 def obter_lista_leitores():
     try:
         sh = get_connection()
@@ -508,13 +536,19 @@ def consumir_penalidade(sh, leitor):
             try:
                 ws_leitores = sh.worksheet("Nomes dos Leitores")
                 leitores_rows = ws_leitores.get_all_values()
+                colunas_leit = obter_colunas_leitores()
+                col_nome = colunas_leit.get('NOME', 1) - 1
+                col_faltas = colunas_leit.get('CONTADOR DE FALTAS')
+                col_data_aviso = colunas_leit.get('DATA_AVISO') or colunas_leit.get('DATA-AVISO')
                 for r_idx, l_row in enumerate(leitores_rows[1:], start=2):
-                    if len(l_row) > 0 and l_row[0].strip().upper() == leitor.strip().upper():
-                        faltas_atual = l_row[2].strip() if len(l_row) > 2 and l_row[2].strip().isdigit() else "0"
-                        novo_faltas = int(faltas_atual) + 1
-                        ws_leitores.update_cell(r_idx, 3, str(novo_faltas))
-                        timestamp_aviso = datetime.now().strftime("%d/%m/%Y %H:%M")
-                        ws_leitores.update_cell(r_idx, 5, timestamp_aviso)
+                    if len(l_row) > col_nome and l_row[col_nome].strip().upper() == leitor.strip().upper():
+                        if col_faltas:
+                            faltas_atual = l_row[col_faltas - 1].strip() if len(l_row) >= col_faltas and l_row[col_faltas - 1].strip().isdigit() else "0"
+                            novo_faltas = int(faltas_atual) + 1
+                            ws_leitores.update_cell(r_idx, col_faltas, str(novo_faltas))
+                        if col_data_aviso:
+                            timestamp_aviso = datetime.now().strftime("%d/%m/%Y %H:%M")
+                            ws_leitores.update_cell(r_idx, col_data_aviso, timestamp_aviso)
                         break
             except Exception:
                 pass
@@ -646,6 +680,20 @@ def limite_mensal_atingido(escala, nome_usuario, data_referencia):
         return False
     return contar_servicos_no_mes(escala, nome_usuario, data_referencia) >= limite_mensal_do_perfil()
 
+def grupo_b_restrito(row):
+    """Grupo B (leitores em formação) só pode se escalar de segunda a sexta,
+    nunca em fins de semana, Solenidades ou Novenas. Grupo A não tem essa restrição."""
+    if st.session_state.user_grupo != "B":
+        return False
+    dia = str(row.get('DIA', ''))
+    solenidade = str(row.get('SOLENIDADE', 'NÃO')).strip().upper()
+    novena = str(row.get('NOVENA', 'NÃO')).strip().upper()
+    if eh_fim_de_semana(dia):
+        return True
+    if solenidade == 'SIM' or novena == 'SIM':
+        return True
+    return False
+
 def extrair_data_evento(dia_str):
     match = re.search(r'(\d{2}/\d{2}/\d{4})', str(dia_str))
     if match:
@@ -665,11 +713,15 @@ def processar_tentativa_cancelamento(sh, nome_usuario, dia_evento):
             try:
                 ws_leitores = sh.worksheet("Nomes dos Leitores")
                 leitores_rows = ws_leitores.get_all_values()
+                colunas_leit = obter_colunas_leitores()
+                col_nome = colunas_leit.get('NOME', 1) - 1
+                col_faltas = colunas_leit.get('CONTADOR DE FALTAS')
                 for r_idx, l_row in enumerate(leitores_rows[1:], start=2):
-                    if len(l_row) > 0 and l_row[0].strip().upper() == nome_usuario.strip().upper():
-                        faltas_atual = l_row[2].strip() if len(l_row) > 2 and l_row[2].strip().isdigit() else "0"
-                        novo_faltas = int(faltas_atual) + 1
-                        ws_leitores.update_cell(r_idx, 3, str(novo_faltas))
+                    if len(l_row) > col_nome and l_row[col_nome].strip().upper() == nome_usuario.strip().upper():
+                        if col_faltas:
+                            faltas_atual = l_row[col_faltas - 1].strip() if len(l_row) >= col_faltas and l_row[col_faltas - 1].strip().isdigit() else "0"
+                            novo_faltas = int(faltas_atual) + 1
+                            ws_leitores.update_cell(r_idx, col_faltas, str(novo_faltas))
                         break
             except Exception:
                 pass
@@ -725,18 +777,24 @@ if not st.session_state.logged_in:
                 sh = get_connection()
                 ws_leitores = sh.worksheet("Nomes dos Leitores")
                 leitores_data = ws_leitores.get_all_values()
+                colunas_leit = obter_colunas_leitores()
+                col_nome = colunas_leit.get('NOME', 1) - 1
+                col_id = colunas_leit.get('ID', 2) - 1
+                col_perfil = colunas_leit.get('PERFIL')
+                col_grupo = colunas_leit.get('GRUPO')
                 
                 usuario_encontrado = False
                 usuario_bloqueado = False
                 for idx, row in enumerate(leitores_data[1:], start=2):
-                    if len(row) > 5 and row[0].strip().upper() == input_nome.strip().upper() and row[1].strip() == input_senha.strip():
-                        if row[1].strip() in obter_bloqueados():
+                    if len(row) > col_id and row[col_nome].strip().upper() == input_nome.strip().upper() and row[col_id].strip() == input_senha.strip():
+                        if row[col_id].strip() in obter_bloqueados():
                             usuario_bloqueado = True
                             break
                         st.session_state.logged_in = True
-                        st.session_state.user_name = row[0].strip()
-                        st.session_state.user_id = row[1].strip()
-                        st.session_state.user_profile = row[5].strip()
+                        st.session_state.user_name = row[col_nome].strip()
+                        st.session_state.user_id = row[col_id].strip()
+                        st.session_state.user_profile = row[col_perfil - 1].strip() if col_perfil and len(row) >= col_perfil else ""
+                        st.session_state.user_grupo = row[col_grupo - 1].strip().upper() if col_grupo and len(row) >= col_grupo else ""
                         usuario_encontrado = True
                         break
                 
@@ -799,6 +857,7 @@ if st.session_state.user_profile == "5" and st.session_state.pagina not in ("hom
 
 # Carregamento seguro dos dados da escala para os blocos abaixo
 escala_data = carregar_dados_escala()
+colunas_escala = obter_colunas_escala()
 roteiros_data = obter_roteiros()
 penalidades_data = obter_penalidades()
 suspensoes_data = obter_suspensoes()
@@ -872,7 +931,7 @@ def renderizar_evento(idx, row, modo_aguardando=False):
                     val_salvar = "" if novo_nome_com == "(Vago)" else novo_nome_com
                     sh_conn = get_connection()
                     ws_live = sh_conn.worksheet("Escala")
-                    ws_live.update_cell(idx + 2, 5, val_salvar)
+                    ws_live.update_cell(idx + 2, colunas_escala['COMENTARISTA'], val_salvar)
                     carregar_dados_escala.clear()
                     st.session_state[f"alterando_com_{idx}"] = False
                     st.success("Alterado com sucesso!")
@@ -896,7 +955,7 @@ def renderizar_evento(idx, row, modo_aguardando=False):
                     else:
                         sh_conn = get_connection()
                         ws_live = sh_conn.worksheet("Escala")
-                        ws_live.update_cell(idx + 2, 5, usuario_atual)
+                        ws_live.update_cell(idx + 2, colunas_escala['COMENTARISTA'], usuario_atual)
                         carregar_dados_escala.clear()
                         mensagem_penalidade = consumir_penalidade(sh_conn, usuario_atual)
                         st.success("Escalado como Comentarista!")
@@ -910,7 +969,7 @@ def renderizar_evento(idx, row, modo_aguardando=False):
                         sh_conn = get_connection()
                         if processar_tentativa_cancelamento(sh_conn, usuario_atual, dia):
                             ws_live = sh_conn.worksheet("Escala")
-                            ws_live.update_cell(idx + 2, 5, "")
+                            ws_live.update_cell(idx + 2, colunas_escala['COMENTARISTA'], "")
                             carregar_dados_escala.clear()
                             st.success("Cancelado com sucesso!")
                             time.sleep(2.5)
@@ -932,7 +991,7 @@ def renderizar_evento(idx, row, modo_aguardando=False):
                 val_salvar = "" if novo_nome_l1 == "(Vago)" else novo_nome_l1
                 sh_conn = get_connection()
                 ws_live = sh_conn.worksheet("Escala")
-                ws_live.update_cell(idx + 2, 6, val_salvar)
+                ws_live.update_cell(idx + 2, colunas_escala['LEITURA1'], val_salvar)
                 carregar_dados_escala.clear()
                 st.session_state[f"alterando_l1_{idx}"] = False
                 st.success("Alterado com sucesso!")
@@ -947,6 +1006,8 @@ def renderizar_evento(idx, row, modo_aguardando=False):
                     if info_suspensao["motivo"]:
                         msg_susp += f" Motivo: {info_suspensao['motivo']}"
                     st.error(msg_susp)
+                elif grupo_b_restrito(row):
+                    st.error("Leitores do Grupo B só podem se escalar de segunda a sexta, exceto Solenidades e Novenas.")
                 elif limite_mensal_atingido(escala_data, usuario_atual, data_evento_atual):
                     st.error(f"Você já atingiu o limite de {limite_mensal_do_perfil()} serviços neste mês")
                 elif usuario_ja_escalado_no_dia(escala_data, dia, usuario_atual):
@@ -954,7 +1015,7 @@ def renderizar_evento(idx, row, modo_aguardando=False):
                 else:
                     sh_conn = get_connection()
                     ws_live = sh_conn.worksheet("Escala")
-                    ws_live.update_cell(idx + 2, 6, usuario_atual)
+                    ws_live.update_cell(idx + 2, colunas_escala['LEITURA1'], usuario_atual)
                     carregar_dados_escala.clear()
                     mensagem_penalidade = consumir_penalidade(sh_conn, usuario_atual)
                     st.success("Escalado na 1ª Leitura!")
@@ -968,7 +1029,7 @@ def renderizar_evento(idx, row, modo_aguardando=False):
                     sh_conn = get_connection()
                     if processar_tentativa_cancelamento(sh_conn, usuario_atual, dia):
                         ws_live = sh_conn.worksheet("Escala")
-                        ws_live.update_cell(idx + 2, 6, "")
+                        ws_live.update_cell(idx + 2, colunas_escala['LEITURA1'], "")
                         carregar_dados_escala.clear()
                         st.success("Cancelado com sucesso!")
                         time.sleep(2.5)
@@ -991,7 +1052,7 @@ def renderizar_evento(idx, row, modo_aguardando=False):
                     val_salvar = "" if novo_nome_l2 == "(Vago)" else novo_nome_l2
                     sh_conn = get_connection()
                     ws_live = sh_conn.worksheet("Escala")
-                    ws_live.update_cell(idx + 2, 7, val_salvar)
+                    ws_live.update_cell(idx + 2, colunas_escala['LEITURA2'], val_salvar)
                     carregar_dados_escala.clear()
                     st.session_state[f"alterando_l2_{idx}"] = False
                     st.success("Alterado com sucesso!")
@@ -1006,6 +1067,8 @@ def renderizar_evento(idx, row, modo_aguardando=False):
                         if info_suspensao["motivo"]:
                             msg_susp += f" Motivo: {info_suspensao['motivo']}"
                         st.error(msg_susp)
+                    elif grupo_b_restrito(row):
+                        st.error("Leitores do Grupo B só podem se escalar de segunda a sexta, exceto Solenidades e Novenas.")
                     elif limite_mensal_atingido(escala_data, usuario_atual, data_evento_atual):
                         st.error(f"Você já atingiu o limite de {limite_mensal_do_perfil()} serviços neste mês")
                     elif usuario_ja_escalado_no_dia(escala_data, dia, usuario_atual):
@@ -1013,7 +1076,7 @@ def renderizar_evento(idx, row, modo_aguardando=False):
                     else:
                         sh_conn = get_connection()
                         ws_live = sh_conn.worksheet("Escala")
-                        ws_live.update_cell(idx + 2, 7, usuario_atual)
+                        ws_live.update_cell(idx + 2, colunas_escala['LEITURA2'], usuario_atual)
                         carregar_dados_escala.clear()
                         mensagem_penalidade = consumir_penalidade(sh_conn, usuario_atual)
                         st.success("Escalado na 2ª Leitura!")
@@ -1027,7 +1090,7 @@ def renderizar_evento(idx, row, modo_aguardando=False):
                         sh_conn = get_connection()
                         if processar_tentativa_cancelamento(sh_conn, usuario_atual, dia):
                             ws_live = sh_conn.worksheet("Escala")
-                            ws_live.update_cell(idx + 2, 7, "")
+                            ws_live.update_cell(idx + 2, colunas_escala['LEITURA2'], "")
                             carregar_dados_escala.clear()
                             st.success("Cancelado com sucesso!")
                             time.sleep(2.5)
@@ -1641,6 +1704,13 @@ elif st.session_state.pagina == "ver_intencoes":
                     pdf.set_text_color(0, 0, 0)
                     pdf_bytes = bytes(pdf.output())
                     b64_pdf = base64.b64encode(pdf_bytes).decode('utf-8')
+
+                    st.markdown(f"""
+                        <iframe src="data:application/pdf;base64,{b64_pdf}" width="100%" height="600"
+                                style="border:3.5px solid #8C6D4F; border-radius:12px; margin-top:10px;">
+                        </iframe>
+                    """, unsafe_allow_html=True)
+
                     st.markdown(f"""
                         <a href="data:application/pdf;base64,{b64_pdf}" target="_blank" rel="noopener noreferrer" download="Intenções_da_Santa_Missa.pdf"
                            style="display:block; text-align:center; background:#0D1B2A; color:#FFFFFF; border:3.5px solid #8C6D4F;
@@ -1649,7 +1719,7 @@ elif st.session_state.pagina == "ver_intencoes":
                             📄 Abrir / Baixar / Compartilhar Intenções em PDF
                         </a>
                     """, unsafe_allow_html=True)
-                    st.caption("Toque no link para abrir o PDF. A partir da tela de visualização do seu celular, use as opções de baixar, imprimir ou compartilhar.")
+                    st.caption("O PDF já aparece acima automaticamente. Se preferir baixar, imprimir ou compartilhar, use o botão abaixo.")
 
                     # --- Exportação para apresentação (.pptx), um slide por categoria ---
                     from pptx import Presentation
