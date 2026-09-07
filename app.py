@@ -1692,12 +1692,20 @@ elif st.session_state.pagina == "ver_intencoes":
                     components.html(f"""
                         <!-- nonce:{_nonce_scroll_pdf} -->
                         <script>
-                            setTimeout(function() {{
+                            var tentativasScrollPdf = 0;
+                            var intervaloScrollPdf = setInterval(function() {{
+                                tentativasScrollPdf++;
                                 try {{
                                     var el = window.parent.document.getElementById("ancora-visualizador-pdf");
-                                    if (el) {{ el.scrollIntoView({{behavior: "smooth", block: "start"}}); }}
+                                    if (el) {{
+                                        el.scrollIntoView({{behavior: "smooth", block: "start"}});
+                                        clearInterval(intervaloScrollPdf);
+                                    }} else if (tentativasScrollPdf > 40) {{
+                                        clearInterval(intervaloScrollPdf);
+                                    }}
                                 }} catch (e) {{
                                     console.log("[SCROLL-PDF-DEBUG] erro:", e);
+                                    clearInterval(intervaloScrollPdf);
                                 }}
                             }}, 150);
                         </script>
