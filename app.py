@@ -1687,6 +1687,22 @@ elif st.session_state.pagina == "ver_intencoes":
                     pdf_bytes = bytes(pdf.output())
                     b64_pdf = base64.b64encode(pdf_bytes).decode('utf-8')
 
+                    st.markdown('<div id="ancora-visualizador-pdf"></div>', unsafe_allow_html=True)
+                    _nonce_scroll_pdf = f"scroll-pdf-{time.time()}"
+                    components.html(f"""
+                        <!-- nonce:{_nonce_scroll_pdf} -->
+                        <script>
+                            setTimeout(function() {{
+                                try {{
+                                    var el = window.parent.document.getElementById("ancora-visualizador-pdf");
+                                    if (el) {{ el.scrollIntoView({{behavior: "smooth", block: "start"}}); }}
+                                }} catch (e) {{
+                                    console.log("[SCROLL-PDF-DEBUG] erro:", e);
+                                }}
+                            }}, 150);
+                        </script>
+                    """, height=0)
+
                     components.html(f"""
                         <div id="visualizador-pdf-conteudo-normal" style="font-family:sans-serif;">
                             <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:8px;">
