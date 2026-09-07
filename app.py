@@ -1620,28 +1620,6 @@ elif st.session_state.pagina == "ver_intencoes":
                                         linhas.append(linha_texto)
                         return linhas
 
-                    def preencher_caixa(x, y_topo, y_fundo, largura, titulo, linhas, repetir_titulo=True, cor_texto=(0, 0, 0)):
-                        """Escreve um título + lista de linhas dentro de uma caixa (x, y_topo)-(x+largura, y_fundo).
-                        Se não houver nenhuma linha, não escreve nada (nem título). Para quando o espaço acaba
-                        e devolve as linhas que não couberam."""
-                        if not linhas:
-                            return []
-
-                        pdf.set_xy(x, y_topo)
-                        pdf.set_text_color(*cor_texto)
-                        if repetir_titulo:
-                            pdf.set_font("Arial", 'B', 11)
-                            pdf.set_x(x)
-                            pdf.cell(largura, 6, titulo.encode('latin-1', 'replace').decode('latin-1'), 0, 2, 'L')
-
-                        pdf.set_font("Arial", '', 12)
-                        for i, linha_texto in enumerate(linhas):
-                            if pdf.get_y() + 6 > y_fundo:
-                                return linhas[i:]
-                            pdf.set_x(x)
-                            pdf.multi_cell(largura, 6, linha_texto.encode('latin-1', 'replace').decode('latin-1'))
-                        return []
-
                     # Cores por categoria, otimizadas para boa leitura impressa (tons escuros/saturados, não neon)
                     COR_ALMAS = (0, 0, 0)          # preto
                     COR_SETIMO_DIA = (95, 45, 130)  # roxo escuro
@@ -1650,56 +1628,60 @@ elif st.session_state.pagina == "ver_intencoes":
                     COR_BODAS = (170, 90, 10)       # laranja escuro
                     COR_SAUDE = (30, 95, 45)        # verde escuro
 
-                    # --- Layout da página 1: duas colunas ---
-                    Y0 = pdf.get_y()
-                    ALTURA_TOTAL = 280.0 - Y0  # respeita o rodapé, considerando o espaço já usado pelo cabeçalho (com ou sem imagem)
-                    X_ESQ, LARG_ESQ = 10, 90
-                    X_DIR, LARG_DIR = 105, 95
+                    # --- Layout em fluxo contínuo: preenche a coluna esquerda, depois a direita,
+                    # sem espaço reservado fixo por categoria — maximiza o uso do espaço disponível ---
+                    Y_TOPO = pdf.get_y()
+                    Y_FUNDO = 280.0
+                    COLUNAS = [(10, 90), (105, 95)]  # (x, largura) esquerda e direita
+                    estado_fluxo = {"col": 0, "y": Y_TOPO}
 
-                    y_esq_almas_fim = Y0 + ALTURA_TOTAL * 0.80
-                    y_esq_aniversario_fim = Y0 + ALTURA_TOTAL * 1.00
+                    def ir_para_proxima_coluna():
+                        estado_fluxo["col"] += 1
+                        if estado_fluxo["col"] >= len(COLUNAS):
+                            pdf.add_page()
+                            estado_fluxo["col"] = 0
+                            estado_fluxo["y"] = pdf.get_y()
+                        else:
+                            estado_fluxo["y"] = Y_TOPO
 
-                    linhas_almas = coletar_linhas(mapa_categorias["Pelas Almas"])
-                    sobra_almas = preencher_caixa(X_ESQ, Y0, y_esq_almas_fim, LARG_ESQ, "Intenções pelas Almas", linhas_almas, cor_texto=COR_ALMAS)
+                    def escrever_categoria_fluxo(titulo, linhas, cor):
+                        if not linhas:
+                            return
+                        x, largura = COLUNAS[estado_fluxo["col"]]
+                        if estado_fluxo["y"] + 12 > Y_FUNDO:
+                            ir_para_proxima_coluna()
+                            x, largura = COLUNAS[estado_fluxo["col"]]
 
-                    linhas_aniversario = coletar_linhas(mapa_categorias["Aniversário Natalício"])
-                    preencher_caixa(X_ESQ, y_esq_almas_fim, y_esq_aniversario_fim, LARG_ESQ, "Aniversário Natalício", linhas_aniversario, cor_texto=COR_ANIVERSARIO)
+                        pdf.set_text_color(*cor)
+                        pdf.set_xy(x, estado_fluxo["y"])
+                        pdf.set_font("Arial", 'B', 11)
+                        pdf.cell(largura, 6, titulo.encode('latin-1', 'replace').decode('latin-1'), 0, 2, 'L')
+                        estado_fluxo["y"] = pdf.get_y()
 
-                    # O espaço de continuação (70%) só é reservado se realmente sobrou conteúdo de "Pelas Almas".
-                    # Caso contrário, esse espaço é liberado e dividido entre "Falecido(a) Hoje" e "Missa de Sétimo Dia".
-                    if sobra_almas:
-                        y_dir_almas_cont_fim = Y0 + ALTURA_TOTAL * 0.70
-                        altura_falecido = ALTURA_TOTAL * 0.10
-                        altura_setimo = ALTURA_TOTAL * 0.10
-                        preencher_caixa(X_DIR, Y0, y_dir_almas_cont_fim, LARG_DIR, "Intenções pelas Almas (continuação)", sobra_almas, cor_texto=COR_ALMAS)
-                    else:
-                        y_dir_almas_cont_fim = Y0
-                        altura_falecido = ALTURA_TOTAL * 0.45
-                        altura_setimo = ALTURA_TOTAL * 0.45
+                        pdf.set_font("Arial", '', 12)
+                        for linha_texto in linhas:
+                            if estado_fluxo["y"] + 6 > Y_FUNDO:
+                                ir_para_proxima_coluna()
+                                x, largura = COLUNAS[estado_fluxo["col"]]
+                            pdf.set_xy(x, estado_fluxo["y"])
+                            pdf.multi_cell(largura, 6, linha_texto.encode('latin-1', 'replace').decode('latin-1'))
+                            estado_fluxo["y"] = pdf.get_y()
 
-                    y_dir_falecido_fim = y_dir_almas_cont_fim + altura_falecido
-                    y_dir_setimo_fim = y_dir_falecido_fim + altura_setimo
-                    y_dir_bodas_fim = y_dir_setimo_fim + ALTURA_TOTAL * 0.10
+                        estado_fluxo["y"] += 4  # respiro entre categorias
 
-                    linhas_falecido = coletar_linhas(mapa_categorias["Falecido(a) Hoje"])
-                    preencher_caixa(X_DIR, y_dir_almas_cont_fim, y_dir_falecido_fim, LARG_DIR, "Falecido(a) Hoje", linhas_falecido, cor_texto=COR_FALECIDO)
+                    # Mesma ordem usada na apresentação (.pptx), para manter consistência
+                    ordem_categorias_pdf = [
+                        ("Pelas Almas", "Intenções pelas Almas", COR_ALMAS),
+                        ("Falecido(a) Hoje", "Falecido(a) Hoje", COR_FALECIDO),
+                        ("Sétimo Dia", "Missa de Sétimo Dia", COR_SETIMO_DIA),
+                        ("Aniversário Natalício", "Aniversário Natalício", COR_ANIVERSARIO),
+                        ("Bodas", "Bodas", COR_BODAS),
+                        ("Intenções pela Saúde", "Intenções pela Saúde", COR_SAUDE),
+                    ]
 
-                    linhas_setimo = coletar_linhas(mapa_categorias["Sétimo Dia"])
-                    preencher_caixa(X_DIR, y_dir_falecido_fim, y_dir_setimo_fim, LARG_DIR, "Missa de Sétimo Dia", linhas_setimo, cor_texto=COR_SETIMO_DIA)
-
-                    linhas_bodas = coletar_linhas(mapa_categorias["Bodas"])
-                    preencher_caixa(X_DIR, y_dir_setimo_fim, y_dir_bodas_fim, LARG_DIR, "Bodas", linhas_bodas, cor_texto=COR_BODAS)
-
-                    # --- Página 2: Intenções pela Saúde (só é criada se houver conteúdo) ---
-                    linhas_saude = coletar_linhas(mapa_categorias["Intenções pela Saúde"])
-                    if linhas_saude:
-                        pdf.add_page()
-                        pdf.set_text_color(*COR_SAUDE)
-                        pdf.set_font("Arial", 'B', 14)
-                        pdf.set_xy(10, pdf.get_y())
-                        pdf.cell(190, 8, "Intenções pela Saúde".encode('latin-1', 'replace').decode('latin-1'), 0, 2, 'C')
-                        pdf.ln(2)
-                        preencher_caixa(10, pdf.get_y(), 280, 190, "", linhas_saude, repetir_titulo=False, cor_texto=COR_SAUDE)
+                    for chave_categoria, titulo_exibicao, cor in ordem_categorias_pdf:
+                        linhas_categoria = coletar_linhas(mapa_categorias[chave_categoria])
+                        escrever_categoria_fluxo(titulo_exibicao, linhas_categoria, cor)
 
                     pdf.set_text_color(0, 0, 0)
                     pdf_bytes = bytes(pdf.output())
