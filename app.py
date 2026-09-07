@@ -1687,30 +1687,6 @@ elif st.session_state.pagina == "ver_intencoes":
                     pdf_bytes = bytes(pdf.output())
                     b64_pdf = base64.b64encode(pdf_bytes).decode('utf-8')
 
-                    st.markdown('<div id="ancora-visualizador-pdf"></div>', unsafe_allow_html=True)
-                    _nonce_scroll_pdf = f"scroll-pdf-{time.time()}"
-                    components.html(f"""
-                        <!-- nonce:{_nonce_scroll_pdf} -->
-                        <script>
-                            var tentativasScrollPdf = 0;
-                            var intervaloScrollPdf = setInterval(function() {{
-                                tentativasScrollPdf++;
-                                try {{
-                                    var el = window.parent.document.getElementById("ancora-visualizador-pdf");
-                                    if (el) {{
-                                        el.scrollIntoView({{behavior: "smooth", block: "start"}});
-                                        clearInterval(intervaloScrollPdf);
-                                    }} else if (tentativasScrollPdf > 40) {{
-                                        clearInterval(intervaloScrollPdf);
-                                    }}
-                                }} catch (e) {{
-                                    console.log("[SCROLL-PDF-DEBUG] erro:", e);
-                                    clearInterval(intervaloScrollPdf);
-                                }}
-                            }}, 150);
-                        </script>
-                    """, height=0)
-
                     components.html(f"""
                         <div id="visualizador-pdf-conteudo-normal" style="font-family:sans-serif;">
                             <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:8px;">
@@ -1762,6 +1738,14 @@ elif st.session_state.pagina == "ver_intencoes":
                             pdfjsLib.getDocument({{data: bytesArray}}).promise.then(function(doc) {{
                                 pdfDoc = doc;
                                 renderizarPagina(1);
+
+                                try {{
+                                    if (window.frameElement) {{
+                                        window.frameElement.scrollIntoView({{behavior: "smooth", block: "end"}});
+                                    }}
+                                }} catch (e) {{
+                                    console.log("[SCROLL-PDF-DEBUG] erro:", e);
+                                }}
                             }});
 
                             document.getElementById('btn-anterior').addEventListener('click', function() {{
