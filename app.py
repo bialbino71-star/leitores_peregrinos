@@ -1687,30 +1687,104 @@ elif st.session_state.pagina == "ver_intencoes":
                     pdf_bytes = bytes(pdf.output())
                     b64_pdf = base64.b64encode(pdf_bytes).decode('utf-8')
 
+                    components.html(f"""
+                        <div id="visualizador-pdf-conteudo-normal" style="font-family:sans-serif;">
+                            <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:8px;">
+                                <button id="btn-anterior" style="background:#0D1B2A; color:#FFFFFF; border:3px solid #8C6D4F; border-radius:18px; padding:8px 16px; font-weight:700; cursor:pointer;">◀ Anterior</button>
+                                <span id="indicador-pagina" style="color:#5C3A21; font-weight:700;">Carregando...</span>
+                                <button id="btn-proxima" style="background:#0D1B2A; color:#FFFFFF; border:3px solid #8C6D4F; border-radius:18px; padding:8px 16px; font-weight:700; cursor:pointer;">Próxima ▶</button>
+                            </div>
+                            <div style="text-align:center; overflow:auto; max-height:65vh; background:#FEFAE0; border:3.5px solid #8C6D4F; border-radius:12px; padding:8px;">
+                                <canvas id="canvas-pdf" style="max-width:100%;"></canvas>
+                            </div>
+                            <button id="btn-imprimir" style="display:block; width:100%; margin-top:10px; background:#0D1B2A; color:#FFFFFF; border:3.5px solid #8C6D4F; border-radius:24px; padding:12px 6px; font-size:18px; font-weight:700; cursor:pointer;">
+                                🖨️ Imprimir
+                            </button>
+                        </div>
+                        <div id="area-impressao" style="display:none;"></div>
+
+                        <style>
+                            @media print {{
+                                #visualizador-pdf-conteudo-normal {{ display: none !important; }}
+                                #area-impressao {{ display: block !important; }}
+                                #area-impressao canvas {{ width: 100%; page-break-after: always; }}
+                            }}
+                        </style>
+
+                        <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+                        <script>
+                            pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+                            var b64Dados = "{b64_pdf}";
+                            var bruto = atob(b64Dados);
+                            var bytesArray = new Uint8Array(bruto.length);
+                            for (var i = 0; i < bruto.length; i++) {{ bytesArray[i] = bruto.charCodeAt(i); }}
+
+                            var pdfDoc = null;
+                            var paginaAtual = 1;
+
+                            function renderizarPagina(num) {{
+                                pdfDoc.getPage(num).then(function(page) {{
+                                    var viewport = page.getViewport({{scale: 1.4}});
+                                    var canvas = document.getElementById('canvas-pdf');
+                                    var ctx = canvas.getContext('2d');
+                                    canvas.width = viewport.width;
+                                    canvas.height = viewport.height;
+                                    page.render({{canvasContext: ctx, viewport: viewport}});
+                                    document.getElementById('indicador-pagina').textContent = 'Página ' + num + ' de ' + pdfDoc.numPages;
+                                }});
+                            }}
+
+                            pdfjsLib.getDocument({{data: bytesArray}}).promise.then(function(doc) {{
+                                pdfDoc = doc;
+                                renderizarPagina(1);
+                            }});
+
+                            document.getElementById('btn-anterior').addEventListener('click', function() {{
+                                if (!pdfDoc || paginaAtual <= 1) return;
+                                paginaAtual--;
+                                renderizarPagina(paginaAtual);
+                            }});
+                            document.getElementById('btn-proxima').addEventListener('click', function() {{
+                                if (!pdfDoc || paginaAtual >= pdfDoc.numPages) return;
+                                paginaAtual++;
+                                renderizarPagina(paginaAtual);
+                            }});
+
+                            document.getElementById('btn-imprimir').addEventListener('click', function() {{
+                                if (!pdfDoc) return;
+                                var areaImpressao = document.getElementById('area-impressao');
+                                areaImpressao.innerHTML = '';
+                                var promessas = [];
+                                for (var n = 1; n <= pdfDoc.numPages; n++) {{
+                                    (function(numPagina) {{
+                                        var p = pdfDoc.getPage(numPagina).then(function(page) {{
+                                            var viewport = page.getViewport({{scale: 2}});
+                                            var canvasImpressao = document.createElement('canvas');
+                                            canvasImpressao.width = viewport.width;
+                                            canvasImpressao.height = viewport.height;
+                                            var ctx = canvasImpressao.getContext('2d');
+                                            areaImpressao.appendChild(canvasImpressao);
+                                            return page.render({{canvasContext: ctx, viewport: viewport}}).promise;
+                                        }});
+                                        promessas.push(p);
+                                    }})(n);
+                                }}
+                                Promise.all(promessas).then(function() {{
+                                    window.print();
+                                }});
+                            }});
+                        </script>
+                    """, height=750)
+
                     st.markdown(f"""
-                        <a id="link-pdf-intencoes" href="data:application/pdf;base64,{b64_pdf}" target="_blank" rel="noopener noreferrer" download="Intenções_da_Santa_Missa.pdf"
+                        <a href="data:application/pdf;base64,{b64_pdf}" target="_blank" rel="noopener noreferrer" download="Intenções_da_Santa_Missa.pdf"
                            style="display:block; text-align:center; background:#0D1B2A; color:#FFFFFF; border:3.5px solid #8C6D4F;
-                                  border-radius:24px; padding:12px 6px; font-size:18px; font-weight:700; text-decoration:none;
+                                  border-radius:24px; padding:12px 6px; font-size:16px; font-weight:700; text-decoration:none;
                                   margin-top:10px; font-family:sans-serif;">
-                            📄 Abrir / Baixar / Compartilhar Intenções em PDF
+                            📄 Ou abrir / baixar / compartilhar em outro app
                         </a>
                     """, unsafe_allow_html=True)
-                    st.caption("O PDF deve abrir automaticamente numa nova aba (ou pedir pra você escolher o app, como o Epson Smart Panel). Se o navegador bloquear a abertura automática, toque no botão acima.")
-
-                    _nonce_pdf_intencoes = f"pdf-intencoes-{time.time()}"
-                    components.html(f"""
-                        <!-- nonce:{_nonce_pdf_intencoes} -->
-                        <script>
-                            setTimeout(function() {{
-                                try {{
-                                    var link = window.parent.document.getElementById("link-pdf-intencoes");
-                                    if (link) {{ link.click(); }}
-                                }} catch (e) {{
-                                    console.log("[PDF-AUTO-ABRIR] erro:", e);
-                                }}
-                            }}, 100);
-                        </script>
-                    """, height=0)
 
                     # --- Exportação para apresentação (.pptx), um slide por categoria ---
                     from pptx import Presentation
