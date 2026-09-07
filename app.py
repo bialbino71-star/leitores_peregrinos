@@ -1688,20 +1688,29 @@ elif st.session_state.pagina == "ver_intencoes":
                     b64_pdf = base64.b64encode(pdf_bytes).decode('utf-8')
 
                     st.markdown(f"""
-                        <iframe src="data:application/pdf;base64,{b64_pdf}" width="100%" height="600"
-                                style="border:3.5px solid #8C6D4F; border-radius:12px; margin-top:10px;">
-                        </iframe>
-                    """, unsafe_allow_html=True)
-
-                    st.markdown(f"""
-                        <a href="data:application/pdf;base64,{b64_pdf}" target="_blank" rel="noopener noreferrer" download="Intenções_da_Santa_Missa.pdf"
+                        <a id="link-pdf-intencoes" href="data:application/pdf;base64,{b64_pdf}" target="_blank" rel="noopener noreferrer" download="Intenções_da_Santa_Missa.pdf"
                            style="display:block; text-align:center; background:#0D1B2A; color:#FFFFFF; border:3.5px solid #8C6D4F;
                                   border-radius:24px; padding:12px 6px; font-size:18px; font-weight:700; text-decoration:none;
                                   margin-top:10px; font-family:sans-serif;">
                             📄 Abrir / Baixar / Compartilhar Intenções em PDF
                         </a>
                     """, unsafe_allow_html=True)
-                    st.caption("O PDF já aparece acima automaticamente. Se preferir baixar, imprimir ou compartilhar, use o botão abaixo.")
+                    st.caption("O PDF deve abrir automaticamente numa nova aba (ou pedir pra você escolher o app, como o Epson Smart Panel). Se o navegador bloquear a abertura automática, toque no botão acima.")
+
+                    _nonce_pdf_intencoes = f"pdf-intencoes-{time.time()}"
+                    components.html(f"""
+                        <!-- nonce:{_nonce_pdf_intencoes} -->
+                        <script>
+                            setTimeout(function() {{
+                                try {{
+                                    var link = window.parent.document.getElementById("link-pdf-intencoes");
+                                    if (link) {{ link.click(); }}
+                                }} catch (e) {{
+                                    console.log("[PDF-AUTO-ABRIR] erro:", e);
+                                }}
+                            }}, 100);
+                        </script>
+                    """, height=0)
 
                     # --- Exportação para apresentação (.pptx), um slide por categoria ---
                     from pptx import Presentation
