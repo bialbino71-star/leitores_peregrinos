@@ -703,6 +703,39 @@ def extrair_data_evento(dia_str):
             pass
     return None
 
+def excluir_intencoes_antigas(sh):
+    """Remove da aba 'Respostas' as linhas cuja missa (coluna 'Data') já ocorreu
+    há pelo menos 1 dia. Roda de forma silenciosa; qualquer erro é ignorado,
+    sem interromper o app."""
+    try:
+        ws_resp = sh.worksheet("Respostas")
+        dados = ws_resp.get_all_values()
+        if len(dados) < 2:
+            return
+
+        cabecalho = dados[0]
+        colunas_resp = {nome.strip().upper(): idx for idx, nome in enumerate(cabecalho)}
+        col_data = colunas_resp.get('DATA')
+        if col_data is None:
+            return
+
+        hoje = date.today()
+        linhas_para_excluir = []
+        for idx, row in enumerate(dados[1:], start=2):
+            if col_data >= len(row):
+                continue
+            data_missa = extrair_data_evento(row[col_data])
+            if data_missa is None:
+                continue
+            if hoje > data_missa:  # pelo menos 1 dia já se passou desde a missa
+                linhas_para_excluir.append(idx)
+
+        # Exclui de baixo pra cima, pra não bagunçar os índices das linhas restantes
+        for idx in sorted(linhas_para_excluir, reverse=True):
+            ws_resp.delete_rows(idx)
+    except Exception:
+        pass
+
 def processar_tentativa_cancelamento(sh, nome_usuario, dia_evento):
     data_evento = extrair_data_evento(dia_evento)
     if data_evento:
@@ -799,6 +832,7 @@ if not st.session_state.logged_in:
                         break
                 
                 if usuario_encontrado:
+                    excluir_intencoes_antigas(sh)
                     st.rerun()
                 elif usuario_bloqueado:
                     st.error("Este usuário está bloqueado. Procure o administrador.")
