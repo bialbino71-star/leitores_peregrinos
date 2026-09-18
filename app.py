@@ -397,6 +397,12 @@ def obter_lista_leitores():
     except:
         return []
 
+def normalizar_chave(txt):
+    """Normaliza texto (remove acentos, espaços extras, maiúsculas/minúsculas) para comparações tolerantes."""
+    txt = str(txt).strip()
+    txt = unicodedata.normalize('NFKD', txt).encode('ASCII', 'ignore').decode('ASCII')
+    return re.sub(r'\s+', ' ', txt).upper()
+
 def normalizar_horario(txt):
     """Normaliza formatos de horário (10h, 10h00, 10:00, 10 horas...) para 'HH:MM'."""
     txt = str(txt).strip().lower().replace('horas', '').replace('h', ':').strip()
@@ -458,6 +464,42 @@ def horarios_disponiveis_para_data(data_selecionada, escala, horarios_padrao_dat
             if h:
                 horarios_reais.add(h)
     return sorted(horarios_reais)
+
+@st.cache_data(ttl=60)
+def obter_colunas_respostas():
+    """Lê o cabeçalho real da aba 'Respostas' e devolve {versão normalizada do nome: índice 1-based}."""
+    try:
+        sh = get_connection()
+        ws_resp = sh.worksheet("Respostas")
+        cabecalho = ws_resp.row_values(1)
+        return {normalizar_chave(nome): idx + 1 for idx, nome in enumerate(cabecalho) if nome.strip()}
+    except Exception:
+        return {}
+
+def salvar_intencao(sh, data_str, horario_str, intencoes_dict):
+    """Adiciona uma nova linha na aba 'Respostas', escrevendo cada valor na coluna certa
+    pelo nome do cabeçalho (não por posição fixa). intencoes_dict: {nome_da_coluna: texto}."""
+    ws_resp = sh.worksheet("Respostas")
+    colunas = obter_colunas_respostas()
+    if not colunas:
+        raise Exception("Não foi possível ler o cabeçalho da aba 'Respostas'.")
+
+    tamanho_linha = max(colunas.values())
+    linha = [""] * tamanho_linha
+
+    def definir(nome_coluna, valor):
+        idx = colunas.get(normalizar_chave(nome_coluna))
+        if idx:
+            linha[idx - 1] = valor
+
+    definir("Carimbo de data/hora", datetime.now().strftime("%d/%m/%Y %H:%M:%S"))
+    definir("Data", data_str)
+    definir("Horário da Missa", horario_str)
+    for nome_coluna, valor in intencoes_dict.items():
+        if valor:
+            definir(nome_coluna, valor)
+
+    ws_resp.append_row(linha)
 
 @st.cache_data(ttl=60)
 def obter_roteiros():
@@ -868,14 +910,14 @@ if st.session_state.pagina == "home":
 # Perfil "5" (Acolhida) só tem acesso a Coletar Intenções e Ver Intenções.
 with st.container(key="menu_grid"):
     if st.session_state.user_profile == "5":
-        st.link_button("Coletar Intenções", "https://docs.google.com/forms/d/e/1FAIpQLScgX8RkpDYhb-rMwb8_ZR6dJhp-tKUyowmRGrSK-tbsXveqCw/viewform?usp=sharing", use_container_width=True)
+        st.button("Coletar Intenções", key="menu_coletar_intencoes", on_click=navegar_para, args=("coletar_intencoes",), use_container_width=True)
         st.button("Ver Intenções", key="menu_intencoes", on_click=navegar_para, args=("ver_intencoes",), use_container_width=True)
     else:
         st.button("Escala Geral", key="menu_geral", on_click=navegar_para, args=("escala_geral",), use_container_width=True)
         st.button("Minha Escala", key="menu_minha", on_click=navegar_para, args=("minha_escala",), use_container_width=True)
         st.button("Exibir Escala (PDF)", key="menu_pdf", on_click=navegar_para, args=("exibir_escala",), use_container_width=True)
         st.button("Aguardando Leitores", key="menu_vagas", on_click=navegar_para, args=("aguardando",), use_container_width=True)
-        st.link_button("Coletar Intenções", "https://docs.google.com/forms/d/e/1FAIpQLScgX8RkpDYhb-rMwb8_ZR6dJhp-tKUyowmRGrSK-tbsXveqCw/viewform?usp=sharing", use_container_width=True)
+        st.button("Coletar Intenções", key="menu_coletar_intencoes", on_click=navegar_para, args=("coletar_intencoes",), use_container_width=True)
         st.button("Ver Intenções", key="menu_intencoes", on_click=navegar_para, args=("ver_intencoes",), use_container_width=True)
         st.link_button("Liturgia Diária", "https://liturgia.cancaonova.com/pb/", use_container_width=True)
         if st.session_state.user_profile == "3":
@@ -885,7 +927,7 @@ with st.container(key="menu_grid"):
 
 # Proteção extra: se por algum motivo o perfil 5 (Acolhida) estiver numa página que não é permitida
 # para ele (ex: sessão antiga), volta para o menu principal.
-if st.session_state.user_profile == "5" and st.session_state.pagina not in ("home", "ver_intencoes"):
+if st.session_state.user_profile == "5" and st.session_state.pagina not in ("home", "ver_intencoes", "coletar_intencoes"):
     st.session_state.pagina = "home"
 
 
@@ -1528,14 +1570,55 @@ elif st.session_state.pagina == "aguardando":
     if not encontrou_vaga:
         st.success("Parabéns! Não há vagas pendentes no momento.")
 
+elif st.session_state.pagina == "coletar_intencoes":
+    st.subheader("Coletar Intenções")
+    st.write("Selecione a data e o horário da missa, e preencha as intenções que quiser enviar. Pelo menos uma categoria precisa ser preenchida.")
+
+    data_intencao = st.date_input("Data da missa:", format="DD/MM/YYYY", key="data_intencao_input")
+    horarios_padrao_data = obter_horarios_padrao()
+    opcoes_horario_intencao = horarios_disponiveis_para_data(data_intencao, escala_data, horarios_padrao_data)
+
+    if not opcoes_horario_intencao:
+        st.warning("Não há missa cadastrada na Escala para essa data. Selecione outra data ou contate a coordenação.")
+    else:
+        horario_intencao = st.selectbox("Horário da missa:", opcoes_horario_intencao, key="horario_intencao_select")
+
+        st.markdown("---")
+        txt_almas = st.text_area("Intenções pelas Almas (um nome por linha):", key="int_almas")
+        txt_falecido = st.text_area("Falecido(a) Hoje (um nome por linha):", key="int_falecido")
+        txt_setimo = st.text_area("Missa de Sétimo Dia (um nome por linha):", key="int_setimo")
+        txt_aniversario = st.text_area("Aniversário Natalício (um nome por linha):", key="int_aniversario")
+        txt_bodas = st.text_area("Bodas (um nome por linha):", key="int_bodas")
+        txt_saude = st.text_area("Intenções pela Saúde (um nome por linha):", key="int_saude")
+
+        if st.button("Enviar Intenções"):
+            algum_preenchido = any([
+                txt_almas.strip(), txt_falecido.strip(), txt_setimo.strip(),
+                txt_aniversario.strip(), txt_bodas.strip(), txt_saude.strip()
+            ])
+            if not algum_preenchido:
+                st.error("Preencha pelo menos uma categoria de intenção.")
+            else:
+                try:
+                    sh_conn = get_connection()
+                    data_str = data_intencao.strftime("%d/%m/%Y")
+                    salvar_intencao(sh_conn, data_str, horario_intencao, {
+                        "Intenções pelas almas": txt_almas.strip(),
+                        "Falecido(a) Hoje": txt_falecido.strip(),
+                        "Missa de sétimo dia": txt_setimo.strip(),
+                        "Aniversário Natalício": txt_aniversario.strip(),
+                        "Bodas": txt_bodas.strip(),
+                        "Intenções pela Saúde": txt_saude.strip(),
+                    })
+                    st.success(f"Intenções enviadas para {data_str} às {horario_intencao}!")
+                    time.sleep(2.5)
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Erro ao salvar a intenção: {e}")
+
 elif st.session_state.pagina == "ver_intencoes":
     st.subheader("Intenções da Santa Missa")
     st.markdown("Selecione abaixo a **Data e o Horário da Missa**:")
-
-    def normalizar_chave(txt):
-        txt = str(txt).strip()
-        txt = unicodedata.normalize('NFKD', txt).encode('ASCII', 'ignore').decode('ASCII')
-        return re.sub(r'\s+', ' ', txt).upper()
 
     try:
         sh_conn = get_connection()
