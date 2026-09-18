@@ -417,6 +417,18 @@ def normalizar_horario(txt):
     except (ValueError, IndexError):
         return txt
 
+def eventos_em_ordem_cronologica(escala):
+    """Retorna [(indice_original, row), ...] da Escala, ordenados por Data e depois Horário,
+    do mais antigo pro mais novo. O índice original é preservado (necessário pra gravar
+    de volta na linha certa da planilha), só a ORDEM DE EXIBIÇÃO muda."""
+    def chave_ordenacao(item):
+        _, row = item
+        data_evento = extrair_data_evento(str(row.get('DIA', '')))
+        horario_evento = normalizar_horario(row.get('HORARIO', ''))
+        data_para_ordenar = data_evento if data_evento is not None else date.max
+        return (data_para_ordenar, horario_evento)
+    return sorted(enumerate(escala), key=chave_ordenacao)
+
 @st.cache_data(ttl=60)
 def obter_horarios_padrao():
     """Lê a aba 'Horarios_Padrao' (TIPO_DIA | HORARIO) e agrupa os horários por tipo de dia."""
@@ -1444,7 +1456,7 @@ elif st.session_state.pagina == "escala_geral":
         st.error("A data final não pode ser anterior à data inicial.")
     else:
         algum_evento = False
-        for idx, row in enumerate(escala_data):
+        for idx, row in eventos_em_ordem_cronologica(escala_data):
             data_evento = extrair_data_evento(str(row.get('DIA', '')))
             if data_evento is not None and not (data_filtro_inicio <= data_evento <= data_filtro_fim):
                 continue
@@ -1459,7 +1471,7 @@ elif st.session_state.pagina == "minha_escala":
     st.info(f"Exibindo eventos agendados para: {st.session_state.user_name}")
     
     encontrou = False
-    for idx, row in enumerate(escala_data):
+    for idx, row in eventos_em_ordem_cronologica(escala_data):
         if not evento_e_hoje_ou_futuro(row):
             continue
         c = str(row.get('COMENTARISTA', '')).strip().upper()
@@ -1502,7 +1514,7 @@ elif st.session_state.pagina == "exibir_escala":
         pdf.add_page()
 
         algum_evento_pdf = False
-        for row in escala_data:
+        for _, row in eventos_em_ordem_cronologica(escala_data):
             dia = str(row.get('DIA', ''))
             horario = str(row.get('HORARIO', ''))
             solenidade = str(row.get('SOLENIDADE', 'NÃO')).strip().upper()
@@ -1554,7 +1566,7 @@ elif st.session_state.pagina == "exibir_escala":
 elif st.session_state.pagina == "aguardando":
     st.subheader("Aguardando Leitores (Vagas Pendentes)")
     encontrou_vaga = False
-    for idx, row in enumerate(escala_data):
+    for idx, row in eventos_em_ordem_cronologica(escala_data):
         if not evento_e_hoje_ou_futuro(row):
             continue
         mostrar_comentarista = deve_exibir_comentarista(row)
@@ -1636,15 +1648,20 @@ elif st.session_state.pagina == "ver_intencoes":
         if 'popup_horarios_invalidos_vistos' not in st.session_state:
             st.session_state.popup_horarios_invalidos_vistos = set()
 
-        # Conjunto de (Data, Horário) que realmente existem na Escala - usado pra validar as respostas
-        horarios_validos_escala = set()
-        for row in escala_data:
-            data_evt = extrair_data_evento(str(row.get('DIA', '')))
-            horario_evt = normalizar_horario(row.get('HORARIO', ''))
-            if data_evt and horario_evt:
-                horarios_validos_escala.add((normalizar_chave(data_evt.strftime("%d/%m/%Y")), horario_evt))
+        horarios_padrao_data = obter_horarios_padrao()
+
+        def combinacao_e_valida(d_val, h_val):
+            """Mesmo critério usado em 'Coletar Intenções' e 'Cadastrar Roteiro':
+            o horário precisa estar na lista fechada (Horarios_Padrao, com fallback pra Escala)
+            válida para aquela data — não precisa que a Escala já tenha essa linha cadastrada."""
+            data_obj = extrair_data_evento(d_val)
+            if data_obj is None:
+                return False
+            horarios_ok = horarios_disponiveis_para_data(data_obj, escala_data, horarios_padrao_data)
+            return normalizar_horario(h_val) in horarios_ok
 
         opcoes_missas = []
+        dados_ordenacao_missas = {}
         chaves_vistas = set()
         combinacoes_invalidas = []
         for r in respostas_data:
@@ -1653,15 +1670,20 @@ elif st.session_state.pagina == "ver_intencoes":
             if not (d_val and h_val):
                 continue
 
-            chave_validacao = (normalizar_chave(d_val), normalizar_horario(h_val))
-            if chave_validacao not in horarios_validos_escala:
+            if not combinacao_e_valida(d_val, h_val):
                 combinacoes_invalidas.append((d_val, h_val))
-                continue  # não é uma missa real da Escala - não entra na lista de seleção
+                continue  # não é um horário válido pra essa data - não entra na lista de seleção
 
             chave = (normalizar_chave(d_val), normalizar_chave(h_val))
             if chave not in chaves_vistas:
                 chaves_vistas.add(chave)
-                opcoes_missas.append(f"{d_val} - {h_val}")
+                texto_opcao = f"{d_val} - {h_val}"
+                opcoes_missas.append(texto_opcao)
+                data_obj = extrair_data_evento(d_val)
+                dados_ordenacao_missas[texto_opcao] = (
+                    data_obj if data_obj is not None else date.max,
+                    normalizar_horario(h_val)
+                )
 
         combinacoes_invalidas_unicas = sorted(set(combinacoes_invalidas))
         novas_invalidas = [c for c in combinacoes_invalidas_unicas if c not in st.session_state.popup_horarios_invalidos_vistos]
@@ -1670,7 +1692,7 @@ elif st.session_state.pagina == "ver_intencoes":
             @st.dialog("Atenção")
             def _popup_horario_invalido():
                 st.write("⚠️ **Atenção: horário inválido para esse dia!**")
-                st.write("As combinações abaixo, enviadas no formulário de intenções, não correspondem a nenhuma missa cadastrada na Escala:")
+                st.write("As combinações abaixo, enviadas no formulário de intenções, não correspondem a nenhum horário válido para a data:")
                 for data_str, horario_str in novas_invalidas:
                     st.markdown(f"- {data_str} às {horario_str}")
                 st.caption("Essas intenções não aparecem na lista de seleção abaixo. Corrija o horário na aba 'Respostas' ou avise a pessoa que preencheu.")
@@ -1683,7 +1705,8 @@ elif st.session_state.pagina == "ver_intencoes":
         if not opcoes_missas:
             st.info("Nenhuma intenção encontrada na planilha.")
         else:
-            missa_selecionada = st.selectbox("Selecione a Missa (Ticket):", sorted(opcoes_missas))
+            opcoes_missas_ordenadas = sorted(opcoes_missas, key=lambda opcao: dados_ordenacao_missas[opcao])
+            missa_selecionada = st.selectbox("Selecione a Missa (Ticket):", opcoes_missas_ordenadas)
 
             if st.button("Gerar Relatório Consolidado"):
                 partes = missa_selecionada.split(" - ", 1)
