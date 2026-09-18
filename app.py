@@ -502,11 +502,35 @@ def obter_colunas_respostas():
 
 def salvar_intencao(sh, data_str, horario_str, intencoes_dict):
     """Adiciona uma nova linha na aba 'Respostas', escrevendo cada valor na coluna certa
-    pelo nome do cabeçalho (não por posição fixa). intencoes_dict: {nome_da_coluna: texto}."""
+    pelo nome do cabeçalho (não por posição fixa). intencoes_dict: {nome_da_coluna: texto}.
+    Confere o cabeçalho de novo (sem cache) e confirma que a linha realmente foi
+    gravada, pra nunca falhar 'em silêncio'."""
     ws_resp = sh.worksheet("Respostas")
-    colunas = obter_colunas_respostas()
+
+    # Nunca confia em cabeçalho em cache aqui: se a aba mudou (nova coluna, renomeada
+    # etc.) nos últimos 60s, um cache antigo faria a gravação cair na coluna errada
+    # ou sumir sem erro nenhum. Lê o cabeçalho direto da planilha nesse momento.
+    obter_colunas_respostas.clear()
+    cabecalho_real = ws_resp.row_values(1)
+    colunas = {normalizar_chave(nome): idx + 1 for idx, nome in enumerate(cabecalho_real) if nome.strip()}
+
     if not colunas:
-        raise Exception("Não foi possível ler o cabeçalho da aba 'Respostas'.")
+        raise Exception("Não foi possível ler o cabeçalho da aba 'Respostas' (linha 1 parece vazia).")
+
+    # As duas colunas abaixo são indispensáveis: sem elas, a intenção fica
+    # gravada mas não aparece em nenhum filtro de 'Ver Intenções'/relatório.
+    col_data = colunas.get(normalizar_chave("Data"))
+    col_horario = colunas.get(normalizar_chave("Horário da Missa"))
+    faltando = []
+    if not col_data:
+        faltando.append("Data")
+    if not col_horario:
+        faltando.append("Horário da Missa")
+    if faltando:
+        raise Exception(
+            f"A aba 'Respostas' não tem a(s) coluna(s) {', '.join(faltando)} no cabeçalho "
+            f"(linha 1). Colunas encontradas: {', '.join(cabecalho_real)}"
+        )
 
     tamanho_linha = max(colunas.values())
     linha = [""] * tamanho_linha
@@ -523,7 +547,17 @@ def salvar_intencao(sh, data_str, horario_str, intencoes_dict):
         if valor:
             definir(nome_coluna, valor)
 
-    ws_resp.append_row(linha)
+    linhas_antes = len(ws_resp.get_all_values())
+    ws_resp.append_row(linha, value_input_option="USER_ENTERED")
+    linhas_depois = len(ws_resp.get_all_values())
+
+    if linhas_depois <= linhas_antes:
+        raise Exception(
+            "A planilha não confirmou a nova linha (o número de linhas não aumentou). "
+            "Verifique se a conta de serviço ainda tem permissão de edição na aba 'Respostas'."
+        )
+
+    return linhas_depois
 
 @st.cache_data(ttl=60)
 def obter_roteiros():
@@ -1629,22 +1663,24 @@ elif st.session_state.pagina == "coletar_intencoes":
             elif not algum_preenchido:
                 st.error("Preencha pelo menos uma categoria de intenção.")
             else:
-                try:
-                    sh_conn = get_connection()
-                    data_str = data_intencao.strftime("%d/%m/%Y")
-                    salvar_intencao(sh_conn, data_str, horario_intencao, {
-                        "Intenções pelas almas": txt_almas.strip(),
-                        "Falecido(a) Hoje": txt_falecido.strip(),
-                        "Missa de sétimo dia": txt_setimo.strip(),
-                        "Aniversário Natalício": txt_aniversario.strip(),
-                        "Bodas": txt_bodas.strip(),
-                        "Intenções pela Saúde": txt_saude.strip(),
-                    })
-                    st.success(f"Intenções enviadas para {data_str} às {horario_intencao}!")
-                    time.sleep(2.5)
-                    st.rerun()
-                except Exception as e:
-                    st.error(f"Erro ao salvar a intenção: {e}")
+                with st.spinner("Enviando intenções..."):
+                    try:
+                        sh_conn = get_connection()
+                        data_str = data_intencao.strftime("%d/%m/%Y")
+                        linha_gravada = salvar_intencao(sh_conn, data_str, horario_intencao, {
+                            "Intenções pelas almas": txt_almas.strip(),
+                            "Falecido(a) Hoje": txt_falecido.strip(),
+                            "Missa de sétimo dia": txt_setimo.strip(),
+                            "Aniversário Natalício": txt_aniversario.strip(),
+                            "Bodas": txt_bodas.strip(),
+                            "Intenções pela Saúde": txt_saude.strip(),
+                        })
+                        st.success(f"Intenções enviadas para {data_str} às {horario_intencao}! (linha {linha_gravada} da planilha)")
+                        time.sleep(3)
+                        st.rerun()
+                    except Exception as e:
+                        st.error("Erro ao salvar a intenção. Veja o detalhe abaixo e avise a coordenação se persistir:")
+                        st.exception(e)
 
 elif st.session_state.pagina == "ver_intencoes":
     st.subheader("Intenções da Santa Missa")
