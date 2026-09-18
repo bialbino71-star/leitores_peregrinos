@@ -181,7 +181,19 @@ st.markdown("""
     .st-key-sair_wrapper button:hover {
         background: #2D1E15 !important;
     }
-    
+
+    /* DESTAQUE DO CAMPO "HORÁRIO DA MISSA" (Cadastrar Roteiro / Coletar Intenções) -
+       chama atenção pra seleção, já que ela fica vazia por padrão (sem valor pré-selecionado) */
+    .st-key-destaque_horario_roteiro,
+    .st-key-destaque_horario_intencao {
+        border: 3px solid #8C6D4F !important;
+        border-radius: 14px !important;
+        padding: 10px 12px !important;
+        background-color: #FDF1DC !important;
+        box-shadow: 0 0 0 3px rgba(140, 109, 79, 0.15) !important;
+        margin-bottom: 10px !important;
+    }
+
     /* ESTILIZAÇÃO DO PAINEL DO MENU (CINZA-GRAFITE) - AGORA EM COLUNA ÚNICA */
     .st-key-menu_grid {
         background-color: #4F5666 !important;
@@ -1275,11 +1287,14 @@ elif st.session_state.pagina == "cadastrar_roteiro":
         if not opcoes_horario:
             st.warning("Não há horário de missa cadastrado para essa data (nem na tabela de horários padrão, nem na Escala Geral). Cadastre o horário na aba 'Horarios_Padrao' ou na 'Escala' antes de continuar.")
         else:
-            horario_roteiro = st.selectbox("Horário da missa:", opcoes_horario, key="horario_roteiro_select")
+            with st.container(key="destaque_horario_roteiro"):
+                horario_roteiro = st.selectbox("Horário da missa:", opcoes_horario, index=None, placeholder="Selecione o horário...", key="horario_roteiro_select")
             link_roteiro = st.text_input("Link do arquivo de roteiro:")
 
             if st.button("Salvar Roteiro"):
-                if not link_roteiro.strip():
+                if not horario_roteiro:
+                    st.error("Selecione o horário da missa.")
+                elif not link_roteiro.strip():
                     st.error("Informe o link do arquivo de roteiro.")
                 else:
                     sh_conn = get_connection()
@@ -1593,7 +1608,8 @@ elif st.session_state.pagina == "coletar_intencoes":
     if not opcoes_horario_intencao:
         st.warning("Não há missa cadastrada na Escala para essa data. Selecione outra data ou contate a coordenação.")
     else:
-        horario_intencao = st.selectbox("Horário da missa:", opcoes_horario_intencao, key="horario_intencao_select")
+        with st.container(key="destaque_horario_intencao"):
+            horario_intencao = st.selectbox("Horário da missa:", opcoes_horario_intencao, index=None, placeholder="Selecione o horário...", key="horario_intencao_select")
 
         st.markdown("---")
         txt_almas = st.text_area("Intenções pelas Almas (um nome por linha):", key="int_almas")
@@ -1608,7 +1624,9 @@ elif st.session_state.pagina == "coletar_intencoes":
                 txt_almas.strip(), txt_falecido.strip(), txt_setimo.strip(),
                 txt_aniversario.strip(), txt_bodas.strip(), txt_saude.strip()
             ])
-            if not algum_preenchido:
+            if not horario_intencao:
+                st.error("Selecione o horário da missa.")
+            elif not algum_preenchido:
                 st.error("Preencha pelo menos uma categoria de intenção.")
             else:
                 try:
