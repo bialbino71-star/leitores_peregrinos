@@ -1550,16 +1550,52 @@ elif st.session_state.pagina == "ver_intencoes":
         def obter_coluna_real(nome_alvo):
             return mapa_colunas.get(normalizar_chave(nome_alvo))
 
+        if 'popup_horarios_invalidos_vistos' not in st.session_state:
+            st.session_state.popup_horarios_invalidos_vistos = set()
+
+        # Conjunto de (Data, Horário) que realmente existem na Escala - usado pra validar as respostas
+        horarios_validos_escala = set()
+        for row in escala_data:
+            data_evt = extrair_data_evento(str(row.get('DIA', '')))
+            horario_evt = normalizar_horario(row.get('HORARIO', ''))
+            if data_evt and horario_evt:
+                horarios_validos_escala.add((normalizar_chave(data_evt.strftime("%d/%m/%Y")), horario_evt))
+
         opcoes_missas = []
         chaves_vistas = set()
+        combinacoes_invalidas = []
         for r in respostas_data:
             d_val = str(r.get('Data', r.get('DATA', ''))).strip()
             h_val = str(r.get('Horário da Missa', r.get('Horario da Missa', r.get('HORARIO', '')))).strip()
-            if d_val and h_val:
-                chave = (normalizar_chave(d_val), normalizar_chave(h_val))
-                if chave not in chaves_vistas:
-                    chaves_vistas.add(chave)
-                    opcoes_missas.append(f"{d_val} - {h_val}")
+            if not (d_val and h_val):
+                continue
+
+            chave_validacao = (normalizar_chave(d_val), normalizar_horario(h_val))
+            if chave_validacao not in horarios_validos_escala:
+                combinacoes_invalidas.append((d_val, h_val))
+                continue  # não é uma missa real da Escala - não entra na lista de seleção
+
+            chave = (normalizar_chave(d_val), normalizar_chave(h_val))
+            if chave not in chaves_vistas:
+                chaves_vistas.add(chave)
+                opcoes_missas.append(f"{d_val} - {h_val}")
+
+        combinacoes_invalidas_unicas = sorted(set(combinacoes_invalidas))
+        novas_invalidas = [c for c in combinacoes_invalidas_unicas if c not in st.session_state.popup_horarios_invalidos_vistos]
+
+        if novas_invalidas:
+            @st.dialog("Atenção")
+            def _popup_horario_invalido():
+                st.write("⚠️ **Atenção: horário inválido para esse dia!**")
+                st.write("As combinações abaixo, enviadas no formulário de intenções, não correspondem a nenhuma missa cadastrada na Escala:")
+                for data_str, horario_str in novas_invalidas:
+                    st.markdown(f"- {data_str} às {horario_str}")
+                st.caption("Essas intenções não aparecem na lista de seleção abaixo. Corrija o horário na aba 'Respostas' ou avise a pessoa que preencheu.")
+                if st.button("OK, entendi"):
+                    st.session_state.popup_horarios_invalidos_vistos.update(novas_invalidas)
+                    st.rerun()
+
+            _popup_horario_invalido()
 
         if not opcoes_missas:
             st.info("Nenhuma intenção encontrada na planilha.")
