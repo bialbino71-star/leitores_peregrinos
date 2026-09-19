@@ -1876,11 +1876,54 @@ elif st.session_state.pagina == "ver_intencoes":
                     COR_BODAS = (170, 90, 10)       # laranja escuro
                     COR_SAUDE = (30, 95, 45)        # verde escuro
 
+                    # Mesma ordem usada na apresentação (.pptx), para manter consistência
+                    ordem_categorias_pdf = [
+                        ("Pelas Almas", "Intenções pelas Almas", COR_ALMAS),
+                        ("Falecido(a) Hoje", "Falecido(a) Hoje", COR_FALECIDO),
+                        ("Sétimo Dia", "Missa de Sétimo Dia", COR_SETIMO_DIA),
+                        ("Aniversário Natalício", "Aniversário Natalício", COR_ANIVERSARIO),
+                        ("Bodas", "Bodas", COR_BODAS),
+                        ("Intenções pela Saúde", "Intenções pela Saúde", COR_SAUDE),
+                    ]
+
+                    # Junta as categorias com conteúdo antes de desenhar, pra saber de antemão
+                    # o volume de texto e decidir o melhor aproveitamento da página.
+                    categorias_preenchidas = []
+                    for chave_categoria, titulo_exibicao, cor in ordem_categorias_pdf:
+                        linhas_categoria = coletar_linhas(mapa_categorias[chave_categoria])
+                        if linhas_categoria:
+                            categorias_preenchidas.append((titulo_exibicao, linhas_categoria, cor))
+
                     # --- Layout em fluxo contínuo: preenche a coluna esquerda, depois a direita,
-                    # sem espaço reservado fixo por categoria — maximiza o uso do espaço disponível ---
+                    # sem espaço reservado fixo por categoria — maximiza o uso do espaço disponível.
+                    # Fonte fixa (título 11 negrito, corpo 12), como sempre foi; quando há pouca
+                    # intenção, só o ESPAÇAMENTO (altura de linha e respiro entre categorias)
+                    # aumenta, pra ocupar melhor a página sem mexer no tamanho da letra. ---
                     Y_TOPO = pdf.get_y()
                     Y_FUNDO = 280.0
-                    COLUNAS = [(10, 90), (105, 95)]  # (x, largura) esquerda e direita
+                    ALTURA_DISPONIVEL = Y_FUNDO - Y_TOPO
+                    COLUNAS = [(10, 90), (105, 95)]  # (x, largura) esquerda e direita — sempre duas colunas
+
+                    total_categorias = len(categorias_preenchidas)
+                    total_linhas_texto = sum(len(linhas) for _, linhas, _ in categorias_preenchidas)
+
+                    # Estimativa de altura (em mm) que o conteúdo ocuparia numa coluna só,
+                    # no espaçamento padrão (título 6mm + texto 6mm por linha + respiro 4mm).
+                    altura_base_coluna_unica = (total_categorias * (6 + 4)) + (total_linhas_texto * 6)
+
+                    escala_espaco = 1.0
+                    if total_linhas_texto > 0 and altura_base_coluna_unica <= ALTURA_DISPONIVEL and altura_base_coluna_unica > 0:
+                        # Só entra em jogo quando o conteúdo já cabe numa coluna só — nesse caso,
+                        # espalha mais o espaçamento pra usar melhor a altura da página. Teto de
+                        # 1.8x pra não deixar linhas soltas demais quando há muito pouco texto.
+                        escala_espaco = min(1.8, ALTURA_DISPONIVEL / altura_base_coluna_unica)
+                        escala_espaco = max(1.0, escala_espaco)
+
+                    FONTE_TITULO = 11  # fixa, como sempre foi
+                    FONTE_TEXTO = 12   # fixa, como sempre foi
+                    ALTURA_LINHA = 6 * escala_espaco
+                    RESPIRO_CATEGORIA = 4 * escala_espaco
+
                     estado_fluxo = {"col": 0, "y": Y_TOPO}
 
                     def ir_para_proxima_coluna():
@@ -1896,39 +1939,28 @@ elif st.session_state.pagina == "ver_intencoes":
                         if not linhas:
                             return
                         x, largura = COLUNAS[estado_fluxo["col"]]
-                        if estado_fluxo["y"] + 12 > Y_FUNDO:
+                        if estado_fluxo["y"] + (2 * ALTURA_LINHA) > Y_FUNDO:
                             ir_para_proxima_coluna()
                             x, largura = COLUNAS[estado_fluxo["col"]]
 
                         pdf.set_text_color(*cor)
                         pdf.set_xy(x, estado_fluxo["y"])
-                        pdf.set_font("Arial", 'B', 11)
-                        pdf.cell(largura, 6, titulo.encode('latin-1', 'replace').decode('latin-1'), 0, 2, 'L')
+                        pdf.set_font("Arial", 'B', FONTE_TITULO)
+                        pdf.cell(largura, ALTURA_LINHA, titulo.encode('latin-1', 'replace').decode('latin-1'), 0, 2, 'L')
                         estado_fluxo["y"] = pdf.get_y()
 
-                        pdf.set_font("Arial", '', 12)
+                        pdf.set_font("Arial", '', FONTE_TEXTO)
                         for linha_texto in linhas:
-                            if estado_fluxo["y"] + 6 > Y_FUNDO:
+                            if estado_fluxo["y"] + ALTURA_LINHA > Y_FUNDO:
                                 ir_para_proxima_coluna()
                                 x, largura = COLUNAS[estado_fluxo["col"]]
                             pdf.set_xy(x, estado_fluxo["y"])
-                            pdf.multi_cell(largura, 6, linha_texto.encode('latin-1', 'replace').decode('latin-1'))
+                            pdf.multi_cell(largura, ALTURA_LINHA, linha_texto.encode('latin-1', 'replace').decode('latin-1'))
                             estado_fluxo["y"] = pdf.get_y()
 
-                        estado_fluxo["y"] += 4  # respiro entre categorias
+                        estado_fluxo["y"] += RESPIRO_CATEGORIA
 
-                    # Mesma ordem usada na apresentação (.pptx), para manter consistência
-                    ordem_categorias_pdf = [
-                        ("Pelas Almas", "Intenções pelas Almas", COR_ALMAS),
-                        ("Falecido(a) Hoje", "Falecido(a) Hoje", COR_FALECIDO),
-                        ("Sétimo Dia", "Missa de Sétimo Dia", COR_SETIMO_DIA),
-                        ("Aniversário Natalício", "Aniversário Natalício", COR_ANIVERSARIO),
-                        ("Bodas", "Bodas", COR_BODAS),
-                        ("Intenções pela Saúde", "Intenções pela Saúde", COR_SAUDE),
-                    ]
-
-                    for chave_categoria, titulo_exibicao, cor in ordem_categorias_pdf:
-                        linhas_categoria = coletar_linhas(mapa_categorias[chave_categoria])
+                    for titulo_exibicao, linhas_categoria, cor in categorias_preenchidas:
                         escrever_categoria_fluxo(titulo_exibicao, linhas_categoria, cor)
 
                     pdf.set_text_color(0, 0, 0)
