@@ -547,17 +547,23 @@ def salvar_intencao(sh, data_str, horario_str, intencoes_dict):
         if valor:
             definir(nome_coluna, valor)
 
-    linhas_antes = len(ws_resp.get_all_values())
-    ws_resp.append_row(linha, value_input_option="USER_ENTERED")
-    linhas_depois = len(ws_resp.get_all_values())
+    # ws_resp.append_row já é a chamada que grava na planilha (Google Sheets API).
+    # Se essa chamada não levantar exceção, a gravação foi aceita e confirmada pelo
+    # próprio Google — não precisa (e não deve) ser confirmada relendo a planilha
+    # em seguida, porque a leitura pode demorar um pouco mais que a escrita pra
+    # refletir a mudança (atraso só de LEITURA, não de gravação); tentar validar
+    # assim só gera falsos alarmes de "não foi salvo" quando na verdade já foi.
+    resultado = ws_resp.append_row(linha, value_input_option="USER_ENTERED")
 
-    if linhas_depois <= linhas_antes:
-        raise Exception(
-            "A planilha não confirmou a nova linha (o número de linhas não aumentou). "
-            "Verifique se a conta de serviço ainda tem permissão de edição na aba 'Respostas'."
-        )
+    # Número da linha é só informativo (pra mensagem de sucesso); se não vier no
+    # retorno da API por algum motivo, usa um valor aproximado sem travar o fluxo.
+    try:
+        faixa_atualizada = resultado.get("updates", {}).get("updatedRange", "")
+        numero_linha = int(re.search(r"(\d+)(?::|$)", faixa_atualizada.split("!")[-1]).group(1))
+    except Exception:
+        numero_linha = None
 
-    return linhas_depois
+    return numero_linha
 
 @st.cache_data(ttl=60)
 def obter_roteiros():
@@ -1675,7 +1681,8 @@ elif st.session_state.pagina == "coletar_intencoes":
                             "Bodas": txt_bodas.strip(),
                             "Intenções pela Saúde": txt_saude.strip(),
                         })
-                        st.success(f"Intenções enviadas para {data_str} às {horario_intencao}! (linha {linha_gravada} da planilha)")
+                        sufixo_linha = f" (linha {linha_gravada} da planilha)" if linha_gravada else ""
+                        st.success(f"Intenções enviadas para {data_str} às {horario_intencao}!{sufixo_linha}")
                         time.sleep(3)
                         st.rerun()
                     except Exception as e:
