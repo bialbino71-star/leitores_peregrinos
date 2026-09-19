@@ -8,7 +8,7 @@ import time
 import io
 import urllib.request
 import unicodedata
-from datetime import datetime, date, timedelta
+from datetime import datetime, date, timedelta, timezone
 from google.oauth2 import service_account
 from fpdf import FPDF
 from PIL import Image as PILImage
@@ -409,6 +409,13 @@ def obter_lista_leitores():
     except:
         return []
 
+FUSO_BRASIL = timezone(timedelta(hours=-3))  # America/Sao_Paulo (sem horário de verão desde 2019)
+
+def agora_brasil():
+    """Hora atual no fuso de Brasília, independente do fuso do servidor onde o
+    Streamlit Cloud roda (normalmente UTC) — evita carimbos de data/hora 'adiantados'."""
+    return datetime.now(FUSO_BRASIL)
+
 def normalizar_chave(txt):
     """Normaliza texto (remove acentos, espaços extras, maiúsculas/minúsculas) para comparações tolerantes."""
     txt = str(txt).strip()
@@ -540,7 +547,7 @@ def salvar_intencao(sh, data_str, horario_str, intencoes_dict):
         if idx:
             linha[idx - 1] = valor
 
-    definir("Carimbo de data/hora", datetime.now().strftime("%d/%m/%Y %H:%M:%S"))
+    definir("Carimbo de data/hora", agora_brasil().strftime("%d/%m/%Y %H:%M:%S"))
     definir("Data", data_str)
     definir("Horário da Missa", horario_str)
     for nome_coluna, valor in intencoes_dict.items():
@@ -553,7 +560,11 @@ def salvar_intencao(sh, data_str, horario_str, intencoes_dict):
     # em seguida, porque a leitura pode demorar um pouco mais que a escrita pra
     # refletir a mudança (atraso só de LEITURA, não de gravação); tentar validar
     # assim só gera falsos alarmes de "não foi salvo" quando na verdade já foi.
-    resultado = ws_resp.append_row(linha, value_input_option="USER_ENTERED")
+    # insert_data_option="INSERT_ROWS" é essencial: sem isso, a API do Google Sheets
+    # usa o padrão OVERWRITE, que pode SOBRESCREVER a última linha existente da aba
+    # em vez de inserir uma linha nova — foi isso que apagou remessas anteriores da
+    # mesma data/horário, deixando só a última intenção enviada.
+    resultado = ws_resp.append_row(linha, value_input_option="USER_ENTERED", insert_data_option="INSERT_ROWS")
 
     # Número da linha é só informativo (pra mensagem de sucesso); se não vier no
     # retorno da API por algum motivo, usa um valor aproximado sem travar o fluxo.
@@ -653,7 +664,7 @@ def consumir_penalidade(sh, leitor):
                             novo_faltas = int(faltas_atual) + 1
                             ws_leitores.update_cell(r_idx, col_faltas, str(novo_faltas))
                         if col_data_aviso:
-                            timestamp_aviso = datetime.now().strftime("%d/%m/%Y %H:%M")
+                            timestamp_aviso = agora_brasil().strftime("%d/%m/%Y %H:%M")
                             ws_leitores.update_cell(r_idx, col_data_aviso, timestamp_aviso)
                         break
             except Exception:
