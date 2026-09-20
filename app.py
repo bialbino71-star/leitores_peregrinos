@@ -422,6 +422,19 @@ def normalizar_chave(txt):
     txt = unicodedata.normalize('NFKD', txt).encode('ASCII', 'ignore').decode('ASCII')
     return re.sub(r'\s+', ' ', txt).upper()
 
+def remover_duplicados_preservando_ordem(linhas):
+    """Remove nomes repetidos de uma lista de linhas, sem avisar ninguém (silencioso).
+    Compara de forma tolerante (ignora acento, maiúscula/minúscula e espaços extras),
+    mas mantém o texto original (com a grafia da primeira ocorrência) na saída."""
+    vistos = set()
+    resultado = []
+    for linha_texto in linhas:
+        chave = normalizar_chave(linha_texto)
+        if chave and chave not in vistos:
+            vistos.add(chave)
+            resultado.append(linha_texto)
+    return resultado
+
 def normalizar_horario(txt):
     """Normaliza formatos de horário (10h, 10h00, 10:00, 10 horas...) para 'HH:MM'."""
     txt = str(txt).strip().lower().replace('horas', '').replace('h', ':').strip()
@@ -1694,6 +1707,15 @@ elif st.session_state.pagina == "coletar_intencoes":
                         })
                         sufixo_linha = f" (linha {linha_gravada} da planilha)" if linha_gravada else ""
                         st.success(f"Intenções enviadas para {data_str} às {horario_intencao}!{sufixo_linha}")
+
+                        # Limpa os campos preenchidos pra próxima intenção (a data continua
+                        # selecionada, já que normalmente várias intenções são enviadas
+                        # seguidas pra mesma missa); o horário volta a pedir seleção.
+                        for campo_texto in ["int_almas", "int_falecido", "int_setimo",
+                                            "int_aniversario", "int_bodas", "int_saude"]:
+                            st.session_state[campo_texto] = ""
+                        st.session_state["horario_intencao_select"] = None
+
                         time.sleep(3)
                         st.rerun()
                     except Exception as e:
@@ -1866,7 +1888,9 @@ elif st.session_state.pagina == "ver_intencoes":
                                     linha_texto = linha_texto.strip()
                                     if linha_texto:
                                         linhas.append(linha_texto)
-                        return linhas
+                        # Remove nomes duplicados (ex: a mesma pessoa pedida em duas remessas
+                        # diferentes pra mesma missa) silenciosamente, sem avisar o operador.
+                        return remover_duplicados_preservando_ordem(linhas)
 
                     # Cores por categoria, otimizadas para boa leitura impressa (tons escuros/saturados, não neon)
                     COR_ALMAS = (0, 0, 0)          # preto
@@ -2127,14 +2151,9 @@ elif st.session_state.pagina == "ver_intencoes":
                     for titulo_categoria in ordem_slides_pptx:
                         coluna = mapa_categorias.get(titulo_categoria, titulo_categoria)
 
-                        linhas_categoria = []
-                        for r in registros_encontrados:
-                            valor = str(r.get(coluna, '')).strip()
-                            if valor:
-                                for linha_texto in valor.splitlines():
-                                    linha_texto = linha_texto.strip()
-                                    if linha_texto:
-                                        linhas_categoria.append(linha_texto)
+                        # Mesma coleta (já sem duplicados) usada no PDF, pra manter os dois
+                        # relatórios consistentes entre si.
+                        linhas_categoria = coletar_linhas(coluna)
 
                         if not linhas_categoria:
                             continue
