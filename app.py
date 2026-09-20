@@ -1665,6 +1665,17 @@ elif st.session_state.pagina == "coletar_intencoes":
     st.subheader("Coletar Intenções")
     st.write("Selecione a data e o horário da missa, e preencha as intenções que quiser enviar. Pelo menos uma categoria precisa ser preenchida.")
 
+    # Limpa os campos ANTES de instanciar os widgets (não dá pra mexer em
+    # st.session_state de uma key depois que o widget dela já foi criado na
+    # mesma execução — por isso o sinalizador é setado no envio e consumido
+    # aqui, no início da página, antes de qualquer text_area/selectbox nascer).
+    if st.session_state.get("intencoes_limpar_campos"):
+        for campo_texto in ["int_almas", "int_falecido", "int_setimo",
+                             "int_aniversario", "int_bodas", "int_saude"]:
+            st.session_state[campo_texto] = ""
+        st.session_state["horario_intencao_select"] = None
+        st.session_state["intencoes_limpar_campos"] = False
+
     data_intencao = st.date_input("Data da missa:", format="DD/MM/YYYY", key="data_intencao_input")
     horarios_padrao_data = obter_horarios_padrao()
     opcoes_horario_intencao = horarios_disponiveis_para_data(data_intencao, escala_data, horarios_padrao_data)
@@ -1708,13 +1719,9 @@ elif st.session_state.pagina == "coletar_intencoes":
                         sufixo_linha = f" (linha {linha_gravada} da planilha)" if linha_gravada else ""
                         st.success(f"Intenções enviadas para {data_str} às {horario_intencao}!{sufixo_linha}")
 
-                        # Limpa os campos preenchidos pra próxima intenção (a data continua
-                        # selecionada, já que normalmente várias intenções são enviadas
-                        # seguidas pra mesma missa); o horário volta a pedir seleção.
-                        for campo_texto in ["int_almas", "int_falecido", "int_setimo",
-                                            "int_aniversario", "int_bodas", "int_saude"]:
-                            st.session_state[campo_texto] = ""
-                        st.session_state["horario_intencao_select"] = None
+                        # Só sinaliza aqui; a limpeza de fato acontece no início da página,
+                        # antes dos widgets serem recriados (ver comentário lá em cima).
+                        st.session_state["intencoes_limpar_campos"] = True
 
                         time.sleep(3)
                         st.rerun()
