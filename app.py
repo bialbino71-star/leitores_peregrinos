@@ -763,6 +763,67 @@ def desbloquear_usuario(sh, id_usuario):
             return True
     return False
 
+@st.cache_data(ttl=60)
+def obter_datas_travadas():
+    """Lê a aba 'Trava_Escala' (DATA, MOTIVO) e devolve {date: motivo}.
+    Um dia travado impede leitores comuns de se escalarem (Servir) em QUALQUER
+    horário/função daquele dia; o ADM continua podendo alterar normalmente."""
+    try:
+        sh = get_connection()
+        ws_trava = sh.worksheet("Trava_Escala")
+        dados = ws_trava.get_all_records()
+        travadas = {}
+        for r in dados:
+            data_str = str(r.get('DATA', '')).strip()
+            motivo = str(r.get('MOTIVO', '')).strip()
+            if data_str:
+                try:
+                    data_obj = datetime.strptime(data_str, "%d/%m/%Y").date()
+                    travadas[data_obj] = motivo
+                except ValueError:
+                    continue
+        return travadas
+    except Exception:
+        return {}
+
+def obter_ou_criar_aba_trava(sh):
+    """Retorna a worksheet 'Trava_Escala', criando-a (com cabeçalho DATA/MOTIVO)
+    se ainda não existir na planilha — evita que o ADM tome um erro só porque
+    a aba nova ainda não foi criada manualmente na planilha do Google Sheets."""
+    try:
+        return sh.worksheet("Trava_Escala")
+    except gspread.exceptions.WorksheetNotFound:
+        ws_nova = sh.add_worksheet(title="Trava_Escala", rows=100, cols=2)
+        ws_nova.update('A1', [["DATA", "MOTIVO"]])
+        return ws_nova
+
+def travar_dia(sh, data_str, motivo=""):
+    """Adiciona (ou atualiza o motivo de) um dia travado na aba 'Trava_Escala'."""
+    ws_trava = obter_ou_criar_aba_trava(sh)
+    dados = ws_trava.get_all_values()
+    for idx, row in enumerate(dados[1:], start=2):
+        if len(row) > 0 and row[0].strip() == data_str.strip():
+            ws_trava.update_cell(idx, 2, motivo)
+            return
+    ws_trava.append_row([data_str, motivo])
+
+def destravar_dia(sh, data_str):
+    ws_trava = obter_ou_criar_aba_trava(sh)
+    dados = ws_trava.get_all_values()
+    for idx, row in enumerate(dados[1:], start=2):
+        if len(row) > 0 and row[0].strip() == data_str.strip():
+            ws_trava.delete_rows(idx)
+            return True
+    return False
+
+def dia_esta_travado(data_evento, datas_travadas):
+    """Retorna o motivo (string, pode ser vazia) se o dia estiver travado, ou None."""
+    if data_evento is None:
+        return None
+    if data_evento in datas_travadas:
+        return datas_travadas[data_evento]
+    return None
+
 # --- FUNÇÕES DE VALIDAÇÃO E REGRAS DE NEGÓCIO ---
 def usuario_ja_escalado_no_dia(escala, data_alvo, nome_usuario):
     for r in escala:
@@ -1026,17 +1087,21 @@ roteiros_data = obter_roteiros()
 penalidades_data = obter_penalidades()
 suspensoes_data = obter_suspensoes()
 bloqueados_data = obter_bloqueados()
+datas_travadas_data = obter_datas_travadas()
 is_adm = (st.session_state.user_profile == "3")
 lista_todos_leitores = obter_lista_leitores() if is_adm else []
 
 
 # --- FUNÇÃO CENTRAL DE RENDERIZAÇÃO DOS EVENTOS ---
+OPCAO_NOME_MANUAL = "(Digitar nome manualmente)"
+
 def renderizar_evento(idx, row, modo_aguardando=False):
     dia = str(row.get('DIA', ''))
     horario = str(row.get('HORARIO', ''))
     solenidade = str(row.get('SOLENIDADE', 'NÃO')).strip().upper()
     data_evento_atual = extrair_data_evento(dia)
-    
+    travado_motivo = dia_esta_travado(data_evento_atual, datas_travadas_data)
+
     comentarista = str(row.get('COMENTARISTA', '')).strip()
     leitura1 = str(row.get('LEITURA1', '')).strip()
     leitura2 = str(row.get('LEITURA2', '')).strip()
@@ -1068,7 +1133,13 @@ def renderizar_evento(idx, row, modo_aguardando=False):
         chave_roteiro = (data_evento_fmt, normalizar_horario(horario))
         if chave_roteiro in roteiros_data:
             st.markdown(f"📄 [Roteiro dessa missa]({roteiros_data[chave_roteiro]})")
-    
+
+    if travado_motivo is not None and not is_adm:
+        aviso_trava = "🔒 Escala travada pela coordenação para este dia."
+        if travado_motivo:
+            aviso_trava += f" Motivo: {travado_motivo}"
+        st.warning(aviso_trava)
+
     usuario_atual = st.session_state.user_name
 
     if f"alterando_com_{idx}" not in st.session_state:
@@ -1090,20 +1161,33 @@ def renderizar_evento(idx, row, modo_aguardando=False):
                     st.session_state[f"alterando_com_{idx}"] = True
                     st.rerun()
             else:
-                novo_nome_com = c_col2.selectbox("Novo Leitor:", ["(Vago)"] + lista_todos_leitores, key=f"sel_com_{idx}")
+                novo_nome_com = c_col2.selectbox("Novo Leitor:", ["(Vago)", OPCAO_NOME_MANUAL] + lista_todos_leitores, key=f"sel_com_{idx}")
+                nome_manual_com = ""
+                if novo_nome_com == OPCAO_NOME_MANUAL:
+                    nome_manual_com = c_col2.text_input("Nome:", key=f"txt_com_{idx}")
                 if c_col2.button("Salvar", key=f"save_com_{idx}"):
-                    val_salvar = "" if novo_nome_com == "(Vago)" else novo_nome_com
-                    sh_conn = get_connection()
-                    ws_live = sh_conn.worksheet("Escala")
-                    ws_live.update_cell(idx + 2, colunas_escala['COMENTARISTA'], val_salvar)
-                    carregar_dados_escala.clear()
-                    st.session_state[f"alterando_com_{idx}"] = False
-                    st.success("Alterado com sucesso!")
-                    time.sleep(2.5)
-                    st.rerun()
+                    if novo_nome_com == "(Vago)":
+                        val_salvar = ""
+                    elif novo_nome_com == OPCAO_NOME_MANUAL:
+                        val_salvar = nome_manual_com.strip()
+                    else:
+                        val_salvar = novo_nome_com
+                    if novo_nome_com == OPCAO_NOME_MANUAL and not val_salvar:
+                        c_col2.error("Digite um nome.")
+                    else:
+                        sh_conn = get_connection()
+                        ws_live = sh_conn.worksheet("Escala")
+                        ws_live.update_cell(idx + 2, colunas_escala['COMENTARISTA'], val_salvar)
+                        carregar_dados_escala.clear()
+                        st.session_state[f"alterando_com_{idx}"] = False
+                        st.success("Alterado com sucesso!")
+                        time.sleep(2.5)
+                        st.rerun()
         else:
             if not comentarista:
-                if c_col2.button("Servir", key=f"s_com_{idx}"):
+                if travado_motivo is not None:
+                    c_col2.caption("🔒 Travado")
+                elif c_col2.button("Servir", key=f"s_com_{idx}"):
                     info_suspensao = leitor_esta_suspenso(usuario_atual, suspensoes_data)
                     if info_suspensao:
                         msg_susp = f"Você está suspenso(a) até {info_suspensao['data_fim'].strftime('%d/%m/%Y')} e não pode se escalar."
@@ -1150,20 +1234,33 @@ def renderizar_evento(idx, row, modo_aguardando=False):
                 st.session_state[f"alterando_l1_{idx}"] = True
                 st.rerun()
         else:
-            novo_nome_l1 = l1_col2.selectbox("Novo Leitor:", ["(Vago)"] + lista_todos_leitores, key=f"sel_l1_{idx}")
+            novo_nome_l1 = l1_col2.selectbox("Novo Leitor:", ["(Vago)", OPCAO_NOME_MANUAL] + lista_todos_leitores, key=f"sel_l1_{idx}")
+            nome_manual_l1 = ""
+            if novo_nome_l1 == OPCAO_NOME_MANUAL:
+                nome_manual_l1 = l1_col2.text_input("Nome:", key=f"txt_l1_{idx}")
             if l1_col2.button("Salvar", key=f"save_l1_{idx}"):
-                val_salvar = "" if novo_nome_l1 == "(Vago)" else novo_nome_l1
-                sh_conn = get_connection()
-                ws_live = sh_conn.worksheet("Escala")
-                ws_live.update_cell(idx + 2, colunas_escala['LEITURA1'], val_salvar)
-                carregar_dados_escala.clear()
-                st.session_state[f"alterando_l1_{idx}"] = False
-                st.success("Alterado com sucesso!")
-                time.sleep(2.5)
-                st.rerun()
+                if novo_nome_l1 == "(Vago)":
+                    val_salvar = ""
+                elif novo_nome_l1 == OPCAO_NOME_MANUAL:
+                    val_salvar = nome_manual_l1.strip()
+                else:
+                    val_salvar = novo_nome_l1
+                if novo_nome_l1 == OPCAO_NOME_MANUAL and not val_salvar:
+                    l1_col2.error("Digite um nome.")
+                else:
+                    sh_conn = get_connection()
+                    ws_live = sh_conn.worksheet("Escala")
+                    ws_live.update_cell(idx + 2, colunas_escala['LEITURA1'], val_salvar)
+                    carregar_dados_escala.clear()
+                    st.session_state[f"alterando_l1_{idx}"] = False
+                    st.success("Alterado com sucesso!")
+                    time.sleep(2.5)
+                    st.rerun()
     else:
         if not leitura1:
-            if l1_col2.button("Servir", key=f"s_l1_{idx}"):
+            if travado_motivo is not None:
+                l1_col2.caption("🔒 Travado")
+            elif l1_col2.button("Servir", key=f"s_l1_{idx}"):
                 info_suspensao = leitor_esta_suspenso(usuario_atual, suspensoes_data)
                 if info_suspensao:
                     msg_susp = f"Você está suspenso(a) até {info_suspensao['data_fim'].strftime('%d/%m/%Y')} e não pode se escalar."
@@ -1211,20 +1308,33 @@ def renderizar_evento(idx, row, modo_aguardando=False):
                     st.session_state[f"alterando_l2_{idx}"] = True
                     st.rerun()
             else:
-                novo_nome_l2 = l2_col2.selectbox("Novo Leitor:", ["(Vago)"] + lista_todos_leitores, key=f"sel_l2_{idx}")
+                novo_nome_l2 = l2_col2.selectbox("Novo Leitor:", ["(Vago)", OPCAO_NOME_MANUAL] + lista_todos_leitores, key=f"sel_l2_{idx}")
+                nome_manual_l2 = ""
+                if novo_nome_l2 == OPCAO_NOME_MANUAL:
+                    nome_manual_l2 = l2_col2.text_input("Nome:", key=f"txt_l2_{idx}")
                 if l2_col2.button("Salvar", key=f"save_l2_{idx}"):
-                    val_salvar = "" if novo_nome_l2 == "(Vago)" else novo_nome_l2
-                    sh_conn = get_connection()
-                    ws_live = sh_conn.worksheet("Escala")
-                    ws_live.update_cell(idx + 2, colunas_escala['LEITURA2'], val_salvar)
-                    carregar_dados_escala.clear()
-                    st.session_state[f"alterando_l2_{idx}"] = False
-                    st.success("Alterado com sucesso!")
-                    time.sleep(2.5)
-                    st.rerun()
+                    if novo_nome_l2 == "(Vago)":
+                        val_salvar = ""
+                    elif novo_nome_l2 == OPCAO_NOME_MANUAL:
+                        val_salvar = nome_manual_l2.strip()
+                    else:
+                        val_salvar = novo_nome_l2
+                    if novo_nome_l2 == OPCAO_NOME_MANUAL and not val_salvar:
+                        l2_col2.error("Digite um nome.")
+                    else:
+                        sh_conn = get_connection()
+                        ws_live = sh_conn.worksheet("Escala")
+                        ws_live.update_cell(idx + 2, colunas_escala['LEITURA2'], val_salvar)
+                        carregar_dados_escala.clear()
+                        st.session_state[f"alterando_l2_{idx}"] = False
+                        st.success("Alterado com sucesso!")
+                        time.sleep(2.5)
+                        st.rerun()
         else:
             if not leitura2:
-                if l2_col2.button("Servir", key=f"s_l2_{idx}"):
+                if travado_motivo is not None:
+                    l2_col2.caption("🔒 Travado")
+                elif l2_col2.button("Servir", key=f"s_l2_{idx}"):
                     info_suspensao = leitor_esta_suspenso(usuario_atual, suspensoes_data)
                     if info_suspensao:
                         msg_susp = f"Você está suspenso(a) até {info_suspensao['data_fim'].strftime('%d/%m/%Y')} e não pode se escalar."
@@ -1392,7 +1502,7 @@ elif st.session_state.pagina == "gestao_usuarios":
     if st.session_state.user_profile != "3":
         st.error("Apenas o ADM pode acessar esta tela.")
     else:
-        aba_bloqueio, aba_mensagem, aba_suspensao, aba_sem_escala = st.tabs(["Bloquear/Desbloquear", "Inserir Mensagem", "Suspensão de Leitor", "Quem Não Serviu"])
+        aba_bloqueio, aba_mensagem, aba_suspensao, aba_sem_escala, aba_trava = st.tabs(["Bloquear/Desbloquear", "Inserir Mensagem", "Suspensão de Leitor", "Quem Não Serviu", "Trava de Escala"])
 
         with aba_bloqueio:
             st.write("Bloqueie ou desbloqueie o acesso de um usuário pelo ID (Senha). Um usuário bloqueado não consegue fazer login.")
@@ -1521,6 +1631,42 @@ elif st.session_state.pagina == "gestao_usuarios":
                     st.write(f"**{len(leitores_sem_escala)} leitor(es) ainda não serviram entre {data_sem_inicio.strftime('%d/%m/%Y')} e {data_sem_fim.strftime('%d/%m/%Y')}:**")
                     for nome_sem_escala in leitores_sem_escala:
                         st.markdown(f"- {nome_sem_escala}")
+
+        with aba_trava:
+            st.write("Trave um dia específico para impedir que os leitores se escalem sozinhos (botão \"Servir\") "
+                     "nesse dia, em qualquer horário ou função. O ADM continua podendo alterar a escala normalmente "
+                     "(inclusive digitando um nome manualmente, sem precisar que a pessoa esteja cadastrada).")
+
+            data_travar = st.date_input("Dia a travar:", format="DD/MM/YYYY", key="trava_data_input")
+            motivo_trava = st.text_input("Motivo (opcional, exibido aos leitores):", key="trava_motivo_input")
+
+            if st.button("🔒 Travar este dia", key="btn_travar_dia"):
+                sh_conn = get_connection()
+                travar_dia(sh_conn, data_travar.strftime("%d/%m/%Y"), motivo_trava.strip())
+                obter_datas_travadas.clear()
+                st.success(f"Dia {data_travar.strftime('%d/%m/%Y')} travado com sucesso.")
+                time.sleep(2.5)
+                st.rerun()
+
+            st.markdown("---")
+            st.write("**Dias atualmente travados:**")
+            if not datas_travadas_data:
+                st.info("Nenhum dia travado no momento.")
+            else:
+                for data_travada in sorted(datas_travadas_data.keys()):
+                    motivo_atual = datas_travadas_data[data_travada]
+                    col_data_trava, col_destravar = st.columns([4, 1])
+                    texto_trava = f"- 🔒 **{data_travada.strftime('%d/%m/%Y')}**"
+                    if motivo_atual:
+                        texto_trava += f" — *{motivo_atual}*"
+                    col_data_trava.markdown(texto_trava)
+                    if col_destravar.button("Destravar", key=f"destravar_{data_travada.isoformat()}"):
+                        sh_conn = get_connection()
+                        if destravar_dia(sh_conn, data_travada.strftime("%d/%m/%Y")):
+                            obter_datas_travadas.clear()
+                            st.success(f"Dia {data_travada.strftime('%d/%m/%Y')} destravado.")
+                            time.sleep(2.5)
+                            st.rerun()
 
 elif st.session_state.pagina == "escala_geral":
     st.subheader("Escala Geral do Mês")
