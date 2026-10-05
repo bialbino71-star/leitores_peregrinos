@@ -2157,9 +2157,6 @@ elif st.session_state.pagina == "ver_intencoes":
                             <button id="btn-imprimir" style="display:block; width:100%; margin-top:10px; background:#0D1B2A; color:#FFFFFF; border:3.5px solid #8C6D4F; border-radius:24px; padding:12px 6px; font-size:18px; font-weight:700; cursor:pointer;">
                                 🖨️ Imprimir
                             </button>
-                            <button id="btn-baixar-pdf" style="display:block; width:100%; margin-top:10px; background:#0D1B2A; color:#FFFFFF; border:3.5px solid #8C6D4F; border-radius:24px; padding:12px 6px; font-size:18px; font-weight:700; cursor:pointer;">
-                                ⬇️ Baixar PDF
-                            </button>
                         </div>
                         <div id="area-impressao" style="display:none;"></div>
 
@@ -2219,20 +2216,6 @@ elif st.session_state.pagina == "ver_intencoes":
                                 renderizarPagina(paginaAtual);
                             }});
 
-                            // Download direto via Blob, dentro do próprio visualizador: não dispara
-                            // rerun do Streamlit (um st.download_button faria o relatório sumir da tela).
-                            document.getElementById('btn-baixar-pdf').addEventListener('click', function() {{
-                                var blob = new Blob([bytesArray], {{type: 'application/pdf'}});
-                                var url = URL.createObjectURL(blob);
-                                var a = document.createElement('a');
-                                a.href = url;
-                                a.download = 'Intenções_da_Santa_Missa.pdf';
-                                document.body.appendChild(a);
-                                a.click();
-                                document.body.removeChild(a);
-                                setTimeout(function() {{ URL.revokeObjectURL(url); }}, 1000);
-                            }});
-
                             document.getElementById('btn-imprimir').addEventListener('click', function() {{
                                 if (!pdfDoc) return;
                                 var areaImpressao = document.getElementById('area-impressao');
@@ -2257,16 +2240,24 @@ elif st.session_state.pagina == "ver_intencoes":
                                 }});
                             }});
                         </script>
-                    """, height=820)
+                    """, height=750)
 
-                    st.markdown(f"""
-                        <a href="data:application/pdf;base64,{b64_pdf}" target="_blank" rel="noopener noreferrer" download="Intenções_da_Santa_Missa.pdf"
-                           style="display:block; text-align:center; background:#0D1B2A; color:#FFFFFF; border:3.5px solid #8C6D4F;
-                                  border-radius:24px; padding:12px 6px; font-size:16px; font-weight:700; text-decoration:none;
-                                  margin-top:10px; font-family:sans-serif;">
-                            📄 Ou abrir / baixar / compartilhar em outro app
-                        </a>
-                    """, unsafe_allow_html=True)
+                    # Download pelo componente nativo do Streamlit (o servidor entrega o arquivo),
+                    # em vez de JavaScript dentro do iframe do visualizador — o iframe pode bloquear
+                    # downloads dependendo da versão do Streamlit/navegador/celular.
+                    # on_click="ignore" evita o rerun (que faria o relatório sumir da tela); em
+                    # versões antigas do Streamlit que não aceitam esse parâmetro, cai no padrão.
+                    parametros_download = dict(
+                        label="⬇️ Baixar PDF",
+                        data=pdf_bytes,
+                        file_name="Intencoes_da_Santa_Missa.pdf",
+                        mime="application/pdf",
+                        key="baixar_pdf_intencoes",
+                    )
+                    try:
+                        st.download_button(on_click="ignore", **parametros_download)
+                    except TypeError:
+                        st.download_button(**parametros_download)
 
                     # --- Exportação para apresentação (.pptx), um slide por categoria ---
                     from pptx import Presentation
