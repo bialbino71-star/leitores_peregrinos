@@ -626,7 +626,7 @@ def listar_missas_periodo(data_inicio, data_fim, escala, horarios_padrao_data):
         dia += timedelta(days=1)
     return missas, dias_sem_missa
 
-def salvar_intencoes_em_lote(sh, nome_coluna_categoria, texto, missas):
+def salvar_intencoes_em_lote(sh, nome_coluna_categoria, texto, missas, carimbo=None):
     """Insere UM lote: o mesmo texto da categoria (nome_coluna_categoria) em todas as missas
     de 'missas' ([(date, 'HH:MM'), ...]), numa única chamada append_rows (uma linha nova por
     missa, na aba 'Respostas', gravando cada valor pela coluna do cabeçalho — nunca por posição).
@@ -658,7 +658,9 @@ def salvar_intencoes_em_lote(sh, nome_coluna_categoria, texto, missas):
         )
 
     col_carimbo = colunas.get(normalizar_chave("Carimbo de data/hora"))
-    carimbo = agora_brasil().strftime("%d/%m/%Y %H:%M:%S")
+    # O carimbo do lote é o que permite achá-lo de novo depois (tela "Lotes de Intenções"),
+    # por isso o chamador pode passar o mesmo valor que registra no histórico.
+    carimbo = carimbo or agora_brasil().strftime("%d/%m/%Y %H:%M:%S")
     tamanho_linha = max(colunas.values())
 
     linhas = []
@@ -684,6 +686,163 @@ def salvar_intencoes_em_lote(sh, nome_coluna_categoria, texto, missas):
         return (numeros[0], numeros[-1]) if numeros else (None, None)
     except Exception:
         return None, None
+
+# --- HISTÓRICO E EXCLUSÃO DE LOTES (aba 'Lotes_Intencoes') ---
+# Cada lote criado em "Intenções em Lote" é registrado nessa aba. Como as linhas da aba
+# 'Respostas' mudam de posição (exclusão automática de missas passadas, exclusões manuais),
+# o lote NÃO é localizado por número de linha, e sim pelo conteúdo: mesmo carimbo de
+# data/hora + mesma categoria com o mesmo texto + uma das missas do lote.
+NOME_ABA_LOTES = "Lotes_Intencoes"
+CABECALHO_LOTES = ["ID_LOTE", "CRIADO_EM", "CRIADO_POR", "CATEGORIA", "COLUNA", "PERIODO_INICIO",
+                   "PERIODO_FIM", "QTD_MISSAS", "QTD_NOMES", "MISSAS", "TEXTO", "STATUS",
+                   "EXCLUIDO_EM", "EXCLUIDO_POR"]
+
+def obter_ou_criar_aba_lotes(sh):
+    """Retorna a worksheet de histórico de lotes, criando-a (com cabeçalho) se não existir."""
+    try:
+        return sh.worksheet(NOME_ABA_LOTES)
+    except gspread.exceptions.WorksheetNotFound:
+        ws_nova = sh.add_worksheet(title=NOME_ABA_LOTES, rows=200, cols=len(CABECALHO_LOTES))
+        ws_nova.update('A1', [CABECALHO_LOTES])
+        return ws_nova
+
+def registrar_lote(sh, id_lote, carimbo, usuario, categoria, coluna, data_inicio, data_fim, missas, qtd_nomes, texto):
+    """Registra um lote recém-criado no histórico (valores como texto puro, sem conversão do Sheets)."""
+    ws_lotes = obter_ou_criar_aba_lotes(sh)
+    cabecalho = ws_lotes.row_values(1)
+    valores = {
+        "ID_LOTE": id_lote,
+        "CRIADO_EM": carimbo,
+        "CRIADO_POR": usuario,
+        "CATEGORIA": categoria,
+        "COLUNA": coluna,
+        "PERIODO_INICIO": data_inicio.strftime("%d/%m/%Y"),
+        "PERIODO_FIM": data_fim.strftime("%d/%m/%Y"),
+        "QTD_MISSAS": str(len(missas)),
+        "QTD_NOMES": str(qtd_nomes),
+        "MISSAS": "; ".join(f"{d.strftime('%d/%m/%Y')} {h}" for d, h in missas),
+        "TEXTO": texto,
+        "STATUS": "ATIVO",
+        "EXCLUIDO_EM": "",
+        "EXCLUIDO_POR": "",
+    }
+    linha = [valores.get(nome.strip().upper(), "") for nome in cabecalho]
+    ws_lotes.append_row(linha, value_input_option="RAW", insert_data_option="INSERT_ROWS")
+
+def listar_lotes(sh):
+    """Lê o histórico e devolve uma lista de dicts (chaves do CABECALHO_LOTES), do mais novo pro
+    mais antigo. Aba ainda inexistente = nenhum lote registrado."""
+    try:
+        ws_lotes = sh.worksheet(NOME_ABA_LOTES)
+    except gspread.exceptions.WorksheetNotFound:
+        return []
+    valores = ws_lotes.get_all_values()
+    if not valores:
+        return []
+    cabecalho = [c.strip().upper() for c in valores[0]]
+    lotes = []
+    for linha in valores[1:]:
+        if not any(str(c).strip() for c in linha):
+            continue
+        lote = {nome: (linha[i].strip() if i < len(linha) else "") for i, nome in enumerate(cabecalho)}
+        if lote.get("ID_LOTE"):
+            lotes.append(lote)
+    lotes.sort(key=lambda l: l["ID_LOTE"], reverse=True)
+    return lotes
+
+def _normalizar_carimbo(txt):
+    """'14/10/2026 12:30:00' (ou variações que o Sheets exibe) -> tupla comparável."""
+    m = re.search(r"(\d{1,2})/(\d{1,2})/(\d{4})[ T]+(\d{1,2}):(\d{2})(?::(\d{2}))?", str(txt))
+    if m:
+        d, mes, a, h, mi, s = m.groups()
+        return (int(d), int(mes), int(a), int(h), int(mi), int(s or 0))
+    return str(txt).strip()
+
+def _normalizar_texto_lote(txt):
+    return " ".join(str(txt).split())
+
+def missas_do_lote(lote):
+    """'14/10/2026 19:00; 15/10/2026 19:00' -> {(date, 'HH:MM'), ...}"""
+    resultado = set()
+    for parte in str(lote.get("MISSAS", "")).split(";"):
+        parte = parte.strip()
+        if not parte:
+            continue
+        data_txt, _, hora_txt = parte.partition(" ")
+        d = extrair_data_evento(data_txt)
+        if d:
+            resultado.add((d, normalizar_horario(hora_txt)))
+    return resultado
+
+def localizar_linhas_do_lote(valores_respostas, lote):
+    """Números (1-based) das linhas da aba 'Respostas' que pertencem ao lote, hoje.
+    valores_respostas = ws.get_all_values(). Exige carimbo igual E categoria com o mesmo texto
+    E data/horário de uma das missas do lote — nada que não seja do lote é tocado."""
+    if not valores_respostas:
+        return []
+    colunas = {normalizar_chave(nome): idx for idx, nome in enumerate(valores_respostas[0]) if nome.strip()}
+    idx_carimbo = colunas.get(normalizar_chave("Carimbo de data/hora"))
+    idx_data = colunas.get(normalizar_chave("Data"))
+    idx_horario = colunas.get(normalizar_chave("Horário da Missa"))
+    idx_categoria = colunas.get(normalizar_chave(lote.get("COLUNA", "")))
+    if None in (idx_carimbo, idx_data, idx_horario, idx_categoria):
+        raise Exception("A aba 'Respostas' não tem todas as colunas necessárias (Carimbo de data/hora, Data, "
+                        f"Horário da Missa e '{lote.get('COLUNA', '')}') para localizar o lote.")
+
+    carimbo_alvo = _normalizar_carimbo(lote.get("CRIADO_EM", ""))
+    texto_alvo = _normalizar_texto_lote(lote.get("TEXTO", ""))
+    missas = missas_do_lote(lote)
+
+    def celula(linha, idx):
+        return linha[idx] if idx < len(linha) else ""
+
+    encontradas = []
+    for numero, linha in enumerate(valores_respostas[1:], start=2):
+        if _normalizar_carimbo(celula(linha, idx_carimbo)) != carimbo_alvo:
+            continue
+        if _normalizar_texto_lote(celula(linha, idx_categoria)) != texto_alvo:
+            continue
+        d = extrair_data_evento(celula(linha, idx_data))
+        h = normalizar_horario(celula(linha, idx_horario))
+        if (d, h) in missas:
+            encontradas.append(numero)
+    return encontradas
+
+def excluir_lote(sh, lote, usuario):
+    """Apaga da aba 'Respostas' as linhas do lote (uma única chamada batch_update, de baixo pra
+    cima) e marca o lote como EXCLUÍDO no histórico (o registro é mantido). Retorna quantas linhas apagou."""
+    ws_resp = sh.worksheet("Respostas")
+    # Lê de novo AGORA: a posição das linhas pode ter mudado desde que a tela foi desenhada.
+    linhas = localizar_linhas_do_lote(ws_resp.get_all_values(), lote)
+
+    if linhas:
+        # Junta linhas consecutivas em faixas e apaga da última pra primeira (índices não deslocam).
+        faixas = []
+        for n in sorted(linhas):
+            if faixas and n == faixas[-1][1] + 1:
+                faixas[-1][1] = n
+            else:
+                faixas.append([n, n])
+        pedidos = [
+            {"deleteDimension": {"range": {"sheetId": ws_resp.id, "dimension": "ROWS",
+                                            "startIndex": ini - 1, "endIndex": fim}}}
+            for ini, fim in reversed(faixas)
+        ]
+        sh.batch_update({"requests": pedidos})
+
+    ws_lotes = sh.worksheet(NOME_ABA_LOTES)
+    valores_lotes = ws_lotes.get_all_values()
+    cabecalho = [c.strip().upper() for c in valores_lotes[0]]
+    col_id = cabecalho.index("ID_LOTE")
+    for numero, linha in enumerate(valores_lotes[1:], start=2):
+        if len(linha) > col_id and linha[col_id].strip() == lote["ID_LOTE"]:
+            for nome_col, valor in (("STATUS", "EXCLUÍDO"),
+                                    ("EXCLUIDO_EM", agora_brasil().strftime("%d/%m/%Y %H:%M:%S")),
+                                    ("EXCLUIDO_POR", usuario)):
+                if nome_col in cabecalho:
+                    ws_lotes.update_cell(numero, cabecalho.index(nome_col) + 1, valor)
+            break
+    return len(linhas)
 
 @st.cache_data(ttl=60)
 def obter_roteiros():
@@ -1177,6 +1336,7 @@ with st.container(key="menu_grid"):
         if pode_lote_intencoes:
             st.button("Intenções em Lote", key="menu_intencoes_lote", on_click=navegar_para, args=("intencoes_lote",), use_container_width=True)
         if st.session_state.user_profile == "3":
+            st.button("Lotes de Intenções", key="menu_lotes_intencoes", on_click=navegar_para, args=("lotes_intencoes",), use_container_width=True)
             st.button("Roteiro", key="menu_roteiro", on_click=navegar_para, args=("cadastrar_roteiro",), use_container_width=True)
             st.button("Gestão de Usuários", key="menu_gestao_usuarios", on_click=navegar_para, args=("gestao_usuarios",), use_container_width=True)
     st.button("🚪 Sair", key="btn_logout_definitivo", on_click=efetuar_logout, use_container_width=True)
@@ -2031,6 +2191,8 @@ elif st.session_state.pagina == "intencoes_lote":
         for r in relatorio_lote["itens"]:
             if not r["ok"]:
                 st.error(f"{r['categoria']}: {r['erro']}")
+            elif r.get("aviso"):
+                st.warning(f"{r['categoria']}: {r['aviso']}")
         if relatorio_lote["dias_sem_missa"]:
             st.caption("Dias do período sem missa cadastrada (ficaram de fora): " + ", ".join(relatorio_lote["dias_sem_missa"]))
         with st.expander("Missas contempladas no lote"):
@@ -2104,7 +2266,8 @@ elif st.session_state.pagina == "intencoes_lote":
         if confirmou:
             itens_relatorio = []
             chaves_para_limpar = []
-            carimbo_execucao = agora_brasil().strftime("%d/%m/%Y %H:%M:%S")
+            momento_execucao = agora_brasil()
+            carimbo_execucao = momento_execucao.strftime("%d/%m/%Y %H:%M:%S")
             erro_conexao = ""
             try:
                 sh_lote = get_connection()
@@ -2112,15 +2275,15 @@ elif st.session_state.pagina == "intencoes_lote":
                 sh_lote = None
                 erro_conexao = str(e)
 
-            for rotulo, coluna, chave_campo, texto in categorias_preenchidas_lote:
+            for ordem_lote, (rotulo, coluna, chave_campo, texto) in enumerate(categorias_preenchidas_lote, start=1):
                 qtd_nomes = len([l for l in texto.splitlines() if l.strip()])
                 item = {"categoria": rotulo, "qtd_nomes": qtd_nomes, "qtd_missas": len(missas_lote),
-                        "ok": False, "linhas": "", "erro": ""}
+                        "ok": False, "linhas": "", "erro": "", "aviso": ""}
                 with st.spinner(f"Inserindo lote: {rotulo}..."):
                     try:
                         if sh_lote is None:
                             raise Exception(f"Sem conexão com a planilha: {erro_conexao}")
-                        primeira, ultima = salvar_intencoes_em_lote(sh_lote, coluna, texto, missas_lote)
+                        primeira, ultima = salvar_intencoes_em_lote(sh_lote, coluna, texto, missas_lote, carimbo=carimbo_execucao)
                         item["ok"] = True
                         if primeira and ultima:
                             item["linhas"] = f"{primeira} a {ultima}" if primeira != ultima else f"{primeira}"
@@ -2129,6 +2292,18 @@ elif st.session_state.pagina == "intencoes_lote":
                         chaves_para_limpar.append(chave_campo)
                     except Exception as e:
                         item["erro"] = str(e)
+
+                    # Registra no histórico (é o que permite excluir o lote depois). Se só isso
+                    # falhar, as intenções já estão gravadas: avisa em vez de marcar o lote como falho.
+                    if item["ok"]:
+                        try:
+                            # ano-mês-dia-hora no ID: a ordenação alfabética vira ordem cronológica
+                            id_lote = "L" + momento_execucao.strftime("%Y%m%d%H%M%S") + f"-{ordem_lote}"
+                            registrar_lote(sh_lote, id_lote, carimbo_execucao, st.session_state.user_name, rotulo,
+                                           coluna, data_inicio_lote, data_fim_lote, missas_lote, qtd_nomes, texto)
+                        except Exception as e:
+                            item["aviso"] = ("As intenções foram gravadas, mas o lote não pôde ser registrado no "
+                                             f"histórico (não aparecerá na tela de exclusão de lotes): {e}")
                 itens_relatorio.append(item)
 
             st.session_state["lote_relatorio"] = {
@@ -2143,6 +2318,103 @@ elif st.session_state.pagina == "intencoes_lote":
             st.session_state["lote_limpar_keys"] = chaves_para_limpar
             st.session_state["lote_confirmando"] = False
             st.rerun()
+
+elif st.session_state.pagina == "lotes_intencoes":
+    st.subheader("Lotes de Intenções")
+
+    if not is_adm:
+        st.error("Esta funcionalidade é exclusiva do perfil ADM.")
+        st.stop()
+
+    st.write("Veja os lotes criados em **Intenções em Lote** e exclua os que foram feitos por engano. "
+             "Excluir um lote apaga da aba 'Respostas' só as linhas que ele criou — intenções lançadas de outra forma não são tocadas.")
+    st.caption("Aparecem aqui os lotes criados a partir desta versão do app. Lotes antigos não têm registro e não podem ser excluídos por esta tela.")
+
+    mensagem_exclusao = st.session_state.pop("lote_exclusao_msg", None)
+    if mensagem_exclusao:
+        st.success(mensagem_exclusao)
+
+    try:
+        sh_lotes_tela = get_connection()
+        lotes_registrados = listar_lotes(sh_lotes_tela)
+        valores_respostas_tela = sh_lotes_tela.worksheet("Respostas").get_all_values()
+    except Exception as e:
+        st.error("Não foi possível ler os lotes agora. Detalhe:")
+        st.exception(e)
+        st.stop()
+
+    if st.button("🔄 Atualizar", key="lotes_btn_atualizar"):
+        st.rerun()
+
+    lotes_ativos = [l for l in lotes_registrados if l.get("STATUS", "").strip().upper() != "EXCLUÍDO"]
+    lotes_excluidos = [l for l in lotes_registrados if l.get("STATUS", "").strip().upper() == "EXCLUÍDO"]
+
+    if not lotes_ativos:
+        st.info("Nenhum lote ativo no momento.")
+
+    for lote in lotes_ativos:
+        id_lote = lote["ID_LOTE"]
+        try:
+            linhas_do_lote = localizar_linhas_do_lote(valores_respostas_tela, lote)
+            erro_localizar = None
+        except Exception as e:
+            linhas_do_lote = None
+            erro_localizar = str(e)
+
+        with st.container(border=True):
+            st.markdown(f"**{lote.get('CATEGORIA', '')}**  ·  `{id_lote}`")
+            st.caption(f"Criado em {lote.get('CRIADO_EM', '')} por {lote.get('CRIADO_POR', '')}  ·  "
+                       f"Período {lote.get('PERIODO_INICIO', '')} a {lote.get('PERIODO_FIM', '')}  ·  "
+                       f"{lote.get('QTD_MISSAS', '')} missa(s)  ·  {lote.get('QTD_NOMES', '')} nome(s)")
+            nomes_lote = [n.strip() for n in lote.get("TEXTO", "").splitlines() if n.strip()]
+            resumo_nomes = ", ".join(nomes_lote[:6]) + (f" … (+{len(nomes_lote) - 6})" if len(nomes_lote) > 6 else "")
+            st.write(f"Nomes: {resumo_nomes}")
+
+            if erro_localizar:
+                st.error(erro_localizar)
+                continue
+
+            esperadas = lote.get("QTD_MISSAS", "?")
+            st.write(f"Linhas na planilha agora: **{len(linhas_do_lote)}** de {esperadas}")
+            if len(linhas_do_lote) < len(missas_do_lote(lote)):
+                st.caption("As linhas que faltam já foram apagadas (missa que já passou) ou removidas manualmente.")
+
+            if st.session_state.get("lote_excluindo") == id_lote:
+                if linhas_do_lote:
+                    st.warning(f"Apagar definitivamente este lote? {len(linhas_do_lote)} linha(s) serão removidas da aba 'Respostas'. Não dá para desfazer.")
+                else:
+                    st.warning("Este lote não tem mais linhas na planilha. Confirmar apenas marca o lote como excluído no histórico.")
+                col_ok, col_nao = st.columns(2)
+                if col_ok.button("✅ Confirmar exclusão", key=f"lote_del_ok_{id_lote}"):
+                    try:
+                        with st.spinner("Excluindo lote..."):
+                            apagadas = excluir_lote(sh_lotes_tela, lote, st.session_state.user_name)
+                        st.session_state["lote_exclusao_msg"] = f"Lote {id_lote} ({lote.get('CATEGORIA', '')}) excluído: {apagadas} linha(s) removida(s) da aba 'Respostas'."
+                        st.session_state["lote_excluindo"] = None
+                        st.rerun()
+                    except Exception as e:
+                        st.error("Erro ao excluir o lote. Veja o detalhe e confira a aba 'Respostas':")
+                        st.exception(e)
+                if col_nao.button("Cancelar", key=f"lote_del_cancel_{id_lote}"):
+                    st.session_state["lote_excluindo"] = None
+                    st.rerun()
+            else:
+                if st.button("🗑️ Excluir este lote", key=f"lote_del_{id_lote}"):
+                    st.session_state["lote_excluindo"] = id_lote
+                    st.rerun()
+
+    if lotes_excluidos:
+        with st.expander(f"Lotes já excluídos ({len(lotes_excluidos)})"):
+            st.table([
+                {
+                    "Lote": l["ID_LOTE"],
+                    "Categoria": l.get("CATEGORIA", ""),
+                    "Período": f"{l.get('PERIODO_INICIO', '')} a {l.get('PERIODO_FIM', '')}",
+                    "Excluído em": l.get("EXCLUIDO_EM", ""),
+                    "Excluído por": l.get("EXCLUIDO_POR", ""),
+                }
+                for l in lotes_excluidos
+            ])
 
 elif st.session_state.pagina == "ver_intencoes":
     st.subheader("Intenções da Santa Missa")
