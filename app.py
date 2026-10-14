@@ -85,6 +85,14 @@ if "ultima_pagina_rolada" not in st.session_state:
 def navegar_para(nome_pagina):
     st.session_state.pagina = nome_pagina
 
+ID_SECRETARIA = "98"
+PERFIL_SECRETARIA = "6"
+
+def usuario_e_secretaria(perfil, user_id):
+    """Perfil Secretaria: reconhecido pelo ID 98 (usuário 'Secretaria') ou pelo Perfil "6" na
+    planilha — vale o que estiver cadastrado, sem exigir mexer no campo Perfil dela."""
+    return str(user_id).strip() == ID_SECRETARIA or str(perfil).strip() == PERFIL_SECRETARIA
+
 def efetuar_logout():
     st.session_state.logged_in = False
     st.session_state.user_name = ""
@@ -1131,6 +1139,13 @@ elif st.session_state.user_profile == "3":
 elif st.session_state.user_profile == "5":
     perfil_texto = "ACOLHIDA"
 
+# Secretaria (ID 98): mantém o acesso que já tinha e ganha "Intenções em Lote", que é
+# liberado só para ADM e Secretaria.
+eh_secretaria = usuario_e_secretaria(st.session_state.user_profile, st.session_state.get("user_id", ""))
+pode_lote_intencoes = (st.session_state.user_profile == "3") or eh_secretaria
+if eh_secretaria and st.session_state.user_profile != "3":
+    perfil_texto = "SECRETARIA"
+
 # 1. Barra Terracota (identificação do Servo(a))
 st.markdown(f"""
     <div class="barra-status-alinhada">
@@ -1149,6 +1164,8 @@ with st.container(key="menu_grid"):
     if st.session_state.user_profile == "5":
         st.button("Coletar Intenções", key="menu_coletar_intencoes", on_click=navegar_para, args=("coletar_intencoes",), use_container_width=True)
         st.button("Ver Intenções", key="menu_intencoes", on_click=navegar_para, args=("ver_intencoes",), use_container_width=True)
+        if pode_lote_intencoes:
+            st.button("Intenções em Lote", key="menu_intencoes_lote", on_click=navegar_para, args=("intencoes_lote",), use_container_width=True)
     else:
         st.button("Escala Geral", key="menu_geral", on_click=navegar_para, args=("escala_geral",), use_container_width=True)
         st.button("Minha Escala", key="menu_minha", on_click=navegar_para, args=("minha_escala",), use_container_width=True)
@@ -1157,15 +1174,17 @@ with st.container(key="menu_grid"):
         st.button("Coletar Intenções", key="menu_coletar_intencoes", on_click=navegar_para, args=("coletar_intencoes",), use_container_width=True)
         st.button("Ver Intenções", key="menu_intencoes", on_click=navegar_para, args=("ver_intencoes",), use_container_width=True)
         st.link_button("Liturgia Diária", "https://liturgia.cancaonova.com/pb/", use_container_width=True)
-        if st.session_state.user_profile == "3":
+        if pode_lote_intencoes:
             st.button("Intenções em Lote", key="menu_intencoes_lote", on_click=navegar_para, args=("intencoes_lote",), use_container_width=True)
+        if st.session_state.user_profile == "3":
             st.button("Roteiro", key="menu_roteiro", on_click=navegar_para, args=("cadastrar_roteiro",), use_container_width=True)
             st.button("Gestão de Usuários", key="menu_gestao_usuarios", on_click=navegar_para, args=("gestao_usuarios",), use_container_width=True)
     st.button("🚪 Sair", key="btn_logout_definitivo", on_click=efetuar_logout, use_container_width=True)
 
 # Proteção extra: se por algum motivo o perfil 5 (Acolhida) estiver numa página que não é permitida
 # para ele (ex: sessão antiga), volta para o menu principal.
-if st.session_state.user_profile == "5" and st.session_state.pagina not in ("home", "ver_intencoes", "coletar_intencoes"):
+paginas_permitidas_perfil5 = ("home", "ver_intencoes", "coletar_intencoes") + (("intencoes_lote",) if pode_lote_intencoes else ())
+if st.session_state.user_profile == "5" and st.session_state.pagina not in paginas_permitidas_perfil5:
     st.session_state.pagina = "home"
 
 
@@ -1967,8 +1986,8 @@ elif st.session_state.pagina == "coletar_intencoes":
 elif st.session_state.pagina == "intencoes_lote":
     st.subheader("Intenções em Lote")
 
-    if not is_adm:
-        st.error("Esta funcionalidade é exclusiva do perfil ADM.")
+    if not pode_lote_intencoes:
+        st.error("Esta funcionalidade é exclusiva dos perfis ADM e Secretaria.")
         st.stop()
 
     st.write("Insira a mesma intenção em **todas as missas de um período**, de uma só vez. "
