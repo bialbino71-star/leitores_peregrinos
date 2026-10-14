@@ -589,6 +589,94 @@ def salvar_intencao(sh, data_str, horario_str, intencoes_dict):
 
     return numero_linha
 
+# Categorias de intenção usadas no lançamento em lote (ADM): (rótulo na tela, nome da coluna
+# na aba 'Respostas', key do campo). Mesma ordem usada em 'Coletar Intenções'.
+CATEGORIAS_INTENCAO_LOTE = [
+    ("Intenções pelas Almas", "Intenções pelas almas", "lote_almas"),
+    ("Falecido(a) Hoje", "Falecido(a) Hoje", "lote_falecido"),
+    ("Missa de Sétimo Dia", "Missa de sétimo dia", "lote_setimo"),
+    ("Aniversário Natalício", "Aniversário Natalício", "lote_aniversario"),
+    ("Bodas", "Bodas", "lote_bodas"),
+    ("Intenções pela Saúde", "Intenções pela Saúde", "lote_saude"),
+]
+
+def listar_missas_periodo(data_inicio, data_fim, escala, horarios_padrao_data):
+    """Todas as missas válidas entre data_inicio e data_fim (inclusive), pelo MESMO critério de
+    'Coletar Intenções' (horarios_disponiveis_para_data: Horarios_Padrao, com fallback pra Escala).
+    Retorna (missas, dias_sem_missa): missas = [(date, 'HH:MM'), ...] em ordem cronológica;
+    dias_sem_missa = datas do período sem nenhum horário válido (ficam de fora do lote)."""
+    missas = []
+    dias_sem_missa = []
+    dia = data_inicio
+    while dia <= data_fim:
+        horarios = horarios_disponiveis_para_data(dia, escala, horarios_padrao_data)
+        if horarios:
+            for h in horarios:
+                missas.append((dia, h))
+        else:
+            dias_sem_missa.append(dia)
+        dia += timedelta(days=1)
+    return missas, dias_sem_missa
+
+def salvar_intencoes_em_lote(sh, nome_coluna_categoria, texto, missas):
+    """Insere UM lote: o mesmo texto da categoria (nome_coluna_categoria) em todas as missas
+    de 'missas' ([(date, 'HH:MM'), ...]), numa única chamada append_rows (uma linha nova por
+    missa, na aba 'Respostas', gravando cada valor pela coluna do cabeçalho — nunca por posição).
+    Retorna (primeira_linha, ultima_linha), informativas (None se a API não devolver a faixa).
+    Qualquer falha propaga como exceção (o chamador registra no relatório e segue pro próximo lote)."""
+    ws_resp = sh.worksheet("Respostas")
+
+    # Cabeçalho sempre lido direto da planilha nesse momento (nunca do cache).
+    obter_colunas_respostas.clear()
+    cabecalho_real = ws_resp.row_values(1)
+    colunas = {normalizar_chave(nome): idx + 1 for idx, nome in enumerate(cabecalho_real) if nome.strip()}
+    if not colunas:
+        raise Exception("Não foi possível ler o cabeçalho da aba 'Respostas' (linha 1 parece vazia).")
+
+    col_data = colunas.get(normalizar_chave("Data"))
+    col_horario = colunas.get(normalizar_chave("Horário da Missa"))
+    col_categoria = colunas.get(normalizar_chave(nome_coluna_categoria))
+    faltando = []
+    if not col_data:
+        faltando.append("Data")
+    if not col_horario:
+        faltando.append("Horário da Missa")
+    if not col_categoria:
+        faltando.append(nome_coluna_categoria)
+    if faltando:
+        raise Exception(
+            f"A aba 'Respostas' não tem a(s) coluna(s) {', '.join(faltando)} no cabeçalho "
+            f"(linha 1). Colunas encontradas: {', '.join(cabecalho_real)}"
+        )
+
+    col_carimbo = colunas.get(normalizar_chave("Carimbo de data/hora"))
+    carimbo = agora_brasil().strftime("%d/%m/%Y %H:%M:%S")
+    tamanho_linha = max(colunas.values())
+
+    linhas = []
+    for data_missa, horario_missa in missas:
+        linha = [""] * tamanho_linha
+        if col_carimbo:
+            linha[col_carimbo - 1] = carimbo
+        linha[col_data - 1] = data_missa.strftime("%d/%m/%Y")
+        linha[col_horario - 1] = horario_missa
+        linha[col_categoria - 1] = texto
+        linhas.append(linha)
+
+    if not linhas:
+        return None, None
+
+    # INSERT_ROWS é essencial (ver salvar_intencao): sem isso o padrão OVERWRITE da API
+    # pode sobrescrever linhas existentes em vez de inserir novas.
+    resultado = ws_resp.append_rows(linhas, value_input_option="USER_ENTERED", insert_data_option="INSERT_ROWS")
+
+    try:
+        faixa = resultado.get("updates", {}).get("updatedRange", "").split("!")[-1]
+        numeros = [int(n) for n in re.findall(r"\d+", faixa)]
+        return (numeros[0], numeros[-1]) if numeros else (None, None)
+    except Exception:
+        return None, None
+
 @st.cache_data(ttl=60)
 def obter_roteiros():
     try:
@@ -1070,6 +1158,7 @@ with st.container(key="menu_grid"):
         st.button("Ver Intenções", key="menu_intencoes", on_click=navegar_para, args=("ver_intencoes",), use_container_width=True)
         st.link_button("Liturgia Diária", "https://liturgia.cancaonova.com/pb/", use_container_width=True)
         if st.session_state.user_profile == "3":
+            st.button("Intenções em Lote", key="menu_intencoes_lote", on_click=navegar_para, args=("intencoes_lote",), use_container_width=True)
             st.button("Roteiro", key="menu_roteiro", on_click=navegar_para, args=("cadastrar_roteiro",), use_container_width=True)
             st.button("Gestão de Usuários", key="menu_gestao_usuarios", on_click=navegar_para, args=("gestao_usuarios",), use_container_width=True)
     st.button("🚪 Sair", key="btn_logout_definitivo", on_click=efetuar_logout, use_container_width=True)
@@ -1874,6 +1963,167 @@ elif st.session_state.pagina == "coletar_intencoes":
                     except Exception as e:
                         st.error("Erro ao salvar a intenção. Veja o detalhe abaixo e avise a coordenação se persistir:")
                         st.exception(e)
+
+elif st.session_state.pagina == "intencoes_lote":
+    st.subheader("Intenções em Lote")
+
+    if not is_adm:
+        st.error("Esta funcionalidade é exclusiva do perfil ADM.")
+        st.stop()
+
+    st.write("Insira a mesma intenção em **todas as missas de um período**, de uma só vez. "
+             "Cada categoria preenchida vira um lote: uma linha nova na aba 'Respostas' para cada missa do período.")
+
+    # Limpeza dos campos ANTES de instanciar os widgets (mesmo padrão de 'Coletar Intenções':
+    # não dá pra mexer no session_state de uma key depois que o widget dela nasceu).
+    # Só limpa as categorias cujo lote foi gravado; as que falharam ficam preenchidas pra tentar de novo.
+    for chave_limpar in st.session_state.get("lote_limpar_keys", []):
+        st.session_state[chave_limpar] = ""
+    st.session_state["lote_limpar_keys"] = []
+
+    hoje_lote = agora_brasil().date()
+    # Missas passadas são apagadas automaticamente da aba 'Respostas', então o período começa em hoje.
+    for chave_data in ("lote_data_inicio", "lote_data_fim"):
+        valor_atual = st.session_state.get(chave_data)
+        if valor_atual is not None and valor_atual < hoje_lote:
+            st.session_state[chave_data] = hoje_lote
+
+    # --- Relatório do último lote executado (persiste na tela até o ADM fechá-lo) ---
+    relatorio_lote = st.session_state.get("lote_relatorio")
+    if relatorio_lote:
+        total_ok = sum(1 for r in relatorio_lote["itens"] if r["ok"])
+        total_falhas = len(relatorio_lote["itens"]) - total_ok
+        st.markdown("### Relatório do lote")
+        if total_falhas == 0:
+            st.success(f"Lote concluído: {total_ok} categoria(s) inserida(s) em {relatorio_lote['qtd_missas']} missa(s).")
+        else:
+            st.warning(f"Lote concluído com falhas: {total_ok} categoria(s) inserida(s), {total_falhas} com erro (os campos delas continuam preenchidos abaixo para tentar de novo).")
+        st.caption(f"Período: {relatorio_lote['periodo']} · {relatorio_lote['qtd_missas']} missa(s) em {relatorio_lote['qtd_dias']} dia(s) · executado em {relatorio_lote['carimbo']}")
+        st.table([
+            {
+                "Categoria": r["categoria"],
+                "Nomes": r["qtd_nomes"],
+                "Missas": r["qtd_missas"] if r["ok"] else 0,
+                "Linhas na planilha": r["linhas"] if r["ok"] else "—",
+                "Situação": "✅ Inserido" if r["ok"] else "❌ Falhou",
+            }
+            for r in relatorio_lote["itens"]
+        ])
+        for r in relatorio_lote["itens"]:
+            if not r["ok"]:
+                st.error(f"{r['categoria']}: {r['erro']}")
+        if relatorio_lote["dias_sem_missa"]:
+            st.caption("Dias do período sem missa cadastrada (ficaram de fora): " + ", ".join(relatorio_lote["dias_sem_missa"]))
+        with st.expander("Missas contempladas no lote"):
+            st.write("\n".join(f"- {m}" for m in relatorio_lote["missas"]))
+        if st.button("Fechar relatório", key="lote_fechar_relatorio"):
+            st.session_state["lote_relatorio"] = None
+            st.rerun()
+        st.markdown("---")
+
+    # --- Período ---
+    col_ini, col_fim = st.columns(2)
+    data_inicio_lote = col_ini.date_input("De:", value=hoje_lote, min_value=hoje_lote, format="DD/MM/YYYY", key="lote_data_inicio")
+    data_fim_lote = col_fim.date_input("Até:", value=hoje_lote, min_value=hoje_lote, format="DD/MM/YYYY", key="lote_data_fim")
+
+    if data_fim_lote < data_inicio_lote:
+        st.error("A data final não pode ser anterior à data inicial.")
+        st.stop()
+
+    horarios_padrao_lote = obter_horarios_padrao()
+    missas_lote, dias_sem_missa_lote = listar_missas_periodo(data_inicio_lote, data_fim_lote, escala_data, horarios_padrao_lote)
+    qtd_dias_lote = len({d for d, _ in missas_lote})
+
+    if not missas_lote:
+        st.warning("Nenhuma missa encontrada nesse período (nem na tabela Horarios_Padrao, nem na Escala). Escolha outro período.")
+        st.stop()
+
+    st.info(f"{len(missas_lote)} missa(s) em {qtd_dias_lote} dia(s) neste período — cada categoria preenchida será inserida em todas elas.")
+    if dias_sem_missa_lote:
+        st.caption("Sem missa cadastrada (ficam de fora): " + ", ".join(d.strftime("%d/%m") for d in dias_sem_missa_lote))
+    with st.expander("Ver as missas do período"):
+        st.write("\n".join(f"- {d.strftime('%d/%m/%Y')} às {h}" for d, h in missas_lote))
+
+    st.markdown("---")
+
+    # --- Um campo por categoria (um lote por categoria preenchida) ---
+    textos_lote = {}
+    for rotulo, coluna, chave_campo in CATEGORIAS_INTENCAO_LOTE:
+        textos_lote[chave_campo] = st.text_area(f"{rotulo} (um nome por linha):", key=chave_campo)
+
+    categorias_preenchidas_lote = [
+        (rotulo, coluna, chave_campo, textos_lote[chave_campo].strip())
+        for rotulo, coluna, chave_campo in CATEGORIAS_INTENCAO_LOTE
+        if textos_lote[chave_campo].strip()
+    ]
+
+    if not st.session_state.get("lote_confirmando"):
+        if st.button("Inserir em lote", key="lote_btn_inserir"):
+            if not categorias_preenchidas_lote:
+                st.error("Preencha pelo menos uma categoria para criar um lote.")
+            else:
+                st.session_state["lote_confirmando"] = True
+                st.rerun()
+    else:
+        if not categorias_preenchidas_lote:
+            st.session_state["lote_confirmando"] = False
+            st.rerun()
+        total_linhas_lote = len(categorias_preenchidas_lote) * len(missas_lote)
+        st.warning(
+            f"Confirmar? Serão criados {len(categorias_preenchidas_lote)} lote(s) "
+            f"({', '.join(c[0] for c in categorias_preenchidas_lote)}), "
+            f"um para cada categoria, em {len(missas_lote)} missa(s) — {total_linhas_lote} linha(s) novas na aba 'Respostas'."
+        )
+        col_conf, col_canc = st.columns(2)
+        confirmou = col_conf.button("✅ Confirmar inserção", key="lote_btn_confirmar")
+        cancelou = col_canc.button("Cancelar", key="lote_btn_cancelar")
+
+        if cancelou:
+            st.session_state["lote_confirmando"] = False
+            st.rerun()
+
+        if confirmou:
+            itens_relatorio = []
+            chaves_para_limpar = []
+            carimbo_execucao = agora_brasil().strftime("%d/%m/%Y %H:%M:%S")
+            erro_conexao = ""
+            try:
+                sh_lote = get_connection()
+            except Exception as e:
+                sh_lote = None
+                erro_conexao = str(e)
+
+            for rotulo, coluna, chave_campo, texto in categorias_preenchidas_lote:
+                qtd_nomes = len([l for l in texto.splitlines() if l.strip()])
+                item = {"categoria": rotulo, "qtd_nomes": qtd_nomes, "qtd_missas": len(missas_lote),
+                        "ok": False, "linhas": "", "erro": ""}
+                with st.spinner(f"Inserindo lote: {rotulo}..."):
+                    try:
+                        if sh_lote is None:
+                            raise Exception(f"Sem conexão com a planilha: {erro_conexao}")
+                        primeira, ultima = salvar_intencoes_em_lote(sh_lote, coluna, texto, missas_lote)
+                        item["ok"] = True
+                        if primeira and ultima:
+                            item["linhas"] = f"{primeira} a {ultima}" if primeira != ultima else f"{primeira}"
+                        else:
+                            item["linhas"] = "(gravado)"
+                        chaves_para_limpar.append(chave_campo)
+                    except Exception as e:
+                        item["erro"] = str(e)
+                itens_relatorio.append(item)
+
+            st.session_state["lote_relatorio"] = {
+                "itens": itens_relatorio,
+                "periodo": f"{data_inicio_lote.strftime('%d/%m/%Y')} a {data_fim_lote.strftime('%d/%m/%Y')}",
+                "qtd_missas": len(missas_lote),
+                "qtd_dias": qtd_dias_lote,
+                "carimbo": carimbo_execucao,
+                "dias_sem_missa": [d.strftime("%d/%m/%Y") for d in dias_sem_missa_lote],
+                "missas": [f"{d.strftime('%d/%m/%Y')} às {h}" for d, h in missas_lote],
+            }
+            st.session_state["lote_limpar_keys"] = chaves_para_limpar
+            st.session_state["lote_confirmando"] = False
+            st.rerun()
 
 elif st.session_state.pagina == "ver_intencoes":
     st.subheader("Intenções da Santa Missa")
