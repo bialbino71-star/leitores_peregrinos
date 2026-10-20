@@ -1318,11 +1318,15 @@ if st.session_state.pagina == "home":
 
 # 3. Menu de Botões Nativo, em coluna única (container com key="menu_grid" gera a classe .st-key-menu_grid usada no CSS acima)
 # O botão "Sair" fica por último, dentro do próprio menu.
-# Perfil "5" (Acolhida) só tem acesso a Coletar Intenções e Ver Intenções.
+# "Coletar Intenções": SOMENTE o ADM (perfil 3).
+# "Ver Intenções": ADM e Secretaria.
+# Perfil "5" tem menu restrito: só "Ver Intenções" e "Intenções em Lote" (Secretaria) e "Sair".
+pode_coletar_intencoes = (st.session_state.user_profile == "3")
+pode_ver_intencoes = pode_coletar_intencoes or eh_secretaria
 with st.container(key="menu_grid"):
     if st.session_state.user_profile == "5":
-        st.button("Coletar Intenções", key="menu_coletar_intencoes", on_click=navegar_para, args=("coletar_intencoes",), use_container_width=True)
-        st.button("Ver Intenções", key="menu_intencoes", on_click=navegar_para, args=("ver_intencoes",), use_container_width=True)
+        if pode_ver_intencoes:
+            st.button("Ver Intenções", key="menu_intencoes", on_click=navegar_para, args=("ver_intencoes",), use_container_width=True)
         if pode_lote_intencoes:
             st.button("Intenções em Lote", key="menu_intencoes_lote", on_click=navegar_para, args=("intencoes_lote",), use_container_width=True)
     else:
@@ -1330,8 +1334,10 @@ with st.container(key="menu_grid"):
         st.button("Minha Escala", key="menu_minha", on_click=navegar_para, args=("minha_escala",), use_container_width=True)
         st.button("Exibir Escala (PDF)", key="menu_pdf", on_click=navegar_para, args=("exibir_escala",), use_container_width=True)
         st.button("Aguardando Leitores", key="menu_vagas", on_click=navegar_para, args=("aguardando",), use_container_width=True)
-        st.button("Coletar Intenções", key="menu_coletar_intencoes", on_click=navegar_para, args=("coletar_intencoes",), use_container_width=True)
-        st.button("Ver Intenções", key="menu_intencoes", on_click=navegar_para, args=("ver_intencoes",), use_container_width=True)
+        if pode_coletar_intencoes:
+            st.button("Coletar Intenções", key="menu_coletar_intencoes", on_click=navegar_para, args=("coletar_intencoes",), use_container_width=True)
+        if pode_ver_intencoes:
+            st.button("Ver Intenções", key="menu_intencoes", on_click=navegar_para, args=("ver_intencoes",), use_container_width=True)
         st.link_button("Liturgia Diária", "https://liturgia.cancaonova.com/pb/", use_container_width=True)
         if pode_lote_intencoes:
             st.button("Intenções em Lote", key="menu_intencoes_lote", on_click=navegar_para, args=("intencoes_lote",), use_container_width=True)
@@ -1343,8 +1349,15 @@ with st.container(key="menu_grid"):
 
 # Proteção extra: se por algum motivo o perfil 5 (Acolhida) estiver numa página que não é permitida
 # para ele (ex: sessão antiga), volta para o menu principal.
-paginas_permitidas_perfil5 = ("home", "ver_intencoes", "coletar_intencoes") + (("intencoes_lote",) if pode_lote_intencoes else ())
+paginas_permitidas_perfil5 = (("home",)
+                              + (("ver_intencoes",) if pode_ver_intencoes else ())
+                              + (("intencoes_lote",) if pode_lote_intencoes else ()))
 if st.session_state.user_profile == "5" and st.session_state.pagina not in paginas_permitidas_perfil5:
+    st.session_state.pagina = "home"
+# Sessão antiga numa tela sem permissão: Coletar Intenções só ADM; Ver Intenções só ADM e Secretaria.
+if not pode_coletar_intencoes and st.session_state.pagina == "coletar_intencoes":
+    st.session_state.pagina = "home"
+if not pode_ver_intencoes and st.session_state.pagina == "ver_intencoes":
     st.session_state.pagina = "home"
 
 
