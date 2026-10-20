@@ -1318,33 +1318,28 @@ if st.session_state.pagina == "home":
 
 # 3. Menu de Botões Nativo, em coluna única (container com key="menu_grid" gera a classe .st-key-menu_grid usada no CSS acima)
 # O botão "Sair" fica por último, dentro do próprio menu.
-# "Coletar Intenções": SOMENTE o ADM (perfil 3).
-# "Ver Intenções": ADM e Secretaria.
-# Perfil "5" tem menu restrito: só "Ver Intenções" e "Intenções em Lote" (Secretaria) e "Sair".
+# Para o ADM (perfil 3), "Coletar Intenções", "Ver Intenções", "Intenções em Lote" e
+# "Lotes de Intenções" ficam dentro do "Menu ADM" (tela gestao_usuarios), não no menu principal.
+# A Secretaria não tem acesso ao Menu ADM, então mantém "Ver Intenções" no menu principal.
+# Perfil "5" tem menu restrito: só "Ver Intenções" (Secretaria) e "Sair".
 pode_coletar_intencoes = (st.session_state.user_profile == "3")
 pode_ver_intencoes = pode_coletar_intencoes or eh_secretaria
+ver_intencoes_no_menu_principal = eh_secretaria and not pode_coletar_intencoes
 with st.container(key="menu_grid"):
     if st.session_state.user_profile == "5":
-        if pode_ver_intencoes:
+        if ver_intencoes_no_menu_principal:
             st.button("Ver Intenções", key="menu_intencoes", on_click=navegar_para, args=("ver_intencoes",), use_container_width=True)
-        if pode_lote_intencoes:
-            st.button("Intenções em Lote", key="menu_intencoes_lote", on_click=navegar_para, args=("intencoes_lote",), use_container_width=True)
     else:
         st.button("Escala Geral", key="menu_geral", on_click=navegar_para, args=("escala_geral",), use_container_width=True)
         st.button("Minha Escala", key="menu_minha", on_click=navegar_para, args=("minha_escala",), use_container_width=True)
         st.button("Exibir Escala (PDF)", key="menu_pdf", on_click=navegar_para, args=("exibir_escala",), use_container_width=True)
         st.button("Aguardando Leitores", key="menu_vagas", on_click=navegar_para, args=("aguardando",), use_container_width=True)
-        if pode_coletar_intencoes:
-            st.button("Coletar Intenções", key="menu_coletar_intencoes", on_click=navegar_para, args=("coletar_intencoes",), use_container_width=True)
-        if pode_ver_intencoes:
+        if ver_intencoes_no_menu_principal:
             st.button("Ver Intenções", key="menu_intencoes", on_click=navegar_para, args=("ver_intencoes",), use_container_width=True)
         st.link_button("Liturgia Diária", "https://liturgia.cancaonova.com/pb/", use_container_width=True)
-        if pode_lote_intencoes:
-            st.button("Intenções em Lote", key="menu_intencoes_lote", on_click=navegar_para, args=("intencoes_lote",), use_container_width=True)
         if st.session_state.user_profile == "3":
-            st.button("Lotes de Intenções", key="menu_lotes_intencoes", on_click=navegar_para, args=("lotes_intencoes",), use_container_width=True)
             st.button("Roteiro", key="menu_roteiro", on_click=navegar_para, args=("cadastrar_roteiro",), use_container_width=True)
-            st.button("Gestão de Usuários", key="menu_gestao_usuarios", on_click=navegar_para, args=("gestao_usuarios",), use_container_width=True)
+            st.button("Menu ADM", key="menu_gestao_usuarios", on_click=navegar_para, args=("gestao_usuarios",), use_container_width=True)
     st.button("🚪 Sair", key="btn_logout_definitivo", on_click=efetuar_logout, use_container_width=True)
 
 # Proteção extra: se por algum motivo o perfil 5 (Acolhida) estiver numa página que não é permitida
@@ -1779,10 +1774,20 @@ elif st.session_state.pagina == "cadastrar_roteiro":
                         st.error("Não foi possível encontrar esse roteiro para remover.")
 
 elif st.session_state.pagina == "gestao_usuarios":
-    st.subheader("Gestão de Usuários")
+    st.subheader("Menu ADM")
     if st.session_state.user_profile != "3":
         st.error("Apenas o ADM pode acessar esta tela.")
     else:
+        # Atalhos para as telas de intenções (antes ficavam no menu principal).
+        st.markdown("**Intenções**")
+        with st.container(key="menu_adm_intencoes"):
+            col_adm_1, col_adm_2 = st.columns(2)
+            col_adm_1.button("Coletar Intenções", key="adm_coletar_intencoes", on_click=navegar_para, args=("coletar_intencoes",), use_container_width=True)
+            col_adm_2.button("Ver Intenções", key="adm_ver_intencoes", on_click=navegar_para, args=("ver_intencoes",), use_container_width=True)
+            col_adm_1.button("Intenções em Lote", key="adm_intencoes_lote", on_click=navegar_para, args=("intencoes_lote",), use_container_width=True)
+            col_adm_2.button("Lotes de Intenções", key="adm_lotes_intencoes", on_click=navegar_para, args=("lotes_intencoes",), use_container_width=True)
+        st.markdown("---")
+        st.markdown("**Gestão de Usuários**")
         aba_bloqueio, aba_mensagem, aba_suspensao, aba_sem_escala, aba_trava = st.tabs(["Bloquear/Desbloquear", "Inserir Mensagem", "Suspensão de Leitor", "Quem Não Serviu", "Trava de Escala"])
 
         with aba_bloqueio:
