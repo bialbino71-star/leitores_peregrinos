@@ -1298,10 +1298,10 @@ elif st.session_state.user_profile == "3":
 elif st.session_state.user_profile == "5":
     perfil_texto = "ACOLHIDA"
 
-# Secretaria (ID 98): mantém o acesso que já tinha e ganha "Intenções em Lote", que é
-# liberado só para ADM e Secretaria.
+# Secretaria (ID 98): reconhecida pelo ID/perfil; tem "Ver Intenções", mas NÃO tem "Intenções em Lote"
+# (o lançamento em lote é exclusivo do ADM).
 eh_secretaria = usuario_e_secretaria(st.session_state.user_profile, st.session_state.get("user_id", ""))
-pode_lote_intencoes = (st.session_state.user_profile == "3") or eh_secretaria
+pode_lote_intencoes = (st.session_state.user_profile == "3")
 if eh_secretaria and st.session_state.user_profile != "3":
     perfil_texto = "SECRETARIA"
 
@@ -2009,7 +2009,7 @@ elif st.session_state.pagina == "exibir_escala":
         class PDF(FPDF):
             def header(self):
                 self.set_font('Arial', 'B', 14)
-                self.cell(190, 10, 'Escala Geral do Mes', 0, 1, 'C')
+                self.cell(190, 10, 'Escala Geral do Mes', 0, 1, 'L')
                 self.ln(5)
             def footer(self):
                 self.set_y(-15)
@@ -2160,7 +2160,7 @@ elif st.session_state.pagina == "intencoes_lote":
     st.subheader("Intenções em Lote")
 
     if not pode_lote_intencoes:
-        st.error("Esta funcionalidade é exclusiva dos perfis ADM e Secretaria.")
+        st.error("Esta funcionalidade é exclusiva do perfil ADM.")
         st.stop()
 
     st.write("Insira a mesma intenção em **todas as missas de um período**, de uma só vez. "
