@@ -942,12 +942,13 @@ VISUALIZADOR_PDF_HTML = """
         <span id="indicador-pagina" style="color:#5C3A21; font-weight:700;">Carregando...</span>
         <button id="btn-proxima" style="background:#0D1B2A; color:#FFFFFF; border:3px solid #8C6D4F; border-radius:18px; padding:8px 16px; font-weight:700; cursor:pointer;">Próxima ▶</button>
     </div>
-    <div style="text-align:center; overflow:auto; max-height:65vh; background:#FEFAE0; border:3.5px solid #8C6D4F; border-radius:12px; padding:8px;">
-        <canvas id="canvas-pdf" style="max-width:100%;"></canvas>
+    <div id="caixa-pdf" style="text-align:center; overflow:auto; height:calc(100vh - 150px); min-height:480px; background:#FEFAE0; border:3.5px solid #8C6D4F; border-radius:12px; padding:8px; box-sizing:border-box;">
+        <canvas id="canvas-pdf"></canvas>
     </div>
-    <button id="btn-imprimir" style="display:block; width:100%; margin-top:10px; background:#0D1B2A; color:#FFFFFF; border:3.5px solid #8C6D4F; border-radius:24px; padding:12px 6px; font-size:18px; font-weight:700; cursor:pointer;">
-        🖨️ Imprimir
-    </button>
+    <div style="display:flex; gap:8px; margin-top:10px;">
+        <button id="btn-tela-cheia" style="flex:1; background:#0D1B2A; color:#FFFFFF; border:3.5px solid #8C6D4F; border-radius:24px; padding:12px 6px; font-size:18px; font-weight:700; cursor:pointer;">⛶ Tela cheia</button>
+        <button id="btn-imprimir" style="flex:1; background:#0D1B2A; color:#FFFFFF; border:3.5px solid #8C6D4F; border-radius:24px; padding:12px 6px; font-size:18px; font-weight:700; cursor:pointer;">🖨️ Imprimir</button>
+    </div>
 </div>
 <div id="area-impressao" style="display:none;"></div>
 <style>
@@ -967,19 +968,66 @@ VISUALIZADOR_PDF_HTML = """
     var paginaAtual = 1;
     function renderizarPagina(num) {
         pdfDoc.getPage(num).then(function(page) {
-            var viewport = page.getViewport({scale: 1.4});
+            // Ajusta a página à largura disponível (maximiza o texto) e renderiza nítido em telas de alta densidade.
+            var caixa = document.getElementById('caixa-pdf');
+            var larguraDisponivel = Math.max(caixa.clientWidth - 20, 200);
+            var base = page.getViewport({scale: 1});
+            var escala = larguraDisponivel / base.width;
+            var dpr = window.devicePixelRatio || 1;
+            var viewport = page.getViewport({scale: escala * dpr});
             var canvas = document.getElementById('canvas-pdf');
             var ctx = canvas.getContext('2d');
             canvas.width = viewport.width;
             canvas.height = viewport.height;
+            canvas.style.width = (viewport.width / dpr) + 'px';
+            canvas.style.height = (viewport.height / dpr) + 'px';
             page.render({canvasContext: ctx, viewport: viewport});
+            caixa.scrollTop = 0;
             document.getElementById('indicador-pagina').textContent = 'Página ' + num + ' de ' + pdfDoc.numPages;
         });
     }
     pdfjsLib.getDocument({data: bytesArray}).promise.then(function(doc) {
         pdfDoc = doc;
         renderizarPagina(1);
+        // Ao abrir, rola a tela até o visualizador.
+        try {
+            if (window.frameElement) { window.frameElement.scrollIntoView({behavior: "smooth", block: "start"}); }
+        } catch (e) {}
     });
+    // Tela cheia: tenta a API nativa; se o navegador/iframe não permitir, estica o próprio quadro do
+    // visualizador sobre a página inteira (modo "maximizado") e volta ao tamanho normal no segundo toque.
+    var estiloOriginalQuadro = null;
+    function alternarMaximizado() {
+        var quadro = window.frameElement;
+        if (!quadro) return;
+        if (estiloOriginalQuadro === null) {
+            estiloOriginalQuadro = quadro.getAttribute('style') || '';
+            quadro.setAttribute('style', estiloOriginalQuadro + ';position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:999999;background:#FFFFFF;');
+            document.getElementById('btn-tela-cheia').textContent = '✖ Sair da tela cheia';
+        } else {
+            quadro.setAttribute('style', estiloOriginalQuadro);
+            estiloOriginalQuadro = null;
+            document.getElementById('btn-tela-cheia').textContent = '⛶ Tela cheia';
+        }
+        setTimeout(function() { if (pdfDoc) { renderizarPagina(paginaAtual); } }, 200);
+    }
+    document.getElementById('btn-tela-cheia').addEventListener('click', function() {
+        var el = document.getElementById('visualizador-pdf-conteudo-normal');
+        if (document.fullscreenElement) { document.exitFullscreen(); return; }
+        if (estiloOriginalQuadro !== null) { alternarMaximizado(); return; }
+        if (el.requestFullscreen) {
+            el.requestFullscreen().catch(function() { alternarMaximizado(); });
+        } else {
+            alternarMaximizado();
+        }
+    });
+    document.addEventListener('fullscreenchange', function() {
+        var el = document.getElementById('visualizador-pdf-conteudo-normal');
+        el.style.background = document.fullscreenElement ? '#FFFFFF' : '';
+        el.style.padding = document.fullscreenElement ? '10px' : '';
+        if (pdfDoc) { setTimeout(function() { renderizarPagina(paginaAtual); }, 150); }
+    });
+    window.addEventListener('resize', function() { if (pdfDoc) { renderizarPagina(paginaAtual); } });
     document.getElementById('btn-anterior').addEventListener('click', function() {
         if (!pdfDoc || paginaAtual <= 1) return;
         paginaAtual--; renderizarPagina(paginaAtual);
@@ -1013,7 +1061,7 @@ VISUALIZADOR_PDF_HTML = """
 def exibir_pdf_manual(pdf_bytes, nome_arquivo, chave, local_download=None):
     """Mesmo visualizador das Intenções (PDF.js: página a página + Imprimir) e botão nativo de download.
     local_download: coluna/contêiner onde o botão "Baixar PDF" aparece (padrão: logo abaixo do visualizador)."""
-    components.html(VISUALIZADOR_PDF_HTML.replace("__B64__", base64.b64encode(pdf_bytes).decode("utf-8")), height=750)
+    components.html(VISUALIZADOR_PDF_HTML.replace("__B64__", base64.b64encode(pdf_bytes).decode("utf-8")), height=820)
     parametros = dict(label="⬇️ Baixar PDF", data=pdf_bytes, file_name=nome_arquivo,
                       mime="application/pdf", key=chave, use_container_width=True)
     alvo = local_download if local_download is not None else st
