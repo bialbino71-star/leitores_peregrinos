@@ -1010,15 +1010,17 @@ VISUALIZADOR_PDF_HTML = """
 </script>
 """
 
-def exibir_pdf_manual(pdf_bytes, nome_arquivo, chave):
-    """Mesmo visualizador das Intenções (PDF.js: página a página + Imprimir) e botão nativo de download."""
+def exibir_pdf_manual(pdf_bytes, nome_arquivo, chave, local_download=None):
+    """Mesmo visualizador das Intenções (PDF.js: página a página + Imprimir) e botão nativo de download.
+    local_download: coluna/contêiner onde o botão "Baixar PDF" aparece (padrão: logo abaixo do visualizador)."""
     components.html(VISUALIZADOR_PDF_HTML.replace("__B64__", base64.b64encode(pdf_bytes).decode("utf-8")), height=750)
     parametros = dict(label="⬇️ Baixar PDF", data=pdf_bytes, file_name=nome_arquivo,
-                      mime="application/pdf", key=chave)
+                      mime="application/pdf", key=chave, use_container_width=True)
+    alvo = local_download if local_download is not None else st
     try:
-        st.download_button(on_click="ignore", **parametros)
+        alvo.download_button(on_click="ignore", **parametros)
     except TypeError:
-        st.download_button(**parametros)
+        alvo.download_button(**parametros)
 
 @st.cache_data(ttl=60)
 def obter_roteiros():
@@ -2176,7 +2178,11 @@ elif st.session_state.pagina == "gestao_usuarios":
                             st.rerun()
 
 elif st.session_state.pagina == "orientacoes":
-    st.subheader("Orientações para os leitores")
+    try:
+        col_titulo_ori, col_baixar_ori = st.columns([3, 2], vertical_alignment="center")
+    except TypeError:  # Streamlit antigo, sem alinhamento vertical
+        col_titulo_ori, col_baixar_ori = st.columns([3, 2])
+    col_titulo_ori.subheader("Orientações para os leitores")
     st.caption("Manual de boas práticas")
     manuais_lista = obter_manuais()
     if not manuais_lista:
@@ -2193,7 +2199,7 @@ elif st.session_state.pagina == "orientacoes":
             with st.spinner("Carregando o PDF..."):
                 pdf_manual = baixar_pdf_manual(manual_atual["LINK"])
             nome_pdf = re.sub(r"[^A-Za-z0-9_-]+", "_", manual_atual["TITULO"]).strip("_") or "orientacoes"
-            exibir_pdf_manual(pdf_manual, nome_pdf + ".pdf", "baixar_pdf_orientacao")
+            exibir_pdf_manual(pdf_manual, nome_pdf + ".pdf", "baixar_pdf_orientacao", local_download=col_baixar_ori)
         except ValueError as erro_pdf:
             st.error(str(erro_pdf))
 
