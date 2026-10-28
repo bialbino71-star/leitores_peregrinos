@@ -1,0 +1,398 @@
+<title>Orientações para os Leitores</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@500;700;800&family=Literata:ital,opsz,wght@0,7..72,400;0,7..72,600;1,7..72,400&display=swap">
+<style>
+  /* Layout: coluna única de leitura para celular; títulos de seção fortes, citações e listas destacadas. */
+  :root {
+    --bg: #F4F6F9;
+    --surface: #FFFFFF;
+    --ink: #151B26;
+    --muted: #4B5565;
+    --navy: #0D1B2A;
+    --bronze: #8C6D4F;
+    --bronze-soft: #EFE6DC;
+    --line: #D9DEE6;
+    --on-navy: #FFFFFF;
+    --fs: 19px;
+    --serif: "Literata", Georgia, "Times New Roman", serif;
+    --sans: "Libre Franklin", system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+  }
+
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--serif);
+    font-size: var(--fs);
+    line-height: 1.75;
+    padding-block: 0 24px;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+  }
+  .wrap { max-width: 40rem; margin-inline: auto; }
+
+  /* Cabeçalho */
+  .capa {
+    background: var(--navy);
+    color: var(--on-navy);
+    margin-inline: calc(-1 * max(16px, env(safe-area-inset-left, 0px)));
+    padding: 36px max(20px, env(safe-area-inset-left, 0px)) 30px;
+  }
+  .capa .wrap { max-width: 40rem; }
+  .igreja {
+    font-family: var(--sans); font-weight: 700; font-size: .72rem; letter-spacing: .16em;
+    text-transform: uppercase; color: #D9BE9C; margin: 0 0 14px;
+  }
+  .capa h1 {
+    font-family: var(--sans); font-weight: 800; font-size: 2.05rem; line-height: 1.12;
+    margin: 0 0 14px; text-wrap: balance; letter-spacing: -.01em;
+  }
+  .capa p.sub { margin: 0; font-size: .95rem; line-height: 1.55; color: #C9D2E0; }
+
+  /* Ferramentas */
+  .ferramentas {
+    
+    display: flex; gap: 8px; align-items: center; justify-content: space-between;
+    background: var(--bg); padding: 10px 0; border-bottom: 1px solid var(--line);
+    margin-inline: calc(-1 * max(16px, env(safe-area-inset-left, 0px)));
+    padding-inline: max(16px, env(safe-area-inset-left, 0px));
+    font-family: var(--sans);
+  }
+  .ferramentas span { font-size: .8rem; font-weight: 700; color: var(--muted); letter-spacing: .04em; text-transform: uppercase; }
+  .tamanhos { display: flex; gap: 6px; }
+  .tamanhos button {
+    font-family: var(--sans); font-weight: 700; cursor: pointer; min-width: 48px; min-height: 44px;
+    border: 2px solid var(--bronze); background: var(--surface); color: var(--ink); border-radius: 12px;
+    line-height: 1;
+  }
+  .tamanhos button[aria-pressed="true"] { background: var(--navy); color: var(--on-navy); border-color: var(--navy); }
+  .tamanhos button:focus-visible, summary:focus-visible, a:focus-visible { outline: 3px solid var(--bronze); outline-offset: 2px; }
+  .tamanhos .t1 { font-size: 14px; } .tamanhos .t2 { font-size: 17px; } .tamanhos .t3 { font-size: 21px; }
+
+  /* Índice */
+  details.indice { margin: 22px 0 8px; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; }
+  details.indice summary {
+    font-family: var(--sans); font-weight: 700; font-size: 1rem; padding: 14px 16px; cursor: pointer; min-height: 48px;
+    list-style: none; display: flex; justify-content: space-between; align-items: center;
+  }
+  details.indice summary::-webkit-details-marker { display: none; }
+  details.indice summary::after { content: "+"; font-size: 1.4rem; color: var(--bronze); }
+  details.indice[open] summary::after { content: "–"; }
+  details.indice ol { margin: 0; padding: 0 16px 12px; list-style: none; }
+  details.indice li a {
+    display: block; padding: 11px 0; font-family: var(--sans); font-size: .95rem; font-weight: 500;
+    color: var(--ink); text-decoration: none; border-top: 1px solid var(--line); line-height: 1.35;
+  }
+
+  /* Texto */
+  h2 {
+    font-family: var(--sans); font-weight: 800; font-size: 1.55rem; line-height: 1.2; letter-spacing: -.005em;
+    margin: 56px 0 6px; padding-top: 18px; border-top: 4px solid var(--bronze); text-wrap: balance;
+    scroll-margin-top: 12px;
+  }
+  h3 {
+    font-family: var(--sans); font-weight: 700; font-size: 1.12rem; line-height: 1.3; color: var(--bronze);
+    margin: 30px 0 4px; text-wrap: balance;
+  }
+  p { margin: 1.05em 0; }
+  .abertura { font-size: 1.12rem; font-weight: 600; }
+  .destaque {
+    font-family: var(--sans); font-weight: 700; font-size: 1.12rem; line-height: 1.45; color: var(--ink);
+    background: var(--bronze-soft); border-radius: 14px; padding: 16px 18px; margin: 1.4em 0;
+  }
+  blockquote {
+    margin: 1.3em 0; padding: 4px 0 4px 18px; border-left: 4px solid var(--bronze); font-style: italic;
+  }
+  blockquote p { margin: .7em 0; }
+  strong { font-weight: 600; }
+
+  /* Quatro vozes */
+  .vozes { display: grid; gap: 12px; margin: 1.3em 0; padding: 0; list-style: none; }
+  .vozes li { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; }
+  .vozes b { display: block; font-family: var(--sans); font-size: 1.05rem; margin-bottom: 2px; }
+  .vozes i { font-style: normal; display: inline-block; width: 12px; height: 12px; border-radius: 50%; margin-right: 8px; }
+  .v-ouro i { background: #D4A72C; } .v-prata i { background: #9AA5B4; } .v-bronze i { background: #A8672F; } .v-veludo i { background: #7A2E4A; }
+  .vozes span { font-size: .96rem; line-height: 1.55; }
+
+  /* Nove conselhos */
+  ol.conselhos { list-style: none; margin: 1.2em 0; padding: 0; counter-reset: c; display: grid; gap: 14px; }
+  ol.conselhos > li {
+    counter-increment: c; background: var(--surface); border: 1px solid var(--line); border-radius: 16px;
+    padding: 16px 16px 14px 70px; position: relative; min-width: 0;
+  }
+  ol.conselhos > li::before {
+    content: counter(c); position: absolute; left: 14px; top: 14px; width: 42px; height: 42px; border-radius: 50%;
+    background: var(--navy); color: var(--on-navy); font-family: var(--sans); font-weight: 800; font-size: 1.15rem;
+    display: grid; place-items: center;
+  }
+  ol.conselhos h3 { margin: 0 0 2px; color: var(--ink); font-size: 1.08rem; padding-top: 8px; }
+  ol.conselhos p { margin: .5em 0 0; font-size: .96rem; line-height: 1.65; }
+
+  /* Questões práticas */
+  ul.praticas { list-style: none; margin: 1.2em 0; padding: 0; display: grid; gap: 12px; }
+  ul.praticas li {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px 14px 48px;
+    position: relative; font-size: .98rem; line-height: 1.65;
+  }
+  ul.praticas li::before {
+    content: ""; position: absolute; left: 16px; top: 22px; width: 14px; height: 14px; border-radius: 4px; border: 3px solid var(--bronze);
+  }
+  ul.praticas li.alerta { background: var(--bronze-soft); border-color: var(--bronze); font-weight: 600; }
+
+  .assinatura { margin-top: 2.2em; font-family: var(--sans); font-weight: 700; }
+  .assinatura small { display: block; font-weight: 500; color: var(--muted); font-size: .92rem; }
+  footer.rodape {
+    margin-top: 44px; padding-top: 18px; border-top: 1px solid var(--line); font-family: var(--sans);
+    font-size: .82rem; line-height: 1.55; color: var(--muted);
+  }
+  footer.rodape b { color: var(--ink); letter-spacing: .06em; text-transform: uppercase; font-size: .76rem; }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+</style>
+
+<header class="capa">
+  <div class="wrap">
+    <p class="igreja">Igreja São Peregrino · Ordem dos Servos de Maria</p>
+    <h1>Orientações para os Leitores</h1>
+    <p class="sub">Manual de boas práticas para quem serve a Palavra na missa.</p>
+  </div>
+</header>
+
+<div class="ferramentas" role="group" aria-label="Tamanho da letra">
+  <span>Tamanho da letra</span>
+  <div class="tamanhos">
+    <button type="button" class="t1" data-fs="17" aria-label="Letra menor" aria-pressed="false">A</button>
+    <button type="button" class="t2" data-fs="19" aria-label="Letra média" aria-pressed="true">A</button>
+    <button type="button" class="t3" data-fs="22" aria-label="Letra maior" aria-pressed="false">A</button>
+  </div>
+</div>
+
+<main class="wrap">
+
+  <details class="indice">
+    <summary>Índice</summary>
+    <ol>
+      <li><a href="#servo">Prezado servo da Leitura</a></li>
+      <li><a href="#proclamar">Fazer a leitura ou proclamar a Palavra?</a></li>
+      <li><a href="#labios">Proclamar com os lábios e com o coração</a></li>
+      <li><a href="#preparar">Como preparar uma leitura?</a></li>
+      <li><a href="#como">Como proclamar uma leitura?</a></li>
+      <li><a href="#voz">A voz do leitor</a></li>
+      <li><a href="#postura">Postura diante da assembleia</a></li>
+      <li><a href="#vestuario">Vestuário</a></li>
+      <li><a href="#conselhos">Conselhos para o bom leitor</a></li>
+      <li><a href="#praticas">Questões práticas na Igreja São Peregrino</a></li>
+    </ol>
+  </details>
+
+  <section id="servo">
+    <h2>Prezado servo da Leitura</h2>
+    <p class="abertura">Deus seja louvado pelo dom que você tem de se comunicar e de levar a Palavra de Deus aos que vêm à Casa de Deus.</p>
+    <p>Primeiramente, muito obrigado pelo seu serviço generoso que você exerce em nossa comunidade de São Peregrino. Aproveito para compartilhar algumas informações e orientações sobre a Acolhida.</p>
+    <p>Como Leitor católico, é importante ter em mente alguns princípios e valores na arte de proclamar a Palavra e ajudar na boa participação da Missa. Aqui estão algumas orientações:</p>
+    <p>Dentro do conjunto dos ministérios litúrgicos na Igreja, o leitor tem uma importância fundamental, pois ele é incumbido de proclamar para os irmãos reunidos em assembleia litúrgica a Palavra de Deus. Por meio de sua voz, Deus comunica com o seu povo.</p>
+    <p class="destaque">Ser leitor na Igreja é um serviço: serviço à Palavra e serviço à comunhão eclesial.</p>
+    <p>A Palavra de Deus faz parte essencial da vida da Igreja. Pela sua proclamação Cristo torna-se presente (cf. SC 7 – Constituição sobre a Sagrada Escritura do Concílio Vaticano II). A Palavra desperta para a fé e alimenta a fé. Por ela, Deus faz-se ouvir aos homens em ordem à salvação. Mas, normalmente, Deus serve-Se da proclamação para a fazer ouvir. E quem a proclama é o leitor.</p>
+    <p>O leitor serve a Palavra. Para isso, terá de alimentar-se da Palavra. Mas o leitor serve também a comunidade, da qual faz parte, na qual se integra e à qual proclama a Palavra. Pela Palavra é que a comunidade se reúne em assembleia. O leitor faz a mediação entre a Palavra e a assembleia. Ao proclamar a Palavra, o leitor torna-a viva, comunicativa e interpelante.</p>
+    <p>Parafraseando Santo Agostinho, diria que o leitor é a voz pela qual a Palavra se comunica. O leitor não é tudo na Igreja, mas é um seu servidor. E é no seu interior que ele exerce o seu próprio ministério.</p>
+  </section>
+
+  <section id="proclamar">
+    <h2>Fazer a leitura ou proclamar a Palavra?</h2>
+    <p>Geralmente, quem aborda uma pessoa para ser leitor ou leitora diz o seguinte: “pode fazer a leitura hoje?” Fazer uma leitura assim, até que é relativamente fácil, isto é, se não houver palavras complicadas no texto e se o leitor tiver um mínimo de prática, poderá sair-se bem. Acontece que na liturgia não se trata de fazer a leitura, simplesmente: trata-se de <strong>proclamar a Palavra</strong>.</p>
+
+    <h3>Qual é a diferença?</h3>
+    <p><strong>Fazer a leitura</strong> significa ir lá à frente, ler o que está escrito, para informação minha e da comunidade, ou, no pior dos casos, é apenas uma formalidade: celebração supõe leitura, alguém deve fazê-la, pouco importa se os presentes entenderam o que foi dito ou se foram atingidos pelo que ouviram.</p>
+    <p class="destaque">Proclamar a Palavra é um gesto sacramental. É quando me coloco ao serviço de Jesus Cristo que, através da minha leitura, da minha voz, da minha comunicação, quer falar pessoalmente com o seu povo reunido.</p>
+    <p>Leitura não é aula, não é informação, não é noticiário… Leitura é Jesus Cristo presente com o seu Espírito, falando na comunidade, anunciando o reino, denunciando as injustiças, convocando a comunidade, convidando-a para a renovação da aliança, da conversão, da esperança, da ação, purificando e transformando-nos. Por isso, alguém da comunidade é chamado a ser ministro, servidor desta Palavra.</p>
+    <p>Não é só pelo conteúdo da leitura, mas por todo o seu modo de ser e de falar, de olhar e de se movimentar, que o leitor ou a leitora deverão ser, no meio da comunidade, sinais vivos do Cristo-Palavra e do seu Espírito.</p>
+    <p>É evidente que o leitor deverá ler e meditar a leitura em casa, durante a semana, para poder ser ministro da Palavra. O leitor deverá “assumir” as atitudes e a forma de viver de Cristo, a quem empresta sua voz e o seu jeito de comunicar.</p>
+    <p>O leitor é também ouvinte, porque, enquanto ele proclama a Palavra, ele também presta atenção, com toda a comunidade, para tentar perceber o que o Espírito quer dizer à Igreja naquele dia.</p>
+  </section>
+
+  <section id="labios">
+    <h2>Proclamar com os lábios e com o coração</h2>
+    <p>O Missal Romano prevê um pequeno gesto feito em silêncio, que pode mostrar-nos claramente como deve ser a atitude dos leitores. Antes de o diácono proclamar o Evangelho na missa, ele inclina-se diante do presidente da assembleia e pede a sua bênção; o presidente então diz:</p>
+    <blockquote><p>“O Senhor esteja no teu coração e nos teus lábios para que possas anunciar dignamente o seu Evangelho: em nome do Pai e do Filho e do Espírito Santo.”</p></blockquote>
+    <p>Quando é o próprio padre que faz a proclamação, ele inclina-se diante do altar e reza assim:</p>
+    <blockquote><p>“Deus todo-poderoso, purificai o meu coração e os meus lábios para que eu anuncie dignamente o vosso Santo Evangelho.”</p></blockquote>
+    <p>Todos os leitores poderiam inspirar-se nestes dois textos para a sua oração e atitude interior antes da proclamação da leitura. Os dois textos referem-se ao coração e aos lábios.</p>
+    <p><strong>Ao coração</strong>, porque é nele que acolhemos a Palavra e o Espírito do Senhor, que é Amor; esta proclamação deverá partir do coração.</p>
+    <p><strong>Aos lábios</strong>, porque são instrumento de comunicação. “Lábios” significam aqui todo esforço feito para que a palavra concebida no coração, sob a ação do Espírito, possa atingir o coração dos ouvintes, possa gerar neles a Palavra que quer fazer-se carne outra vez na nossa vida: ritmo, respiração, ênfase.</p>
+    <p>De fato, devemos deixar que o Senhor esteja presente neste processo de comunicação e, por isso, ele deverá ser realizado com toda a dedicação e unção possíveis. Também o olhar e a postura do corpo têm parte nesse processo de comunicação, e até mesmo o sistema de som.</p>
+  </section>
+
+  <section id="preparar">
+    <h2>Como preparar uma leitura?</h2>
+    <p>Para poder transmitir a Palavra de Deus contida na leitura e atingir com ela a assembleia ouvinte, é necessário que o leitor conheça e entenda aquilo que está a ler.</p>
+    <p>Primeiramente, o texto em si: saber em que circunstâncias foi escrito, a quem foi dirigido, quem fala e com que objetivo… Depois, saber o sentido do texto no conjunto da revelação e do mistério de Cristo, para que o texto se possa tornar uma Palavra de salvação para nós, hoje.</p>
+    <p>O leitor não pode ser daqueles que andam com um véu na frente dos olhos e do coração e, por isso, não compreendem as Escrituras (ler 2Cor 3,12-18). Um leitor que não entende aquilo que está a ler transmitirá dúvidas. Somente o leitor que conhece a leitura e acredita naquilo que lê será capaz de fazer da leitura um verdadeiro anúncio da Palavra. Por isso, os leitores devem ter a oportunidade de fazer cursos bíblicos e ter livros e revistas à disposição, que os ajudem nessa tarefa.</p>
+    <p>A Bíblia não é um livro de recreio, nem de cultura; é o livro da fé e oração do Povo de Deus para meditar e viver. Não deve ser lida como um romance, um compêndio de história ou um manual de filosofia. Sendo o livro do diálogo entre Deus e a humanidade, a oração é o ambiente mais apropriado para lermos, escutarmos e partilharmos a sua Palavra e continuarmos o diálogo com Ele.</p>
+    <p class="destaque">As leituras das celebrações de domingo merecem ser preparadas com muito gosto.</p>
+    <p>Se sabemos que nos caberá proclamar a leitura no domingo, podemos e devemos preparar-nos desde o início da semana, lendo e estudando, meditando e assimilando… recebendo esta Palavra como uma mensagem pessoal, antes de proclamá-la na comunidade.</p>
+    <p>Quem conhece o método da leitura orante da Bíblia, também chamada de <em>lectio divina</em>, poderá usá-lo nessa preparação, seguindo seus quatro passos: <strong>leitura, meditação, oração e contemplação</strong>.</p>
+  </section>
+
+  <section id="como">
+    <h2>Como proclamar uma leitura?</h2>
+    <p>Não basta ler, é preciso proclamar a leitura como Palavra de salvação, como Palavra que proclama o amor e a bondade de Deus; Palavra que liberta, dá vida e ressuscita. Como Palavra que nos corrige, nos “poda”, nos purifica; como Palavra que denuncia as injustiças e a maldade; que nos chama à conversão e à comunhão com Deus e com os irmãos.</p>
+
+    <h3>Para cada leitura, um tom diferente</h3>
+    <p>É muito comum os leitores usarem o mesmo tom para todas as leituras: um tom bem característico; em geral, bastante impessoal. No entanto, as leituras tiradas da Bíblia pertencem a gêneros diferentes. Às vezes trata-se da narração de um fato histórico, outras vezes de uma poesia ou de uma norma jurídica; às vezes é uma parábola, um ensinamento ou uma profecia, outras vezes é um hino, uma oração, um provérbio, uma carta, um diário de viagem etc.</p>
+    <p>Não se lê uma poesia como se fosse uma notícia de jornal; o tom do locutor que irradia o jogo de futebol é diferente do tom que usa o namorado para declarar o seu amor à sua namorada… Ou, passando para os exemplos da Bíblia: não podemos ler a Paixão de Jesus no mesmo tom que a pesca milagrosa ou o “Glória” dos anjos nos campos de Belém.</p>
+  </section>
+
+  <section id="voz">
+    <h2>A voz do leitor</h2>
+    <p class="destaque">A voz deve ser clara e firme. Deve acompanhar e expressar o momento vivido.</p>
+    <p>A voz de pedir perdão é diferente da voz que anuncia um Glória. A voz da Páscoa é alegre, a voz do perdão é sóbria. A voz do Glória é animada, a voz da meditação é carinhosa.</p>
+    <p>Quanto ao tom, podemos classificar a voz em quatro espécies:</p>
+    <ul class="vozes">
+      <li class="v-ouro"><b><i></i>Voz de ouro</b><span>Entusiasta, empolga, é alta e clara, leva o ouvinte a sentir pelo que anuncia (Glória, Páscoa, Aleluia).</span></li>
+      <li class="v-prata"><b><i></i>Voz de prata</b><span>É normal, descritiva, calma, carinhosa. Encaminha a meditação.</span></li>
+      <li class="v-bronze"><b><i></i>Voz de bronze</b><span>É misteriosa, sólida, sinistra: é a voz do perdão, da repreensão.</span></li>
+      <li class="v-veludo"><b><i></i>Voz de veludo</b><span>Misto de ouro e prata, voz de amor, do entendimento, do carinho.</span></li>
+    </ul>
+    <p>Na leitura, tudo deve ser bem pronunciado, bem articulado, observando as pausas, o ponto final, a exclamação, a interrogação, a entoação. Ao ler, é preciso ter em conta que o mais importante é não se precipitar.</p>
+    <h3>A maioria dos leitores corre demais</h3>
+    <p>Não se trata de acabar o mais rápido possível, mas de que a assembleia possa seguir inteiramente o que se lê. Por isso, é necessário prestar atenção aos sinais de trânsito da leitura: as vírgulas e os pontos.</p>
+    <p>As vírgulas são como o “sinal de aproximação de estrada com prioridade” (uma leve pausa), enquanto os pontos são como um “STOP” (pare por uns segundos). Nas pausas longas, o leitor pode e deve olhar por uns instantes para a assembleia a fim de criar proximidade.</p>
+    <p>A dicção é fundamental. O leitor deve olhar para a assembleia e dizer solenemente (tom proclamativo):</p>
+    <p class="destaque">“Palavra do Senhor.”</p>
+  </section>
+
+  <section id="postura">
+    <h2>Postura diante da assembleia</h2>
+    <p>Suba com tranquilidade, no momento de proclamar a leitura, ao ambão. Coloque-se em pé, com a cabeça erguida, as costas retas para poder respirar melhor, as mãos no ambão com o livro. Verifique o microfone, se está ligado e se está na altura e na distância certa. Tenha também cuidado no modo de segurar o microfone: segure na haste e não na cabeça, para evitar sons desagradáveis à assembleia.</p>
+    <p>Olhe para a assembleia, “reúna”, “chame” o povo com o olhar… Lance como que uma ponte até às últimas filas, estabeleça contato. Tudo isto em silêncio. Não se olha com cara feia: deixe que seu rosto exprima os sentimentos do Senhor Jesus para com o seu povo.</p>
+    <p>No final da leitura, aguarda-se a resposta da assembleia e, depois, tranquilamente, é que se deixa o ambão para voltar ao lugar.</p>
+  </section>
+
+  <section id="vestuario">
+    <h2>Vestuário</h2>
+    <p>As vestes devem ser decentes, discretas. Cuidado com roupas muito curtas, calças da “moda” rotas ou esburacadas, roupas espalhafatosas, excesso de joias…</p>
+    <p>Lembre-se: o que o leitor traz vestido pode ser um sério obstáculo para que os demais aceitem a mensagem da Palavra de Deus.</p>
+    <p class="destaque">Proclamar a Palavra na missa é uma honra, não um direito.</p>
+    <p>Não é um direito, mas um serviço em prol da assembleia litúrgica, que não pode ser exercido sem as devidas habilitações, pela honra de Deus, pelo respeito ao seu povo e pela própria eficácia da liturgia. Por isso também é que, na Igreja São Peregrino, adotamos o uso das capas.</p>
+  </section>
+
+  <section id="conselhos">
+    <h2>Conselhos para o bom leitor</h2>
+    <ol class="conselhos">
+      <li>
+        <h3>Ler a leitura antes</h3>
+        <p>Se puder ser, em voz alta e várias vezes. Lê-la para entender o seu sentido e para ver que entoação se deve dar a cada frase, quais são as frases que se devem ressaltar, onde estão os pontos e as vírgulas, em que palavras se poderá tropeçar etc.</p>
+      </li>
+      <li>
+        <h3>Estar preparado e aproximar-se do ambão no momento oportuno</h3>
+        <p>O primeiro leitor só deve deslocar-se para fazer a primeira leitura quando tiver terminado a oração Coleta, da qual faz parte o Amém da assembleia. Não é agradável, nem ajuda a celebração, vê-lo já a caminhar para o ambão quando o presidente ainda ora ao Pai, em nome e na pessoa de Cristo.</p>
+      </li>
+      <li>
+        <h3>Cuidar da posição do corpo diante do ambão</h3>
+        <p>Não se trata de adotar posturas rígidas, nem, pelo contrário, ler com as mãos nos bolsos ou atrás das costas ou com as pernas cruzadas.</p>
+      </li>
+      <li>
+        <h3>Colocar-se à distância adequada do microfone para que se ouça bem</h3>
+        <p>Por causa da distância, frequentemente, ouve-se mal. Orientamos o cuidado com o microfone sem fio, para não derrubar, e também quanto ao modo de segurá-lo. E lembrar-se de que os estampidos que acontecem ou os ruídos que se fazem diante do microfone são ampliados e causam incômodo aos ouvintes.</p>
+      </li>
+      <li>
+        <h3>Ler num ritmo adequado</h3>
+        <p>O principal defeito dos leitores costuma ser ler depressa. Se lermos depressa, as pessoas, com algum esforço, poderão conseguir entender-nos, mas aquilo que lemos não entrará no seu interior. Por outro lado, devagar demais pode causar distrações, especialmente em textos mais extensos. Além de ler devagar, há que manter um tom geral de calma.</p>
+        <p>Há que afastar o estilo do leitor que sobe à pressa, começa a leitura sem olhar as pessoas e, ao acabar, foge ainda mais depressa. Não deve ser assim: deve-se chegar ao ambão, respirar antes de começar a ler, ler fazendo pausas nas vírgulas e uma respiração completa em cada ponto, fazer uma pausa no final, antes de dizer “Palavra do Senhor”, escutar no ambão a resposta da assembleia e voltar ao lugar.</p>
+        <p>Aprender a ler sem pressa, com aprumo e segurança custa; por isso, é importante fazer os ensaios e provas que forem necessários: é a única maneira!</p>
+      </li>
+      <li>
+        <h3>Vocalizar</h3>
+        <p>Ou seja, remarcar cada sílaba, mover os lábios e a boca, não atropelar a leitura. Sem afetação nem teatro, mas recordando que se está “atuando” em público e que o público tem que captar tudo bem. E uma atuação em público é distinta de uma conversa na rua.</p>
+      </li>
+      <li>
+        <h3>Não baixar o tom nos finais de frase</h3>
+        <p>As últimas sílabas de cada frase têm que se ouvir tão bem como todas as restantes. Infelizmente, a tendência é baixar o tom nestas sílabas, tornando-as incompreensíveis.</p>
+      </li>
+      <li>
+        <h3>Procurar ler com a cabeça levantada</h3>
+        <p>O tom de voz será mais alto e, portanto, mais fácil de captar.</p>
+      </li>
+      <li>
+        <h3>Olhar a assembleia</h3>
+        <p>Antes de começar a leitura, olhar a assembleia. No final, dizer “Palavra do Senhor”, olhando a assembleia. E, ao longo da leitura, com naturalidade, olhar também de vez em quando. Estas olhadelas, no meio da leitura, não têm que se impor como um propósito, o que seria artificial. Mas, se saírem naturalmente, poderão ser úteis, especialmente nas frases mais relevantes: ajudam a acentuá-las, a criar um clima comunitário e a ler mais devagar.</p>
+      </li>
+      <li>
+        <h3>Como iniciar a leitura</h3>
+        <p>Você começa dizendo: “Leitura dos Atos dos Apóstolos”. Não precisa dizer capítulo e versículos, nem ler a epígrafe. Também não precisa dizer, por exemplo: Primeira Leitura, Segunda Leitura…</p>
+      </li>
+    </ol>
+  </section>
+
+  <section id="praticas">
+    <h2>Questões práticas para quem quer ser leitor na Igreja São Peregrino</h2>
+    <p>Nesse sentido, algumas orientações práticas se fazem também necessárias:</p>
+    <ul class="praticas">
+      <li>Ao chegar na Igreja (com antecedência), posicione-se próximo à Sacristia alguns minutos antes da missa para um momento de oração e para se organizar para a procissão de entrada. Aproveite para pegar a sua capa respectiva à leitura (<strong>azul para comentarista e branca para leitor</strong>).</li>
+      <li>Entrando com a procissão de entrada, posicione-se à frente do presbitério, junto com os ministros e toda a equipe de liturgia, para a reverência e, após o frei beijar o altar, coloque-se ainda de pé diante da sua cadeira, que estará próxima ao coral, salvo alguma exceção que será previamente avisada.</li>
+      <li>Quando for subir para fazer a leitura, a reverência deverá ser feita próxima ao ambão, <strong>em direção ao altar</strong>, e, após a leitura, prosseguir da mesma maneira.</li>
+      <li>Aqueles que farão a 1ª leitura deverão confirmar com os músicos a respeito do salmo assim que chegarem à Igreja, para saber se o salmo será cantado pelo grupo musical ou se será lido por você. De qualquer maneira, ele deverá ser preparado, lido e meditado, de forma que, se o salmo não for cantado, você já esteja bem preparado.</li>
+      <li class="alerta">Esteja atento à data da sua leitura na escala e, se não puder comparecer, avise no grupo com a maior antecedência possível para serem substituídos!</li>
+      <li>Como está sentado à frente e acaba sendo uma pessoa bastante visível, procure evitar gestos e atitudes que possam distrair a assembleia durante a celebração.</li>
+      <li>Após a Missa, o leitor e o comentarista devem sair junto da procissão para o “Bendigamos ao Senhor”, que será feito na porta da Igreja mesmo. Com essa oração, agradecemos a Deus pela celebração e pelo serviço de todos. Ali se encerra nossa missão naquele dia, não antes disso.</li>
+      <li>Devolver as capas (ou túnicas); não precisa levar para lavar, pois já foi acertado sobre isso com a zeladora da Igreja.</li>
+      <li>As mulheres, em especial, tomem cuidado com maquiagens fortes, para que não manchem essas capas. Embora tenhamos mais de um kit de capas, no final de semana temos três missas e às vezes a capa está suja na hora de colocar, o que é ruim.</li>
+    </ul>
+
+    <h3>A arte de falar em público requer aperfeiçoamento</h3>
+    <p>É possível trabalhar para superar o medo, os erros de leitura, os vícios de postura, a falta de comunicação.</p>
+    <p>Precisamos ter “a Palavra” como um tesouro, que necessita de constante polimento, de lapidação. Sempre é bom refletir: não falamos para nós mesmos, temos um público nos ouvindo. Temos a missão de passar a mensagem: “somos comunicadores do Reino de Deus”.</p>
+    <p class="destaque">Nosso triunfo principal é quando a palavra que anunciamos atinge o coração do ouvinte e se torna “semente plantada”.</p>
+    <p>Liturgia se faz com palavras e ações, gestos, ritos e símbolos. Liturgia se faz com sinais sensíveis.</p>
+    <p class="assinatura">Com carinho e bênçãos,<br>Frei Rinaldo, osm<small>Igreja São Peregrino</small></p>
+  </section>
+
+  <footer class="rodape">
+    <b>Igreja São Peregrino · Ordem dos Servos de Maria</b><br>
+    Avenida São João, 2600 · Jd. das Colinas<br>
+    12.242-000 · São José dos Campos · SP<br>
+    (12) 3923-9911 · (12) 99622-2600
+  </footer>
+</main>
+
+<script>
+  (function () {
+    var botoes = document.querySelectorAll('.tamanhos button');
+    function aplicar(px) {
+      document.documentElement.style.setProperty('--fs', px + 'px');
+      botoes.forEach(function (b) { b.setAttribute('aria-pressed', String(b.getAttribute('data-fs') === String(px))); });
+    }
+    try { var salvo = localStorage.getItem('orient-fs'); if (salvo) { aplicar(salvo); } } catch (e) {}
+    botoes.forEach(function (b) {
+      b.addEventListener('click', function () {
+        var px = b.getAttribute('data-fs');
+        aplicar(px);
+        try { localStorage.setItem('orient-fs', px); } catch (e) {}
+      });
+    });
+  })();
+
+  // Quando embutida no app: ajusta a altura do quadro ao conteúdo (sem rolagem interna) e
+  // rola a tela do app até a seção escolhida no índice.
+  (function () {
+    function ajustar() {
+      try { window.frameElement.style.height = (document.documentElement.scrollHeight + 4) + 'px'; } catch (e) {}
+    }
+    window.addEventListener('load', ajustar);
+    window.addEventListener('resize', ajustar);
+    if (document.fonts && document.fonts.ready) { document.fonts.ready.then(ajustar); }
+    document.querySelectorAll('.tamanhos button, details.indice').forEach(function (el) {
+      el.addEventListener('click', function () { setTimeout(ajustar, 60); setTimeout(ajustar, 400); });
+    });
+    document.querySelectorAll('details.indice a').forEach(function (a) {
+      a.addEventListener('click', function (ev) {
+        var alvo = document.querySelector(a.getAttribute('href'));
+        if (!alvo) return;
+        ev.preventDefault();
+        alvo.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
+    });
+    setTimeout(ajustar, 300); setTimeout(ajustar, 1200);
+  })();
+</script>

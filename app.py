@@ -8,6 +8,7 @@ import time
 import io
 import urllib.request
 import unicodedata
+from pathlib import Path
 from datetime import datetime, date, timedelta, timezone
 from google.oauth2 import service_account
 from fpdf import FPDF
@@ -1432,12 +1433,7 @@ with st.container(key="menu_grid"):
         if ver_intencoes_no_menu_principal:
             st.button("Ver Intenções", key="menu_intencoes", on_click=navegar_para, args=("ver_intencoes",), use_container_width=True)
     else:
-        # Com um único manual, o botão já baixa o PDF direto (o navegador oferece abri-lo). Com vários (ou nenhum), leva à tela de escolha.
-        manuais_menu = obter_manuais()
-        if len(manuais_menu) == 1:
-            st.link_button("Orientações para os leitores", url_abrir_manual(manuais_menu[0]["LINK"]), use_container_width=True)
-        else:
-            st.button("Orientações para os leitores", key="menu_orientacoes", on_click=navegar_para, args=("orientacoes",), use_container_width=True)
+        st.button("Orientações para os leitores", key="menu_orientacoes", on_click=navegar_para, args=("orientacoes",), use_container_width=True)
         st.button("Escala Geral", key="menu_geral", on_click=navegar_para, args=("escala_geral",), use_container_width=True)
         st.button("Minha Escala", key="menu_minha", on_click=navegar_para, args=("minha_escala",), use_container_width=True)
         st.button("Exibir Escala (PDF)", key="menu_pdf", on_click=navegar_para, args=("exibir_escala",), use_container_width=True)
@@ -1895,8 +1891,8 @@ elif st.session_state.pagina == "gestao_usuarios":
             col_adm_1.button("Intenções em Lote", key="adm_intencoes_lote", on_click=navegar_para, args=("intencoes_lote",), use_container_width=True)
             col_adm_2.button("Lotes de Intenções", key="adm_lotes_intencoes", on_click=navegar_para, args=("lotes_intencoes",), use_container_width=True)
         st.markdown("---")
-        st.markdown("**Inserir Manuais**")
-        with st.expander("Orientações para os leitores (PDF)", expanded=False):
+        st.markdown("**Inserir Manuais**")  # materiais extras; o texto principal das orientações fica no arquivo orientacoes.html
+        with st.expander("Outros materiais (PDF ou link), além das orientações", expanded=False):
             # Limpeza dos campos feita ANTES de criar os widgets (limitação do Streamlit).
             if st.session_state.pop("manual_limpar", False):
                 st.session_state["manual_novo_titulo"] = ""
@@ -2107,12 +2103,22 @@ elif st.session_state.pagina == "gestao_usuarios":
                             st.rerun()
 
 elif st.session_state.pagina == "orientacoes":
-    st.subheader("Orientações para os leitores")
-    st.caption("Manual de boas práticas — toque para abrir.")
-    manuais_lista = obter_manuais()
-    if not manuais_lista:
-        st.info("Ainda não há orientações cadastradas.")
+    # Página de orientações guardada no GitHub, ao lado do app.py (arquivo orientacoes.html);
+    # só aparece para quem fez login. Altura do quadro ajustada pelo próprio HTML (sem rolagem interna).
+    caminho_orientacoes = Path(__file__).resolve().parent / "orientacoes.html"
+    try:
+        html_orientacoes = caminho_orientacoes.read_text(encoding="utf-8")
+    except Exception:
+        html_orientacoes = None
+    if html_orientacoes:
+        components.html(html_orientacoes, height=1800, scrolling=False)
     else:
+        st.subheader("Orientações para os leitores")
+        st.info("As orientações ainda não foram publicadas (arquivo orientacoes.html ausente ao lado do app.py).")
+    # Materiais extras cadastrados pelo ADM em "Menu ADM > Inserir Manuais" (PDFs ou links).
+    manuais_lista = obter_manuais()
+    if manuais_lista:
+        st.markdown("**Outros materiais**")
         for manual in manuais_lista:
             st.link_button(manual["TITULO"], url_abrir_manual(manual["LINK"]), use_container_width=True)
 
