@@ -394,5 +394,15 @@
       });
     });
     setTimeout(ajustar, 300); setTimeout(ajustar, 1200);
+
+    // Ao abrir a tela, leva a rolagem do app ao início do texto (logo abaixo do botão "Voltar").
+    // Repete duas vezes porque a altura do quadro ainda está sendo ajustada nos primeiros instantes.
+    function irParaInicio() {
+      try {
+        var alvo = window.parent.document.getElementById('ancora-conteudo') || window.frameElement;
+        if (alvo) { alvo.scrollIntoView({ behavior: 'auto', block: 'start' }); }
+      } catch (e) {}
+    }
+    window.addEventListener('load', function () { setTimeout(irParaInicio, 50); setTimeout(irParaInicio, 600); });
   })();
 </script>
