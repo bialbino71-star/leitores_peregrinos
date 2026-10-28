@@ -935,140 +935,12 @@ def baixar_pdf_manual(link):
                          "compartilhamento está como \"Qualquer pessoa com o link\".")
     return resp.content
 
-VISUALIZADOR_PDF_HTML = """
-<div id="visualizador-pdf-conteudo-normal" style="font-family:sans-serif;">
-    <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:8px;">
-        <button id="btn-anterior" style="background:#0D1B2A; color:#FFFFFF; border:3px solid #8C6D4F; border-radius:18px; padding:8px 16px; font-weight:700; cursor:pointer;">◀ Anterior</button>
-        <span id="indicador-pagina" style="color:#5C3A21; font-weight:700;">Carregando...</span>
-        <button id="btn-proxima" style="background:#0D1B2A; color:#FFFFFF; border:3px solid #8C6D4F; border-radius:18px; padding:8px 16px; font-weight:700; cursor:pointer;">Próxima ▶</button>
-    </div>
-    <div id="caixa-pdf" style="text-align:center; overflow:auto; height:calc(100vh - 150px); min-height:480px; background:#FEFAE0; border:3.5px solid #8C6D4F; border-radius:12px; padding:8px; box-sizing:border-box;">
-        <canvas id="canvas-pdf"></canvas>
-    </div>
-    <div style="display:flex; gap:8px; margin-top:10px;">
-        <button id="btn-tela-cheia" style="flex:1; background:#0D1B2A; color:#FFFFFF; border:3.5px solid #8C6D4F; border-radius:24px; padding:12px 6px; font-size:18px; font-weight:700; cursor:pointer;">⛶ Tela cheia</button>
-        <button id="btn-imprimir" style="flex:1; background:#0D1B2A; color:#FFFFFF; border:3.5px solid #8C6D4F; border-radius:24px; padding:12px 6px; font-size:18px; font-weight:700; cursor:pointer;">🖨️ Imprimir</button>
-    </div>
-</div>
-<div id="area-impressao" style="display:none;"></div>
-<style>
-    @media print {
-        #visualizador-pdf-conteudo-normal { display: none !important; }
-        #area-impressao { display: block !important; }
-        #area-impressao canvas { width: 100%; page-break-after: always; }
-    }
-</style>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-<script>
-    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-    var bruto = atob("__B64__");
-    var bytesArray = new Uint8Array(bruto.length);
-    for (var i = 0; i < bruto.length; i++) { bytesArray[i] = bruto.charCodeAt(i); }
-    var pdfDoc = null;
-    var paginaAtual = 1;
-    function renderizarPagina(num) {
-        pdfDoc.getPage(num).then(function(page) {
-            // Ajusta a página à largura disponível (maximiza o texto) e renderiza nítido em telas de alta densidade.
-            var caixa = document.getElementById('caixa-pdf');
-            var larguraDisponivel = Math.max(caixa.clientWidth - 20, 200);
-            var base = page.getViewport({scale: 1});
-            var escala = larguraDisponivel / base.width;
-            var dpr = window.devicePixelRatio || 1;
-            var viewport = page.getViewport({scale: escala * dpr});
-            var canvas = document.getElementById('canvas-pdf');
-            var ctx = canvas.getContext('2d');
-            canvas.width = viewport.width;
-            canvas.height = viewport.height;
-            canvas.style.width = (viewport.width / dpr) + 'px';
-            canvas.style.height = (viewport.height / dpr) + 'px';
-            page.render({canvasContext: ctx, viewport: viewport});
-            caixa.scrollTop = 0;
-            document.getElementById('indicador-pagina').textContent = 'Página ' + num + ' de ' + pdfDoc.numPages;
-        });
-    }
-    pdfjsLib.getDocument({data: bytesArray}).promise.then(function(doc) {
-        pdfDoc = doc;
-        renderizarPagina(1);
-        // Ao abrir, rola a tela até o visualizador.
-        try {
-            if (window.frameElement) { window.frameElement.scrollIntoView({behavior: "smooth", block: "start"}); }
-        } catch (e) {}
-    });
-    // Tela cheia: tenta a API nativa; se o navegador/iframe não permitir, estica o próprio quadro do
-    // visualizador sobre a página inteira (modo "maximizado") e volta ao tamanho normal no segundo toque.
-    var estiloOriginalQuadro = null;
-    function alternarMaximizado() {
-        var quadro = window.frameElement;
-        if (!quadro) return;
-        if (estiloOriginalQuadro === null) {
-            estiloOriginalQuadro = quadro.getAttribute('style') || '';
-            quadro.setAttribute('style', estiloOriginalQuadro + ';position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:999999;background:#FFFFFF;');
-            document.getElementById('btn-tela-cheia').textContent = '✖ Sair da tela cheia';
-        } else {
-            quadro.setAttribute('style', estiloOriginalQuadro);
-            estiloOriginalQuadro = null;
-            document.getElementById('btn-tela-cheia').textContent = '⛶ Tela cheia';
-        }
-        setTimeout(function() { if (pdfDoc) { renderizarPagina(paginaAtual); } }, 200);
-    }
-    document.getElementById('btn-tela-cheia').addEventListener('click', function() {
-        var el = document.getElementById('visualizador-pdf-conteudo-normal');
-        if (document.fullscreenElement) { document.exitFullscreen(); return; }
-        if (estiloOriginalQuadro !== null) { alternarMaximizado(); return; }
-        if (el.requestFullscreen) {
-            el.requestFullscreen().catch(function() { alternarMaximizado(); });
-        } else {
-            alternarMaximizado();
-        }
-    });
-    document.addEventListener('fullscreenchange', function() {
-        var el = document.getElementById('visualizador-pdf-conteudo-normal');
-        el.style.background = document.fullscreenElement ? '#FFFFFF' : '';
-        el.style.padding = document.fullscreenElement ? '10px' : '';
-        if (pdfDoc) { setTimeout(function() { renderizarPagina(paginaAtual); }, 150); }
-    });
-    window.addEventListener('resize', function() { if (pdfDoc) { renderizarPagina(paginaAtual); } });
-    document.getElementById('btn-anterior').addEventListener('click', function() {
-        if (!pdfDoc || paginaAtual <= 1) return;
-        paginaAtual--; renderizarPagina(paginaAtual);
-    });
-    document.getElementById('btn-proxima').addEventListener('click', function() {
-        if (!pdfDoc || paginaAtual >= pdfDoc.numPages) return;
-        paginaAtual++; renderizarPagina(paginaAtual);
-    });
-    document.getElementById('btn-imprimir').addEventListener('click', function() {
-        if (!pdfDoc) return;
-        var areaImpressao = document.getElementById('area-impressao');
-        areaImpressao.innerHTML = '';
-        var promessas = [];
-        for (var n = 1; n <= pdfDoc.numPages; n++) {
-            (function(numPagina) {
-                var p = pdfDoc.getPage(numPagina).then(function(page) {
-                    var viewport = page.getViewport({scale: 2});
-                    var c = document.createElement('canvas');
-                    c.width = viewport.width; c.height = viewport.height;
-                    areaImpressao.appendChild(c);
-                    return page.render({canvasContext: c.getContext('2d'), viewport: viewport}).promise;
-                });
-                promessas.push(p);
-            })(n);
-        }
-        Promise.all(promessas).then(function() { window.print(); });
-    });
-</script>
-"""
-
-def exibir_pdf_manual(pdf_bytes, nome_arquivo, chave, local_download=None):
-    """Mesmo visualizador das Intenções (PDF.js: página a página + Imprimir) e botão nativo de download.
-    local_download: coluna/contêiner onde o botão "Baixar PDF" aparece (padrão: logo abaixo do visualizador)."""
-    components.html(VISUALIZADOR_PDF_HTML.replace("__B64__", base64.b64encode(pdf_bytes).decode("utf-8")), height=820)
-    parametros = dict(label="⬇️ Baixar PDF", data=pdf_bytes, file_name=nome_arquivo,
-                      mime="application/pdf", key=chave, use_container_width=True)
-    alvo = local_download if local_download is not None else st
-    try:
-        alvo.download_button(on_click="ignore", **parametros)
-    except TypeError:
-        alvo.download_button(**parametros)
+def url_abrir_manual(link):
+    """Endereço de download direto do PDF no Drive: ao tocar, o navegador baixa o arquivo e o oferece
+    para abrir (no celular, "Abrir" no aviso de download; no computador, na barra de downloads).
+    Sem ID de arquivo reconhecível, devolve o link como foi digitado."""
+    id_arquivo = extrair_id_arquivo_drive(link)
+    return f"https://drive.google.com/uc?export=download&id={id_arquivo}" if id_arquivo else link
 
 @st.cache_data(ttl=60)
 def obter_roteiros():
@@ -1556,7 +1428,12 @@ with st.container(key="menu_grid"):
         if ver_intencoes_no_menu_principal:
             st.button("Ver Intenções", key="menu_intencoes", on_click=navegar_para, args=("ver_intencoes",), use_container_width=True)
     else:
-        st.button("Orientações para os leitores", key="menu_orientacoes", on_click=navegar_para, args=("orientacoes",), use_container_width=True)
+        # Com um único manual, o botão já baixa o PDF direto (o navegador oferece abri-lo). Com vários (ou nenhum), leva à tela de escolha.
+        manuais_menu = obter_manuais()
+        if len(manuais_menu) == 1:
+            st.link_button("Orientações para os leitores", url_abrir_manual(manuais_menu[0]["LINK"]), use_container_width=True)
+        else:
+            st.button("Orientações para os leitores", key="menu_orientacoes", on_click=navegar_para, args=("orientacoes",), use_container_width=True)
         st.button("Escala Geral", key="menu_geral", on_click=navegar_para, args=("escala_geral",), use_container_width=True)
         st.button("Minha Escala", key="menu_minha", on_click=navegar_para, args=("minha_escala",), use_container_width=True)
         st.button("Exibir Escala (PDF)", key="menu_pdf", on_click=navegar_para, args=("exibir_escala",), use_container_width=True)
@@ -2226,30 +2103,14 @@ elif st.session_state.pagina == "gestao_usuarios":
                             st.rerun()
 
 elif st.session_state.pagina == "orientacoes":
-    try:
-        col_titulo_ori, col_baixar_ori = st.columns([3, 2], vertical_alignment="center")
-    except TypeError:  # Streamlit antigo, sem alinhamento vertical
-        col_titulo_ori, col_baixar_ori = st.columns([3, 2])
-    col_titulo_ori.subheader("Orientações para os leitores")
-    st.caption("Manual de boas práticas")
+    st.subheader("Orientações para os leitores")
+    st.caption("Manual de boas práticas — toque para baixar e abrir o PDF.")
     manuais_lista = obter_manuais()
     if not manuais_lista:
         st.info("Ainda não há orientações cadastradas.")
     else:
-        if len(manuais_lista) > 1:
-            titulos_manuais = [m["TITULO"] for m in manuais_lista]
-            escolhido = st.selectbox("Escolha a orientação:", range(len(titulos_manuais)),
-                                     format_func=lambda i: titulos_manuais[i], key="orientacao_escolhida")
-        else:
-            escolhido = 0
-        manual_atual = manuais_lista[escolhido]
-        try:
-            with st.spinner("Carregando o PDF..."):
-                pdf_manual = baixar_pdf_manual(manual_atual["LINK"])
-            nome_pdf = re.sub(r"[^A-Za-z0-9_-]+", "_", manual_atual["TITULO"]).strip("_") or "orientacoes"
-            exibir_pdf_manual(pdf_manual, nome_pdf + ".pdf", "baixar_pdf_orientacao", local_download=col_baixar_ori)
-        except ValueError as erro_pdf:
-            st.error(str(erro_pdf))
+        for manual in manuais_lista:
+            st.link_button(manual["TITULO"], url_abrir_manual(manual["LINK"]), use_container_width=True)
 
 elif st.session_state.pagina == "escala_geral":
     st.subheader("Escala Geral do Mês")
