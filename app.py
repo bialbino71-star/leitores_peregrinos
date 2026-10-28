@@ -844,6 +844,68 @@ def excluir_lote(sh, lote, usuario):
             break
     return len(linhas)
 
+# --- MANUAIS / ORIENTAÇÕES PARA OS LEITORES (aba 'Manuais') ---
+# Mesmo molde dos Roteiros: o ADM cadastra um título + link do PDF (Menu ADM > Inserir Manuais);
+# todos os leitores abrem o PDF pelo botão "Orientações para os leitores".
+NOME_ABA_MANUAIS = "Manuais"
+CABECALHO_MANUAIS = ["ID", "TITULO", "LINK", "CRIADO_EM", "CRIADO_POR"]
+
+def obter_ou_criar_aba_manuais(sh):
+    """Retorna a worksheet 'Manuais', criando-a (com cabeçalho) se ainda não existir."""
+    try:
+        return sh.worksheet(NOME_ABA_MANUAIS)
+    except gspread.exceptions.WorksheetNotFound:
+        ws_nova = sh.add_worksheet(title=NOME_ABA_MANUAIS, rows=100, cols=len(CABECALHO_MANUAIS))
+        ws_nova.update(values=[CABECALHO_MANUAIS], range_name="A1")
+        return ws_nova
+
+@st.cache_data(ttl=60)
+def obter_manuais():
+    """Lista [{ID, TITULO, LINK, ...}] na ordem de cadastro; vazia se a aba não existe ou a leitura falha."""
+    try:
+        sh = get_connection()
+        valores = sh.worksheet(NOME_ABA_MANUAIS).get_all_values()
+    except Exception:
+        return []
+    if not valores:
+        return []
+    cabecalho = [c.strip().upper() for c in valores[0]]
+    manuais = []
+    for linha in valores[1:]:
+        manual = {nome: (linha[i].strip() if i < len(linha) else "") for i, nome in enumerate(cabecalho)}
+        if manual.get("ID") and manual.get("TITULO") and manual.get("LINK"):
+            manuais.append(manual)
+    return manuais
+
+def salvar_manual(sh, titulo, link, usuario):
+    """Cadastra um manual (título + link do PDF). Retorna o ID. Gravação RAW (texto puro)."""
+    titulo = titulo.strip()
+    link = link.strip()
+    if not titulo:
+        raise ValueError("Informe o título do manual.")
+    if not link.lower().startswith(("http://", "https://")):
+        raise ValueError("Informe o link do PDF (começando com https://).")
+    ws = obter_ou_criar_aba_manuais(sh)
+    agora = agora_brasil().strftime("%d/%m/%Y %H:%M:%S")
+    novo_id = "M" + agora_brasil().strftime("%Y%m%d%H%M%S")
+    linha = {"ID": novo_id, "TITULO": titulo, "LINK": link, "CRIADO_EM": agora, "CRIADO_POR": usuario}
+    cabecalho = [c.strip().upper() for c in ws.row_values(1)]
+    ws.append_row([linha.get(nome, "") for nome in cabecalho],
+                  value_input_option="RAW", insert_data_option="INSERT_ROWS")
+    return novo_id
+
+def excluir_manual(sh, id_manual):
+    """Apaga a linha do manual. Retorna True se achou e apagou."""
+    ws = obter_ou_criar_aba_manuais(sh)
+    valores = ws.get_all_values()
+    cabecalho = [c.strip().upper() for c in valores[0]]
+    col_id = cabecalho.index("ID")
+    for numero, linha in enumerate(valores[1:], start=2):
+        if len(linha) > col_id and linha[col_id].strip() == id_manual:
+            ws.delete_rows(numero)
+            return True
+    return False
+
 @st.cache_data(ttl=60)
 def obter_roteiros():
     try:
@@ -1330,6 +1392,7 @@ with st.container(key="menu_grid"):
         if ver_intencoes_no_menu_principal:
             st.button("Ver Intenções", key="menu_intencoes", on_click=navegar_para, args=("ver_intencoes",), use_container_width=True)
     else:
+        st.button("Orientações para os leitores", key="menu_orientacoes", on_click=navegar_para, args=("orientacoes",), use_container_width=True)
         st.button("Escala Geral", key="menu_geral", on_click=navegar_para, args=("escala_geral",), use_container_width=True)
         st.button("Minha Escala", key="menu_minha", on_click=navegar_para, args=("minha_escala",), use_container_width=True)
         st.button("Exibir Escala (PDF)", key="menu_pdf", on_click=navegar_para, args=("exibir_escala",), use_container_width=True)
@@ -1787,6 +1850,50 @@ elif st.session_state.pagina == "gestao_usuarios":
             col_adm_1.button("Intenções em Lote", key="adm_intencoes_lote", on_click=navegar_para, args=("intencoes_lote",), use_container_width=True)
             col_adm_2.button("Lotes de Intenções", key="adm_lotes_intencoes", on_click=navegar_para, args=("lotes_intencoes",), use_container_width=True)
         st.markdown("---")
+        st.markdown("**Inserir Manuais**")
+        with st.expander("Orientações para os leitores (PDF)", expanded=False):
+            # Limpeza dos campos feita ANTES de criar os widgets (limitação do Streamlit).
+            if st.session_state.pop("manual_limpar", False):
+                st.session_state["manual_novo_titulo"] = ""
+                st.session_state["manual_novo_link"] = ""
+            st.caption("Informe o título e o link do PDF (ex.: compartilhamento do Google Drive). "
+                       "Ele aparecerá para todos no botão \"Orientações para os leitores\".")
+            st.text_input("Título:", key="manual_novo_titulo")
+            st.text_input("Link do PDF:", key="manual_novo_link")
+            if st.button("💾 Salvar manual", key="btn_salvar_manual", use_container_width=True):
+                try:
+                    salvar_manual(get_connection(), st.session_state.get("manual_novo_titulo", ""),
+                                  st.session_state.get("manual_novo_link", ""), st.session_state.user_name)
+                    obter_manuais.clear()
+                    st.session_state["manual_limpar"] = True
+                    st.success("Manual salvo!")
+                    time.sleep(2.0)
+                    st.rerun()
+                except ValueError as erro_validacao:
+                    st.warning(str(erro_validacao))
+                except Exception as erro_manual:
+                    st.error(f"Não foi possível salvar o manual: {erro_manual}")
+
+            st.markdown("---")
+            st.write("**Manuais já cadastrados:**")
+            manuais_adm = obter_manuais()
+            if not manuais_adm:
+                st.info("Nenhum manual cadastrado ainda.")
+            for manual in manuais_adm:
+                col_link_m, col_excluir_m = st.columns([4, 1])
+                col_link_m.markdown(f"- **{manual['TITULO']}**: [{manual['LINK']}]({manual['LINK']})")
+                if col_excluir_m.button("🗑️ Excluir", key=f"manual_excluir_{manual['ID']}"):
+                    try:
+                        if excluir_manual(get_connection(), manual["ID"]):
+                            obter_manuais.clear()
+                            st.success("Manual excluído.")
+                            time.sleep(2.0)
+                            st.rerun()
+                        else:
+                            st.error("Manual não encontrado.")
+                    except Exception as erro_manual:
+                        st.error(f"Não foi possível excluir: {erro_manual}")
+        st.markdown("---")
         st.markdown("**Gestão de Usuários**")
         aba_bloqueio, aba_mensagem, aba_suspensao, aba_sem_escala, aba_trava = st.tabs(["Bloquear/Desbloquear", "Inserir Mensagem", "Suspensão de Leitor", "Quem Não Serviu", "Trava de Escala"])
 
@@ -1953,6 +2060,16 @@ elif st.session_state.pagina == "gestao_usuarios":
                             st.success(f"Dia {data_travada.strftime('%d/%m/%Y')} destravado.")
                             time.sleep(2.5)
                             st.rerun()
+
+elif st.session_state.pagina == "orientacoes":
+    st.subheader("Orientações para os leitores")
+    st.caption("Manual de boas práticas")
+    manuais_lista = obter_manuais()
+    if not manuais_lista:
+        st.info("Ainda não há orientações cadastradas.")
+    else:
+        for manual in manuais_lista:
+            st.link_button(manual["TITULO"], manual["LINK"], use_container_width=True)
 
 elif st.session_state.pagina == "escala_geral":
     st.subheader("Escala Geral do Mês")
