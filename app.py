@@ -885,6 +885,7 @@ def salvar_manual(sh, titulo, link, usuario):
         raise ValueError("Informe o título do manual.")
     if not link.lower().startswith(("http://", "https://")):
         raise ValueError("Informe o link do PDF (começando com https://).")
+    baixar_pdf_manual(link)  # confere agora que o link é de um PDF acessível (ValueError se não for)
     ws = obter_ou_criar_aba_manuais(sh)
     agora = agora_brasil().strftime("%d/%m/%Y %H:%M:%S")
     novo_id = "M" + agora_brasil().strftime("%Y%m%d%H%M%S")
@@ -905,6 +906,119 @@ def excluir_manual(sh, id_manual):
             ws.delete_rows(numero)
             return True
     return False
+
+def extrair_id_arquivo_drive(link):
+    """ID do arquivo num link do Google Drive (…/file/d/ID/…, …?id=ID). None se não achar
+    (inclui links de PASTA, que não apontam para um arquivo)."""
+    link = (link or "").strip()
+    if "/folders/" in link:
+        return None
+    m = re.search(r"/file/d/([A-Za-z0-9_-]{10,})", link) or re.search(r"[?&]id=([A-Za-z0-9_-]{10,})", link)
+    return m.group(1) if m else None
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def baixar_pdf_manual(link):
+    """Baixa os bytes do PDF a partir do link do Drive (o arquivo precisa estar compartilhado
+    como 'qualquer pessoa com o link'). Levanta ValueError com mensagem clara se não der."""
+    import requests
+    id_arquivo = extrair_id_arquivo_drive(link)
+    if not id_arquivo:
+        raise ValueError("Esse link aponta para uma pasta ou não é de um arquivo do Drive. "
+                         "Abra o PDF no Drive, clique em Compartilhar > Copiar link e cole aqui.")
+    try:
+        resp = requests.get("https://drive.google.com/uc", params={"export": "download", "id": id_arquivo},
+                            timeout=30, allow_redirects=True)
+    except Exception as erro:
+        raise ValueError(f"Não foi possível acessar o Drive: {erro}")
+    if resp.status_code != 200 or not resp.content.startswith(b"%PDF"):
+        raise ValueError("Não consegui baixar um PDF desse link. Confirme que o arquivo é um PDF e que o "
+                         "compartilhamento está como \"Qualquer pessoa com o link\".")
+    return resp.content
+
+VISUALIZADOR_PDF_HTML = """
+<div id="visualizador-pdf-conteudo-normal" style="font-family:sans-serif;">
+    <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:8px;">
+        <button id="btn-anterior" style="background:#0D1B2A; color:#FFFFFF; border:3px solid #8C6D4F; border-radius:18px; padding:8px 16px; font-weight:700; cursor:pointer;">◀ Anterior</button>
+        <span id="indicador-pagina" style="color:#5C3A21; font-weight:700;">Carregando...</span>
+        <button id="btn-proxima" style="background:#0D1B2A; color:#FFFFFF; border:3px solid #8C6D4F; border-radius:18px; padding:8px 16px; font-weight:700; cursor:pointer;">Próxima ▶</button>
+    </div>
+    <div style="text-align:center; overflow:auto; max-height:65vh; background:#FEFAE0; border:3.5px solid #8C6D4F; border-radius:12px; padding:8px;">
+        <canvas id="canvas-pdf" style="max-width:100%;"></canvas>
+    </div>
+    <button id="btn-imprimir" style="display:block; width:100%; margin-top:10px; background:#0D1B2A; color:#FFFFFF; border:3.5px solid #8C6D4F; border-radius:24px; padding:12px 6px; font-size:18px; font-weight:700; cursor:pointer;">
+        🖨️ Imprimir
+    </button>
+</div>
+<div id="area-impressao" style="display:none;"></div>
+<style>
+    @media print {
+        #visualizador-pdf-conteudo-normal { display: none !important; }
+        #area-impressao { display: block !important; }
+        #area-impressao canvas { width: 100%; page-break-after: always; }
+    }
+</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script>
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    var bruto = atob("__B64__");
+    var bytesArray = new Uint8Array(bruto.length);
+    for (var i = 0; i < bruto.length; i++) { bytesArray[i] = bruto.charCodeAt(i); }
+    var pdfDoc = null;
+    var paginaAtual = 1;
+    function renderizarPagina(num) {
+        pdfDoc.getPage(num).then(function(page) {
+            var viewport = page.getViewport({scale: 1.4});
+            var canvas = document.getElementById('canvas-pdf');
+            var ctx = canvas.getContext('2d');
+            canvas.width = viewport.width;
+            canvas.height = viewport.height;
+            page.render({canvasContext: ctx, viewport: viewport});
+            document.getElementById('indicador-pagina').textContent = 'Página ' + num + ' de ' + pdfDoc.numPages;
+        });
+    }
+    pdfjsLib.getDocument({data: bytesArray}).promise.then(function(doc) {
+        pdfDoc = doc;
+        renderizarPagina(1);
+    });
+    document.getElementById('btn-anterior').addEventListener('click', function() {
+        if (!pdfDoc || paginaAtual <= 1) return;
+        paginaAtual--; renderizarPagina(paginaAtual);
+    });
+    document.getElementById('btn-proxima').addEventListener('click', function() {
+        if (!pdfDoc || paginaAtual >= pdfDoc.numPages) return;
+        paginaAtual++; renderizarPagina(paginaAtual);
+    });
+    document.getElementById('btn-imprimir').addEventListener('click', function() {
+        if (!pdfDoc) return;
+        var areaImpressao = document.getElementById('area-impressao');
+        areaImpressao.innerHTML = '';
+        var promessas = [];
+        for (var n = 1; n <= pdfDoc.numPages; n++) {
+            (function(numPagina) {
+                var p = pdfDoc.getPage(numPagina).then(function(page) {
+                    var viewport = page.getViewport({scale: 2});
+                    var c = document.createElement('canvas');
+                    c.width = viewport.width; c.height = viewport.height;
+                    areaImpressao.appendChild(c);
+                    return page.render({canvasContext: c.getContext('2d'), viewport: viewport}).promise;
+                });
+                promessas.push(p);
+            })(n);
+        }
+        Promise.all(promessas).then(function() { window.print(); });
+    });
+</script>
+"""
+
+def exibir_pdf_manual(pdf_bytes, nome_arquivo, chave):
+    """Mesmo visualizador das Intenções (PDF.js: página a página + Imprimir) e botão nativo de download."""
+    components.html(VISUALIZADOR_PDF_HTML.replace("__B64__", base64.b64encode(pdf_bytes).decode("utf-8")), height=750)
+    parametros = dict(label="⬇️ Baixar PDF", data=pdf_bytes, file_name=nome_arquivo,
+                      mime="application/pdf", key=chave)
+    try:
+        st.download_button(on_click="ignore", **parametros)
+    except TypeError:
+        st.download_button(**parametros)
 
 @st.cache_data(ttl=60)
 def obter_roteiros():
@@ -1856,7 +1970,7 @@ elif st.session_state.pagina == "gestao_usuarios":
             if st.session_state.pop("manual_limpar", False):
                 st.session_state["manual_novo_titulo"] = ""
                 st.session_state["manual_novo_link"] = ""
-            st.caption("Informe o título e o link do PDF (ex.: compartilhamento do Google Drive). "
+            st.caption("Informe o título e o link do ARQUIVO PDF no Google Drive (Compartilhar > \"Qualquer pessoa com o link\" > Copiar link). Não use link de pasta. "
                        "Ele aparecerá para todos no botão \"Orientações para os leitores\".")
             st.text_input("Título:", key="manual_novo_titulo")
             st.text_input("Link do PDF:", key="manual_novo_link")
@@ -2068,8 +2182,20 @@ elif st.session_state.pagina == "orientacoes":
     if not manuais_lista:
         st.info("Ainda não há orientações cadastradas.")
     else:
-        for manual in manuais_lista:
-            st.link_button(manual["TITULO"], manual["LINK"], use_container_width=True)
+        if len(manuais_lista) > 1:
+            titulos_manuais = [m["TITULO"] for m in manuais_lista]
+            escolhido = st.selectbox("Escolha a orientação:", range(len(titulos_manuais)),
+                                     format_func=lambda i: titulos_manuais[i], key="orientacao_escolhida")
+        else:
+            escolhido = 0
+        manual_atual = manuais_lista[escolhido]
+        try:
+            with st.spinner("Carregando o PDF..."):
+                pdf_manual = baixar_pdf_manual(manual_atual["LINK"])
+            nome_pdf = re.sub(r"[^A-Za-z0-9_-]+", "_", manual_atual["TITULO"]).strip("_") or "orientacoes"
+            exibir_pdf_manual(pdf_manual, nome_pdf + ".pdf", "baixar_pdf_orientacao")
+        except ValueError as erro_pdf:
+            st.error(str(erro_pdf))
 
 elif st.session_state.pagina == "escala_geral":
     st.subheader("Escala Geral do Mês")
