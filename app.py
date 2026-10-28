@@ -885,7 +885,11 @@ def salvar_manual(sh, titulo, link, usuario):
         raise ValueError("Informe o título do manual.")
     if not link.lower().startswith(("http://", "https://")):
         raise ValueError("Informe o link do PDF (começando com https://).")
-    baixar_pdf_manual(link)  # confere agora que o link é de um PDF acessível (ValueError se não for)
+    if "/folders/" in link.lower():
+        raise ValueError("Esse link é de uma PASTA. Use o link do arquivo (ou de uma página).")
+    if "drive.google.com" in link.lower():
+        baixar_pdf_manual(link)  # arquivo do Drive: confere que é um PDF acessível (ValueError se não for)
+    # Qualquer outro link https (ex.: página de orientações) é aceito como está e abre direto numa nova aba.
     ws = obter_ou_criar_aba_manuais(sh)
     agora = agora_brasil().strftime("%d/%m/%Y %H:%M:%S")
     novo_id = "M" + agora_brasil().strftime("%Y%m%d%H%M%S")
@@ -1897,7 +1901,7 @@ elif st.session_state.pagina == "gestao_usuarios":
             if st.session_state.pop("manual_limpar", False):
                 st.session_state["manual_novo_titulo"] = ""
                 st.session_state["manual_novo_link"] = ""
-            st.caption("Informe o título e o link do ARQUIVO PDF no Google Drive (Compartilhar > \"Qualquer pessoa com o link\" > Copiar link). Não use link de pasta. "
+            st.caption("Informe o título e o link: de um PDF no Google Drive (Compartilhar > \"Qualquer pessoa com o link\" > Copiar link) ou de uma página de orientações. Não use link de pasta. "
                        "Ele aparecerá para todos no botão \"Orientações para os leitores\".")
             st.text_input("Título:", key="manual_novo_titulo")
             st.text_input("Link do PDF:", key="manual_novo_link")
@@ -2104,7 +2108,7 @@ elif st.session_state.pagina == "gestao_usuarios":
 
 elif st.session_state.pagina == "orientacoes":
     st.subheader("Orientações para os leitores")
-    st.caption("Manual de boas práticas — toque para baixar e abrir o PDF.")
+    st.caption("Manual de boas práticas — toque para abrir.")
     manuais_lista = obter_manuais()
     if not manuais_lista:
         st.info("Ainda não há orientações cadastradas.")
