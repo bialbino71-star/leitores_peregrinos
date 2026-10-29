@@ -33,6 +33,13 @@
   }
   .wrap { max-width: 40rem; margin-inline: auto; }
 
+  /* Blocos de texto justificados (com hifenização automática para evitar buracos entre as palavras
+     em tela estreita). Títulos, índice e botões continuam alinhados à esquerda. */
+  p, blockquote p, .vozes span, ul.praticas li, ol.conselhos p, .destaque {
+    text-align: justify; text-justify: inter-word; hyphens: auto; -webkit-hyphens: auto; overflow-wrap: break-word;
+  }
+  .capa p.sub, .assinatura, footer.rodape { text-align: left; hyphens: manual; }
+
   /* Cabeçalho */
   .capa {
     background: var(--navy);
@@ -357,6 +364,7 @@
 </main>
 
 <script>
+  document.documentElement.lang = 'pt-BR';
   (function () {
     var botoes = document.querySelectorAll('.tamanhos button');
     function aplicar(px) {
