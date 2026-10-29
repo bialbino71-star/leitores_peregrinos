@@ -377,7 +377,15 @@
   // rola a tela do app até a seção escolhida no índice.
   (function () {
     function ajustar() {
-      try { window.frameElement.style.height = (document.documentElement.scrollHeight + 4) + 'px'; } catch (e) {}
+      try {
+        var h = (document.documentElement.scrollHeight + 4) + 'px';
+        var quadro = window.frameElement;
+        quadro.style.height = h;
+        // O Streamlit reserva a altura inicial no contêiner do quadro: acompanha a altura real,
+        // senão os elementos seguintes (ex.: "Outros materiais") ficam por cima do texto.
+        var caixa = quadro.parentElement;
+        if (caixa) { caixa.style.height = h; caixa.style.minHeight = h; }
+      } catch (e) {}
     }
     window.addEventListener('load', ajustar);
     window.addEventListener('resize', ajustar);
